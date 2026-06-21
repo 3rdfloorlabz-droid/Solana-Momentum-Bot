@@ -87,6 +87,8 @@ node live_executor.js --status
 .\fomo_status.ps1
 ```
 
+`fomo_status.ps1`, `panic.ps1`, and `reset_after_panic.ps1` default to `$PSScriptRoot` and exit if `live_config.json` is missing. Pass `-ProjectPath` only when needed.
+
 3. Restart only the process that crashed:
 
 ```powershell

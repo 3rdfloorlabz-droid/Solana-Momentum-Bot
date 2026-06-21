@@ -1,11 +1,25 @@
+param(
+  [string]$ProjectPath = $PSScriptRoot
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = "C:\Users\nalle\sol-momentum-bot"
+$ProjectRoot = $ProjectPath
 $ConfigPath = Join-Path $ProjectRoot "live_config.json"
 $TempConfigPath = Join-Path $ProjectRoot "live_config.json.panic-tmp"
 $EventLogPath = Join-Path $ProjectRoot "panic_events.jsonl"
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
+if (-not (Test-Path -LiteralPath $ProjectRoot)) {
+  Write-Error "Project path not found: $ProjectRoot"
+  exit 1
+}
+
+if (-not (Test-Path -LiteralPath $ConfigPath)) {
+  Write-Error "live_config.json not found at $ConfigPath. Run reset_after_panic.ps1 from the repo root or pass -ProjectPath."
+  exit 1
+}
 
 function Read-Config {
   if (-not (Test-Path -LiteralPath $ConfigPath)) {
@@ -78,6 +92,7 @@ function Append-JsonLine {
 
 try {
   Set-Location -LiteralPath $ProjectRoot
+  Write-Host "Project path: $ProjectRoot" -ForegroundColor DarkGray
 
   $config = Read-Config
   if ($config.executionMode -eq "LIVE") {

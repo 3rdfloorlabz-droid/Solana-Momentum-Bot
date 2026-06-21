@@ -1,6 +1,9 @@
+param(
+    [string]$ProjectPath = $PSScriptRoot
+)
+
 $ErrorActionPreference = "Continue"
 
-$ProjectPath = "C:\Users\nalle\sol-momentum-bot"
 $ConfigPath = Join-Path $ProjectPath "live_config.json"
 $ProjectScripts = @(
     "dashboard_server.js",
@@ -9,6 +12,16 @@ $ProjectScripts = @(
     "monitor.js",
     "live_executor.js"
 )
+
+if (-not (Test-Path -LiteralPath $ProjectPath)) {
+    Write-Error "Project path not found: $ProjectPath"
+    exit 1
+}
+
+if (-not (Test-Path -LiteralPath $ConfigPath)) {
+    Write-Error "live_config.json not found at $ConfigPath. Run fomo_status.ps1 from the repo root or pass -ProjectPath."
+    exit 1
+}
 
 function Test-FomoCommandLine {
     param([string]$CommandLine)
@@ -23,6 +36,7 @@ function Test-FomoCommandLine {
 }
 
 Write-Host "FOMO System Status" -ForegroundColor Cyan
+Write-Host "Project path: $ProjectPath" -ForegroundColor DarkGray
 Write-Host ""
 
 $Port = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
@@ -52,20 +66,15 @@ else {
 
 Write-Host ""
 Write-Host "Live Config Safety State" -ForegroundColor Cyan
-if (Test-Path -LiteralPath $ConfigPath) {
-    try {
-        $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
-        [pscustomobject]@{
-            executionMode     = $Config.executionMode
-            dryRunMode        = $Config.dryRunMode
-            automationEnabled = $Config.automationEnabled
-            emergencyStop     = $Config.emergencyStop
-        } | Format-List
-    }
-    catch {
-        Write-Warning "Could not read live_config.json: $($_.Exception.Message)"
-    }
+try {
+    $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    [pscustomobject]@{
+        executionMode     = $Config.executionMode
+        dryRunMode        = $Config.dryRunMode
+        automationEnabled = $Config.automationEnabled
+        emergencyStop     = $Config.emergencyStop
+    } | Format-List
 }
-else {
-    Write-Warning "live_config.json was not found at $ConfigPath."
+catch {
+    Write-Warning "Could not read live_config.json: $($_.Exception.Message)"
 }
