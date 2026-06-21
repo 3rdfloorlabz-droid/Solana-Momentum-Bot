@@ -13,6 +13,8 @@ The active `live_config.json` should remain in dry-run mode during migration:
 
 ## Active Root Files
 
+See **[ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md)** for the authoritative canonical path list. Summary:
+
 - `scanner_gmgn_trending.js`: active scanner for GMGN trending candidates. Writes paper-trade and pipeline-candidate rows.
 - `monitor.js`: monitors open paper trades and closes them on target, stop, or timeout.
 - `near_miss_followup.js`: tracks outcomes for rejected or near-miss candidates.

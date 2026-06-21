@@ -111,6 +111,8 @@ node test_step9b_submission.js
 
 ## Files To Know
 
+**Canonical paths:** see [ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md) for the authoritative list of active scripts, config, state files, and non-canonical archive folders.
+
 - `scanner_gmgn_trending.js`: active GMGN trending scanner and paper/pipeline candidate writer.
 - `monitor.js`: paper-trade monitor for target, stop, and timeout outcomes.
 - `near_miss_followup.js`: follow-up tracker for rejected candidates.
