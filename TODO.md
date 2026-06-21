@@ -1,0 +1,1 @@
+- Promote emergencyStop=true from validator warning to failure after panic script milestone.

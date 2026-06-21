@@ -1,0 +1,19 @@
+{
+  "liveTradingEnabled": false,
+  "ENABLE_LIVE_TRADING": false,
+  "startingCapitalUsd": 200,
+  "positionSizeSol": 0.10,
+  "maxOpenTrades": 1,
+  "maxDailyLossSol": 0.10,
+  "maxDailyLosses": 3,
+  "maxDrawdownPercent": 15,
+  "requireManualConfirm": true,
+  "strategyVersion": "gmgn_v4",
+  "thesisOnly": true,
+  "compoundingEnabled": false,
+  "averagingDownEnabled": false,
+  "martingaleEnabled": false,
+  "phase": "PHASE_1_MICRO_TEST",
+  "walletAddress": "",
+  "phase1Notes": "Fixed 0.10 SOL per trade. No compounding. No averaging. No martingale. Daily stop: 3 losses OR -0.10 SOL. Manual confirm required."
+}

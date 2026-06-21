@@ -1,0 +1,117 @@
+# Migration Notes
+
+This repo is an existing Solana momentum research bot being migrated into TracktaOS. It contains source code, runtime JSON/JSONL data, backups, archives, dashboard assets, and safety utilities.
+
+## Current Mode
+
+The active `live_config.json` should remain in dry-run mode during migration:
+
+- `executionMode` should stay `PIPELINE_DRY_RUN`
+- `dryRunMode` should stay `true`
+- live signer secrets should not be loaded
+- live submission env flags should remain unset
+
+## Active Root Files
+
+- `scanner_gmgn_trending.js`: active scanner for GMGN trending candidates. Writes paper-trade and pipeline-candidate rows.
+- `monitor.js`: monitors open paper trades and closes them on target, stop, or timeout.
+- `near_miss_followup.js`: tracks outcomes for rejected or near-miss candidates.
+- `analyze_forward_test.js`, `analyze_results.js`, `analyze_near_misses.js`: analysis scripts for paper-trade and follow-up data.
+- `validate_data.js`: validates paper-trade JSONL structure.
+- `dashboard_server.js`: local Express dashboard on port 3000.
+- `wallet_monitor.js`: read-only wallet balance/RPC health monitor.
+- `live_executor.js`: guarded execution layer for dry run, pipeline dry run, and live mode. Live mode is gated by config and environment checks.
+- `live_trade_logger.js`: logging helper for live trade events.
+- `emergency_stop.js`, `reset_live_safety.js`, `panic.ps1`, `reset_after_panic.ps1`: safety control utilities.
+- `validate_live_system.js`, `validate_live_preflight.js`, `validate_wallet_connection.js`: safety and environment validators.
+- `run_pipeline_dry_run_backfill.js`: backfills or replays pipeline dry-run observation data.
+- `simulate_live_executor.js`: simulator for executor behavior.
+
+## Test Files
+
+The repo uses standalone Node test scripts rather than an npm test runner:
+
+- `test_observation_pool.js`
+- `test_pipeline_candidate_handoff.js`
+- `test_pipeline_dry_run.js`
+- `test_pipeline_dry_run_signer.js`
+- `test_jupiter_quote_validation.js`
+- `test_execution_logging.js`
+- `test_priority_fee.js`
+- `test_rpc_endpoint_resolution.js`
+- `test_signer_guard.js`
+- `test_simulation.js`
+- `test_step9a_signing.js`
+- `test_step9b_submission.js`
+- `test_tx_build.js`
+
+## Runtime Data
+
+Review these before importing into TracktaOS:
+
+- `paper_trades.json`: paper trade history.
+- `pipeline_candidates.jsonl`: scanner-to-executor candidate handoff queue.
+- `execution_audit.jsonl`: dry-run/live execution stage audit log.
+- `near_misses.json`: rejected candidate history.
+- `near_miss_followups.json`: follow-up outcomes.
+- `live_trades.jsonl`, `live_trades.json`: live event history or legacy live data.
+- `live_positions.json`: current live position state.
+- `live_errors.jsonl`: execution and guard errors.
+- `live_control_events.jsonl`: start/stop/emergency/reset events.
+- `wallet_history.jsonl`, `wallet_status.json`, `rpc_health.json`: read-only wallet/RPC telemetry.
+- `simulation_intents.jsonl`, `simulation_rejections.jsonl`, `simulation_results.json`: simulation outputs.
+
+These files may be large, append-only, or environment-specific. TracktaOS should classify them as data artifacts, not source code.
+
+## Backup And Archive Material
+
+The repo contains historical folders and zip files:
+
+- `automation/`
+- `files/`
+- `hardreset/`
+- `harness/`
+- `phase1_files/`
+- `*.zip`
+- `*_backup.js`
+- `*_backup.json`
+
+These should be reviewed for provenance and then either archived outside the TracktaOS source package or imported as historical reference only.
+
+## Environment Variables Found
+
+- `HELIUS_RPC_URL`: preferred dedicated Helius RPC endpoint.
+- `HELIUS_API_KEY`: used to derive a Helius RPC URL.
+- `SOLANA_RPC_URL`: alternate Solana RPC endpoint.
+- `RPC_URL`: used by live preflight and dry-run probe utilities.
+- `JUPITER_API_KEY`: optional API key for Jupiter swap build requests.
+- `EXPECTED_WALLET_PUBLIC_ADDRESS`: public wallet address consistency check.
+- `SOLANA_SIGNER_SECRET`: live-only 64-byte JSON signer array. Do not expose or commit.
+- `FOMO_ENABLE_LIVE_SUBMISSION`: live-only arming flag.
+- `FOMO_ALLOW_LOOP_LIVE`: live-only loop arming flag.
+- `DRY_RUN_PUBKEY`: public key used by `tools/fomo_dry_run_probe.mjs`.
+- `INPUT_LAMPORTS`, `SLIPPAGE_BPS`, `ASSUMED_CU`, `PRIORITY_FEE`: dry-run probe tuning values.
+
+## Verification Needed For TracktaOS
+
+- Confirm the desired TracktaOS process model: separate scanner, monitor, dashboard, wallet monitor, and executor processes, or a supervisor-managed bundle.
+- Confirm which runtime data files should be migrated, truncated, archived, or regenerated.
+- Confirm GMGN CLI availability in the TracktaOS environment.
+- Confirm Node.js version and global CLI dependencies.
+- Confirm RPC provider strategy and rate limits.
+- Confirm dashboard port and access controls.
+- Confirm `.env` injection mechanism and secret storage.
+- Confirm whether `live_config.json` should be managed by TracktaOS or treated as a mounted runtime config.
+- Confirm that live submission remains disabled until an explicit live-approval workflow exists.
+- Re-run syntax checks and focused safety tests after migration.
+
+## Known Working Validation Commands
+
+```powershell
+node --check live_executor.js
+node test_pipeline_candidate_handoff.js
+node test_observation_pool.js
+node live_executor.js --status
+```
+
+Use status-only and validation commands during migration. Avoid live cycles and live loops.
