@@ -96,7 +96,7 @@ node near_miss_followup.js --watch
 node dashboard_server.js
 ```
 
-4. If multiple local windows need to be relaunched, `start_fomo.ps1` can start the normal process set. Use it only after confirming `live_config.json` remains in `PIPELINE_DRY_RUN`.
+4. If multiple local windows need to be relaunched, `start_fomo.ps1` can start the normal process set. The script defaults to its own directory (`$PSScriptRoot`) and exits if `live_config.json` is missing. Override with `-ProjectPath` only when needed. Use it only after confirming `live_config.json` remains in `PIPELINE_DRY_RUN`.
 
 5. If an emergency stop or panic event occurred, review `panic_events.jsonl`, `live_control_events.jsonl`, and `live_errors.jsonl` before resetting safety state.
 

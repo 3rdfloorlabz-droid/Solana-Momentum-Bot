@@ -1,7 +1,19 @@
+param(
+    [string]$ProjectPath = $PSScriptRoot
+)
+
 $ErrorActionPreference = "Stop"
 
-$ProjectPath = "C:\Users\nalle\sol-momentum-bot"
 $LaunchDelaySeconds = 2
+$ConfigPath = Join-Path $ProjectPath "live_config.json"
+
+if (-not (Test-Path -LiteralPath $ProjectPath)) {
+    Write-Error "Project path not found: $ProjectPath"
+}
+
+if (-not (Test-Path -LiteralPath $ConfigPath)) {
+    Write-Error "live_config.json not found at $ConfigPath. Run start_fomo.ps1 from the repo root or pass -ProjectPath."
+}
 
 $Processes = @(
     @{ Title = "FOMO Dashboard";     Command = "node dashboard_server.js" },
@@ -12,6 +24,7 @@ $Processes = @(
 )
 
 Write-Host "Starting FOMO bot processes in PIPELINE_DRY_RUN-safe operational windows..." -ForegroundColor Cyan
+Write-Host "Project path: $ProjectPath" -ForegroundColor DarkGray
 
 foreach ($Process in $Processes) {
     $WindowCommand = "& { `$Host.UI.RawUI.WindowTitle = '$($Process.Title)'; Set-Location -LiteralPath '$ProjectPath'; Write-Host '$($Process.Title)' -ForegroundColor Cyan; $($Process.Command) }"
@@ -28,4 +41,3 @@ foreach ($Process in $Processes) {
 }
 
 Write-Host "FOMO startup sequence launched." -ForegroundColor Green
-
