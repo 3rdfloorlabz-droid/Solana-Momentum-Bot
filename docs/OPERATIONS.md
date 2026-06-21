@@ -1,5 +1,15 @@
 # Operations
 
+## Preflight Checklist
+
+Before starting, restarting, or editing bot code:
+
+1. Confirm working directory is the **repository root** (`Solana-Momentum-Bot/`), not an archive subfolder.
+2. Read [ACTIVE_MANIFEST.md](../ACTIVE_MANIFEST.md) — canonical scripts, config, and state files live at root only.
+3. **Do not run or edit production code in archive folders:** `automation/`, `hardreset/`, `harness/`, `files/`, `phase1_files/`. Those trees are historical copies; changes there do not affect the running bot.
+4. Run `node live_executor.js --status` — expect `PIPELINE_DRY_RUN` and `dryRunMode: true` during migration.
+5. Use **`scanner_gmgn_trending.js`** only (not `scanner.js`, `scanner_v3.js`, or other legacy scanners).
+
 ## Verify Paper Mode
 
 Before starting or restarting anything, verify the executor is not armed for live trading:
@@ -122,3 +132,17 @@ FOMO_ENABLE_LIVE_SUBMISSION=YES
 FOMO_ALLOW_LOOP_LIVE=YES
 SOLANA_SIGNER_SECRET=<real signer>
 ```
+
+## Archive Folders — Do Not Execute
+
+These directories contain duplicate or snapshot code. **They are not production paths.**
+
+| Folder | Do not run | Do not edit expecting live bot changes |
+|--------|------------|----------------------------------------|
+| `automation/` | Yes | Yes |
+| `hardreset/` | Yes | Yes |
+| `harness/` | Yes | Yes |
+| `files/` | Yes | Yes |
+| `phase1_files/` | Yes | Yes |
+
+If you need to know which script to run, use the root copies listed in [ACTIVE_MANIFEST.md](../ACTIVE_MANIFEST.md). Do not move or merge archive code during normal operations (quarantine is a separate Sprint 2 task).

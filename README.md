@@ -4,6 +4,22 @@ Solana Momentum Bot is a research and execution-safety project for testing momen
 
 This repository is being prepared for migration into TracktaOS. Treat the current codebase as an existing bot implementation with active runtime data, not a clean greenfield package.
 
+## Canonical Code Path (Read First)
+
+**Run and edit scripts only in the repository root.** The live bot does not use copies in archive folders.
+
+| Do not run or patch for production | Status |
+|-----------------------------------|--------|
+| `automation/` | Non-canonical archive copy |
+| `hardreset/` | Non-canonical archive copy |
+| `harness/` | Non-canonical archive copy |
+| `files/` | Non-canonical archive copy |
+| `phase1_files/` | Non-canonical archive copy |
+
+Changes under those folders **do not affect** a bot started from the root with `start_fomo.ps1` or `node …` commands below. Legacy root scripts such as `scanner.js`, `scanner_v3.js`, and `scanner_trending.js` are also inactive—use **`scanner_gmgn_trending.js`** only.
+
+**Authoritative list:** [ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md)
+
 ## Current Safety State
 
 Live trading must remain disabled unless explicitly approved.
