@@ -313,8 +313,31 @@ function logNearMiss(c, reason) {
   console.log("🟡 NEAR MISS LOGGED");
 }
 
+// ─── Thesis tagging (M1) ──────────────────────────────────────────────────────
+// Bounds must match matchesPhase1Thesis() in live_executor.js.
+// source is always "gmgn_trending" here so the source check is implicit.
+// If executor thesis config changes, update these bounds and re-run safety tests.
+function computeScannerThesisMatch(c) {
+  const score     = Number(c.score);
+  const mc        = Number(c.marketCap);
+  const bot       = Number(c.botDegenRate);
+  const top10     = Number(c.top10HolderRate);
+  const liq       = Number(c.liquidity);
+  const entry     = Number(c.priceUsd || 0);
+  const reasons   = [];
+  if (!(score >= 80 && score <= 89))               reasons.push("score outside 80-89");
+  if (!(mc >= 100000 && mc <= 250000))             reasons.push("marketCap outside 100k-250k");
+  if (!(bot < 0.05))                               reasons.push("botDegenRate >= 0.05");
+  if (!(top10 >= 0.10 && top10 <= 0.20))           reasons.push("top10 outside 0.10-0.20");
+  if (!(Number.isFinite(liq) && liq > 0))          reasons.push("liquidity missing");
+  if (!c.pairAddress)                              reasons.push("pairAddress missing");
+  if (!(Number.isFinite(entry) && entry > 0))      reasons.push("entry price missing");
+  return { thesisMatch: reasons.length === 0, thesisFailureReasons: reasons };
+}
+
 function buildPaperTradeRecord(c, timestamp = new Date().toISOString()) {
   const entryPrice = Number(c.priceUsd || 0);
+  const { thesisMatch, thesisFailureReasons } = computeScannerThesisMatch(c);
   return {
     timestamp,
     source: "gmgn_trending",
@@ -340,7 +363,9 @@ function buildPaperTradeRecord(c, timestamp = new Date().toISOString()) {
     targetPrice: Number((entryPrice * 1.10).toFixed(12)),
     stopPrice: Number((entryPrice * 0.95).toFixed(12)),
     status: "OPEN",
-    chart: c.url
+    chart: c.url,
+    thesisMatch,
+    thesisFailureReasons
   };
 }
 
@@ -519,5 +544,6 @@ module.exports = {
   readJsonLines,
   buildPaperTradeRecord,
   buildPipelineCandidateIntent,
+  computeScannerThesisMatch,
   logPaperTrade
 };

@@ -133,8 +133,19 @@ function readJsonLinesTail(file, maxLines = AUDIT_TAIL_MAX_LINES) {
 
 function countRecentPipelineObservations(auditFile = EXECUTION_AUDIT_FILE) {
   const { rows, invalid, truncated } = readJsonLinesTail(auditFile);
-  const pipelineCount = rows.filter(row => row.stage === "PIPELINE_DRY_RUN").length;
-  return { pipelineCount, invalid, truncated, scanned: rows.length };
+  const pipelineRows = rows.filter(row => row.stage === "PIPELINE_DRY_RUN");
+  const thesisCount    = pipelineRows.filter(row => row.payload?.thesisMatch === true).length;
+  const nonThesisCount = pipelineRows.filter(row => row.payload?.thesisMatch === false).length;
+  const unknownCount   = pipelineRows.length - thesisCount - nonThesisCount;
+  return {
+    pipelineCount: pipelineRows.length,
+    thesisCount,
+    nonThesisCount,
+    unknownCount,
+    invalid,
+    truncated,
+    scanned: rows.length
+  };
 }
 
 function pnlClass(value) {
@@ -440,7 +451,14 @@ function concentrationPanel(title, analysis) {
 }
 
 function matchesThesis(trade) {
+  // Prefer the persisted thesisMatch field (written by scanner from M1 onwards).
+  // Fall back to local recomputation for historical rows without the field.
+  if (typeof trade.thesisMatch === "boolean") return trade.thesisMatch;
   return thesisFailureReasons(trade).length === 0;
+}
+
+function hasPersistedThesisTag(trade) {
+  return typeof trade.thesisMatch === "boolean";
 }
 
 function thesisFailureReasons(trade) {
@@ -741,13 +759,20 @@ function thesisGroupStats(trades) {
 }
 
 function thesisPanel(forwardTrades) {
-  const matchingTrades = forwardTrades.filter(matchesThesis);
+  const matchingTrades    = forwardTrades.filter(matchesThesis);
   const nonMatchingTrades = forwardTrades.filter(trade => !matchesThesis(trade));
-  const matching = thesisGroupStats(matchingTrades);
+  const matching    = thesisGroupStats(matchingTrades);
   const nonMatching = thesisGroupStats(nonMatchingTrades);
   const matchPercentage = forwardTrades.length
     ? (matchingTrades.length / forwardTrades.length) * 100
     : 0;
+
+  // Segment by tag source: persisted (M1+) vs estimated (pre-M1 recomputed)
+  const taggedCount     = forwardTrades.filter(hasPersistedThesisTag).length;
+  const estimatedCount  = forwardTrades.length - taggedCount;
+  const hasEstimated    = estimatedCount > 0;
+  const auditStats      = countRecentPipelineObservations();
+
   const failureCounts = {
     marketCap: nonMatchingTrades.filter(trade =>
       thesisFailureReasons(trade).includes("Market Cap outside 100k-250k")
@@ -762,8 +787,14 @@ function thesisPanel(forwardTrades) {
       thesisFailureReasons(trade).includes("Top10 outside 10-30%")
     ).length
   };
+
   const nonThesisRows = nonMatchingTrades.length
-    ? nonMatchingTrades.map(trade => `
+    ? nonMatchingTrades.map(trade => {
+        const persisted = hasPersistedThesisTag(trade);
+        const reasons = persisted
+          ? (trade.thesisFailureReasons || [])
+          : thesisFailureReasons(trade);
+        return `
       <tr>
         <td>${escapeHtml(trade.symbol || "UNKNOWN")}</td>
         <td>${escapeHtml(trade.status || "-")}</td>
@@ -772,29 +803,45 @@ function thesisPanel(forwardTrades) {
         <td>${formatMoney(trade.marketCap)}</td>
         <td>${formatPercent(Number(trade.top10HolderRate) * 100)}</td>
         <td class="${pnlClass(trade.pnlPercent)}">${CLOSED_STATUSES.has(trade.status) ? formatPercent(trade.pnlPercent) : "-"}</td>
-        <td class="failure-reasons">${thesisFailureReasons(trade).map(reason => `<span>${escapeHtml(reason)}</span>`).join("")}</td>
-      </tr>
-    `).join("")
+        <td class="failure-reasons">${reasons.map(r => `<span>${escapeHtml(r)}</span>`).join("")}${!persisted ? `<span class="thesis-estimated">(estimated)</span>` : ""}</td>
+      </tr>`;
+      }).join("")
     : `<tr><td colspan="8" class="empty">No non-thesis forward trades.</td></tr>`;
+
+  const estimatedNote = hasEstimated
+    ? `<div class="thesis-note">⚠ ${estimatedCount} pre-M1 row(s) use estimated thesis classification (dashboard fallback: botDegenRate &lt;10%, top10 10–30%). Post-M1 rows use executor-matching bounds (botDegenRate &lt;5%, top10 10–20%) persisted at scan time.</div>`
+    : `<div class="thesis-note thesis-note-clean">All ${taggedCount} row(s) carry persisted <code>thesisMatch</code> tags (executor-matching bounds).</div>`;
+
+  const observationSegment = `
+    <h2 class="table-heading">Pipeline Observations — Thesis Segment (audit tail)</h2>
+    <div class="subtitle">From last ${auditStats.scanned} audit line(s)${auditStats.truncated ? " (truncated)" : ""}.</div>
+    <div class="mini-stats">
+      <div><span>Total PIPELINE_DRY_RUN</span><strong>${auditStats.pipelineCount}</strong></div>
+      <div><span>Thesis-eligible</span><strong>${auditStats.thesisCount}</strong></div>
+      <div><span>Non-thesis</span><strong>${auditStats.nonThesisCount}</strong></div>
+      ${auditStats.unknownCount > 0 ? `<div><span>Unknown (pre-M7 rows)</span><strong>${auditStats.unknownCount}</strong></div>` : ""}
+    </div>`;
 
   return `
     <section class="panel">
-      <h2>Thesis Match</h2>
-      <div class="subtitle">Score 80-89 | Bot Rate &lt;10% | Market Cap $100k-$250k | Top10 10-30%. PnL and win rate use closed trades only.</div>
+      <h2>Thesis Match &amp; Segmentation</h2>
+      <div class="subtitle">Thesis-eligible = score 80–89 | botDegenRate &lt;5% | marketCap $100k–$250k | top10 10–20%. Post-M1 rows use persisted executor-matching tag. PnL and win rate use closed trades only.</div>
+      ${estimatedNote}
       <div class="cards thesis-cards">
-        ${statCard("Match Percentage", formatPercent(matchPercentage))}
-        ${statCard("Thesis-Matching Forward Trades", matching.trades)}
-        ${statCard("Non-Thesis Forward Trades", nonMatching.trades)}
+        ${statCard("All Forward Trades", forwardTrades.length)}
+        ${statCard("Thesis-Eligible", matching.trades)}
+        ${statCard("Non-Thesis (wide scanner)", nonMatching.trades)}
+        ${statCard("Match %", formatPercent(matchPercentage))}
       </div>
       <table>
-        <thead><tr><th>Group</th><th>Forward Trades</th><th>Closed Trades</th><th>Win Rate</th><th>Summed PnL</th></tr></thead>
+        <thead><tr><th>Segment</th><th>Forward Trades</th><th>Closed</th><th>Win Rate</th><th>Summed PnL</th></tr></thead>
         <tbody>
-          <tr><td>Thesis Matching</td><td>${matching.trades}</td><td>${matching.closed}</td><td>${formatPercent(matching.winRate)}</td><td class="${pnlClass(matching.pnl)}">${formatPercent(matching.pnl)}</td></tr>
+          <tr><td>Thesis-Eligible</td><td>${matching.trades}</td><td>${matching.closed}</td><td>${formatPercent(matching.winRate)}</td><td class="${pnlClass(matching.pnl)}">${formatPercent(matching.pnl)}</td></tr>
           <tr><td>Non-Thesis</td><td>${nonMatching.trades}</td><td>${nonMatching.closed}</td><td>${formatPercent(nonMatching.winRate)}</td><td class="${pnlClass(nonMatching.pnl)}">${formatPercent(nonMatching.pnl)}</td></tr>
         </tbody>
       </table>
       <h2 class="table-heading">Why Non-Thesis?</h2>
-      <div class="subtitle">A trade may fail multiple criteria, so summary counts can overlap.</div>
+      <div class="subtitle">A trade may fail multiple criteria, so counts can overlap.</div>
       <div class="mini-stats failure-stats">
         <div><span>Market Cap Failed</span><strong>${failureCounts.marketCap}</strong></div>
         <div><span>Bot Rate Failed</span><strong>${failureCounts.botRate}</strong></div>
@@ -807,6 +854,7 @@ function thesisPanel(forwardTrades) {
           <tbody>${nonThesisRows}</tbody>
         </table>
       </div>
+      ${observationSegment}
     </section>
   `;
 }
@@ -1488,7 +1536,7 @@ function reconciliationPanel() {
       ${truthCard("Pending reconciliation", pendingCount, queueClear ? "recon-val-ok" : "recon-val-warn")}
       ${truthCard("Open live positions", openLive.length)}
       ${truthCard("Live ledger (live_trades.jsonl)", liveLedger.invalid === 0 ? `${liveLedger.rows.length} event(s)` : `${liveLedger.rows.length} event(s), ${liveLedger.invalid} invalid`, liveLedger.invalid ? "recon-val-warn" : "")}
-      ${truthCard("Pipeline observations (audit tail)", `${auditStats.pipelineCount} PIPELINE_DRY_RUN · ${auditDetail}`)}
+      ${truthCard("Pipeline observations (audit tail)", `${auditStats.pipelineCount} total · ${auditStats.thesisCount} thesis · ${auditStats.nonThesisCount} non-thesis · ${auditDetail}`)}
       ${truthCard("Open paper trades (research only)", openPaperCount, "recon-muted-val")}
       ${truthCard("Live armed (M7)", armed ? (armed.liveArmed ? "YES — gates satisfied" : `NO — ${armed.operationalPosture}`) : "unavailable", armed?.liveArmed ? "recon-val-warn" : "recon-val-ok")}
     </div>
@@ -2101,7 +2149,6 @@ function sharedStyles() {
     .system-online { color:var(--cyan); font-size:11px; margin:8px 0; letter-spacing:.08em; } .system-online i,.status-row i { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--cyan); margin-right:7px; box-shadow:0 0 10px var(--cyan); animation:pulse 1.8s infinite; } @keyframes pulse { 50% { opacity:.45; } }
     .subtitle,.meta { color:var(--muted); font-size:13px; }
     .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:12px; margin:18px 0; }
-    .thesis-cards { grid-template-columns:repeat(3,minmax(155px,1fr)); }
     .ideal-watch-cards { grid-template-columns:repeat(5,minmax(155px,1fr)); margin-bottom:0; }
     .card,.panel { background:linear-gradient(145deg,rgba(13,16,29,.98),rgba(6,8,15,.98)); border:1px solid var(--line); border-radius:5px; box-shadow:0 0 18px rgba(22,140,255,.045),inset 0 0 25px rgba(19,239,255,.012); }
     .card { padding:15px; position:relative; overflow:hidden; } .card:before { content:""; position:absolute; top:0; left:0; width:34px; height:2px; background:linear-gradient(90deg,var(--cyan),var(--magenta)); box-shadow:0 0 10px var(--cyan); } .label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; } .value { font-size:24px; font-weight:700; margin-top:7px; }
@@ -2134,6 +2181,10 @@ function sharedStyles() {
     .failure-stats { margin-top:12px; }
     .failure-reasons { white-space:normal; min-width:260px; }
     .failure-reasons span { display:inline-block; background:rgba(255,59,85,.1); color:#ff7082; border:1px solid rgba(255,59,85,.32); border-radius:2px; padding:3px 7px; margin:2px 4px 2px 0; font-size:11px; }
+    .thesis-estimated { background:rgba(255,155,11,.08); color:var(--amber); border:1px solid rgba(255,155,11,.28); border-radius:2px; padding:3px 7px; margin:2px 0 2px 4px; font-size:11px; font-style:italic; }
+    .thesis-note { margin:10px 0 14px; padding:9px 13px; background:rgba(255,155,11,.07); border:1px solid rgba(255,155,11,.30); border-radius:3px; color:var(--amber); font-size:12px; line-height:1.55; }
+    .thesis-note-clean { background:rgba(25,214,161,.06); border-color:rgba(25,214,161,.25); color:var(--green); }
+    .thesis-cards { grid-template-columns:repeat(4,minmax(140px,1fr)); }
     .candidate-summary { display:grid; grid-template-columns:repeat(4,minmax(145px,1fr)); gap:10px; margin:14px 0; }
     .candidate-summary div { border:1px solid currentColor; border-radius:3px; padding:10px 12px; background:rgba(5,8,14,.72); }
     .candidate-summary span { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; }

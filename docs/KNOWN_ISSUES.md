@@ -80,7 +80,8 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 |-------|--------|
 | **Description** | Scanner logs score ≥ 79, MC ≤ $2.5M, bot ≤ 10%, top-10 ≤ 30%. Executor thesis: score 80–89, MC ≤ $250k, bot < 5%, top-10 10–20%. Not tagged on every scanner row. |
 | **Impact** | Paper stats overstate live-eligible edge; pipeline observes `non_thesis_observation` candidates without obvious dashboard distinction. |
-| **Possible solution** | Persist `thesisMatch` on handoff rows; segment dashboard metrics; document in scanner output. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 2 M1+M2). Scanner now persists `thesisMatch: bool` and `thesisFailureReasons: string[]` on all new `paper_trades.json` and `pipeline_candidates.jsonl` rows using executor-matching bounds. Dashboard `thesisPanel()` reads the persisted field (falls back to recomputation for historical rows, labeled as estimated). Pipeline observations in audit tail segmented by `thesisMatch`. Historical rows (pre-M1) remain estimated. |
+| **Possible solution** | Full resolution: allow historical bound divergence to age out; or unified thesis bounds module (Sprint 3+). |
 | **Dependencies** | Scanner + executor + dashboard alignment; no live blockers (live already enforces thesis). |
 
 ---

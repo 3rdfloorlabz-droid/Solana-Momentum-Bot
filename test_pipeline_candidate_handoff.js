@@ -6,6 +6,7 @@ const path = require("path");
 const crypto = require("crypto");
 const scanner = require("./scanner_gmgn_trending");
 const executor = require("./live_executor");
+const { computeScannerThesisMatch } = scanner;
 
 const observation = executor.__observationPoolTest;
 
@@ -95,10 +96,37 @@ function scannerCandidate(overrides = {}) {
       "source", "strategyVersion", "monitorVersion", "symbol", "name", "address", "pairAddress",
       "score", "liquidity", "marketCap", "poolLiquidity", "holderCount", "top10HolderRate",
       "botDegenRate", "bundlerRate", "volume5m", "volume1h", "buys5m", "sells5m",
-      "entryPrice", "targetPrice", "stopPrice", "chart"
+      "entryPrice", "targetPrice", "stopPrice", "chart",
+      "thesisMatch", "thesisFailureReasons"
     ]) {
       assert(Object.prototype.hasOwnProperty.call(intent, field), `pipeline intent missing ${field}`);
     }
+
+    // M1: default eligible fixture must be thesis-matching
+    assert(intent.thesisMatch === true,
+      `default eligible fixture should have thesisMatch:true (got ${intent.thesisMatch})`);
+    assert(Array.isArray(intent.thesisFailureReasons) && intent.thesisFailureReasons.length === 0,
+      `default eligible fixture should have empty thesisFailureReasons (got ${JSON.stringify(intent.thesisFailureReasons)})`);
+    assert(paperRows[0].thesisMatch === true,
+      `paper trade row should have thesisMatch:true for default eligible fixture`);
+    assert(Array.isArray(paperRows[0].thesisFailureReasons),
+      `paper trade row should have thesisFailureReasons array`);
+
+    // M1: high-botRate fixture must fail thesis
+    const highBotCandidate = scannerCandidate({ botDegenRate: 0.08 });
+    const highBotResult = computeScannerThesisMatch(highBotCandidate);
+    assert(highBotResult.thesisMatch === false,
+      `botDegenRate 0.08 fixture should have thesisMatch:false`);
+    assert(highBotResult.thesisFailureReasons.some(r => r.includes("botDegenRate")),
+      `botDegenRate 0.08 fixture should report botDegenRate failure reason`);
+
+    // M1: out-of-range marketCap must fail thesis
+    const highMcCandidate = scannerCandidate({ marketCap: 900000 });
+    const highMcResult = computeScannerThesisMatch(highMcCandidate);
+    assert(highMcResult.thesisMatch === false,
+      `marketCap 900k fixture should have thesisMatch:false`);
+    assert(highMcResult.thesisFailureReasons.some(r => r.includes("marketCap")),
+      `marketCap 900k fixture should report marketCap failure reason`);
 
     process.chdir(originalCwd);
 
