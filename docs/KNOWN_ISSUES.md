@@ -23,13 +23,14 @@ Issues that can cause capital loss, untracked on-chain state, or silent safety f
 
 ---
 
-### Ambiguous on-chain outcomes require manual reconciliation
+### Ambiguous on-chain outcomes require manual reconciliation (partially resolved — Sprint 2 M6a)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Submission unknown, confirmation unknown, and fill parse failure append to `pending_reconciliation.jsonl`. No dashboard workflow automates triage. |
+| **Description** | Submission unknown, confirmation unknown, and fill parse failure append to `pending_reconciliation.jsonl`. |
 | **Impact** | Double-submit if operator retries blindly; position ledger diverges from wallet; funds moved but bot state wrong. |
-| **Possible solution** | Reconciliation panel in dashboard; automated txSig status polling; block automation when unresolved rows exist. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 2 M6a). Dashboard read-only reconciliation panel lists queue rows and truth snapshot cards; links `RECONCILIATION_RUNBOOK.md`. No retry or auto-triage. |
+| **Possible solution** | M6 panel polish; automated txSig status polling; block automation when unresolved rows exist (A6). |
 | **Dependencies** | Dedicated RPC; `RECONCILIATION_RUNBOOK.md` procedures; operator training. |
 
 ---

@@ -21,6 +21,13 @@ const MONITOR_FILE = path.join(ROOT, "monitor.js");
 const CONFIG_FILE = path.join(ROOT, "live_config.json");
 const LIVE_TRADES_FILE =
   liveExecutor?.FILES?.LIVE_TRADES_FILE || path.join(ROOT, "live_trades.jsonl");
+const PENDING_RECONCILIATION_FILE =
+  liveExecutor?.FILES?.PENDING_RECONCILIATION_FILE || path.join(ROOT, "pending_reconciliation.jsonl");
+const EXECUTION_AUDIT_FILE =
+  liveExecutor?.FILES?.EXECUTION_AUDIT_FILE || path.join(ROOT, "execution_audit.jsonl");
+const RECON_RUNBOOK_FILE = path.join(ROOT, "RECONCILIATION_RUNBOOK.md");
+const RECON_PANEL_MAX_ROWS = 25;
+const AUDIT_TAIL_MAX_LINES = 500;
 const WALLET_STATUS_FILE = path.join(ROOT, "wallet_status.json");
 const WALLET_HISTORY_FILE = path.join(ROOT, "wallet_history.jsonl");
 const RPC_HEALTH_FILE = path.join(ROOT, "rpc_health.json");
@@ -87,6 +94,47 @@ function formatSol(value) {
 function formatDate(value) {
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : "-";
+}
+
+function formatRelativeAge(isoTimestamp) {
+  const then = new Date(isoTimestamp).getTime();
+  if (!Number.isFinite(then)) return "—";
+  const diffMs = Date.now() - then;
+  if (diffMs < 0) return "just now";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function truncateMint(value) {
+  if (typeof value !== "string" || value.length < 12) return value || "—";
+  return value.slice(0, 6) + "…" + value.slice(-4);
+}
+
+function truncateTxSig(txSig) {
+  if (typeof txSig !== "string" || txSig.length < 16) return txSig || "—";
+  return txSig.slice(0, 8) + "…" + txSig.slice(-6);
+}
+
+function readJsonLinesTail(file, maxLines = AUDIT_TAIL_MAX_LINES) {
+  if (!fs.existsSync(file)) return { rows: [], invalid: 0, truncated: false };
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean);
+  const truncated = lines.length > maxLines;
+  const slice = truncated ? lines.slice(-maxLines) : lines;
+  let invalid = 0;
+  const rows = slice.map(line => {
+    try { return JSON.parse(line); } catch { invalid += 1; return null; }
+  }).filter(Boolean);
+  return { rows, invalid, truncated };
+}
+
+function countRecentPipelineObservations(auditFile = EXECUTION_AUDIT_FILE) {
+  const { rows, invalid, truncated } = readJsonLinesTail(auditFile);
+  const pipelineCount = rows.filter(row => row.stage === "PIPELINE_DRY_RUN").length;
+  return { pipelineCount, invalid, truncated, scanned: rows.length };
 }
 
 function pnlClass(value) {
@@ -1331,6 +1379,129 @@ function liveAutomationControlPanel() {
   `;
 }
 
+// ─── Reconciliation & truth snapshot (read-only — M6a) ─────────────────────────
+
+function reconciliationPanel() {
+  let cfg = null;
+  try {
+    if (fs.existsSync(CONFIG_FILE)) cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+  } catch { /* */ }
+
+  const executionMode = liveExecutor && cfg
+    ? liveExecutor.resolveExecutionMode(cfg)
+    : (cfg?.executionMode || (cfg?.dryRunMode === false ? "LIVE" : "DRY_RUN"));
+  const modeLabel = String(executionMode).replaceAll("_", " ");
+
+  const pending = readJsonLines(PENDING_RECONCILIATION_FILE);
+  const pendingCount = pending.rows.length;
+  const queueClear = pendingCount === 0;
+  const queueBadge = queueClear
+    ? { text: "CLEAR", cls: "recon-clear" }
+    : { text: "ATTENTION REQUIRED", cls: "recon-attention" };
+
+  let openLive = [];
+  try {
+    if (liveExecutor) openLive = liveExecutor.openPositions();
+  } catch { /* */ }
+
+  const liveLedger = readJsonLines(LIVE_TRADES_FILE);
+  const paperLedger = readJsonLines(PAPER_FILE);
+  const openPaperCount = paperLedger.rows.filter(row => row.status === "OPEN").length;
+  const auditStats = countRecentPipelineObservations();
+
+  const armed = (() => {
+    try { return liveExecutor && cfg ? liveExecutor.computeLiveArmedStatus(cfg) : null; }
+    catch { return null; }
+  })();
+
+  const runbookNote = fs.existsSync(RECON_RUNBOOK_FILE)
+    ? `<code>RECONCILIATION_RUNBOOK.md</code> (repo root) — open in your editor or clone.`
+    : `<code>RECONCILIATION_RUNBOOK.md</code> missing at repo root.`;
+
+  const truthCard = (label, value, cls = "") =>
+    `<div class="recon-card"><div class="recon-card-label">${escapeHtml(label)}</div><div class="recon-card-value ${cls}">${escapeHtml(String(value ?? "—"))}</div></div>`;
+
+  const auditDetail = auditStats.truncated
+    ? `last ${auditStats.scanned} lines of audit file`
+    : `${auditStats.scanned} audit line(s) scanned`;
+
+  const displayRows = pending.rows.slice(0, RECON_PANEL_MAX_ROWS);
+  const rowOverflow = pendingCount > RECON_PANEL_MAX_ROWS
+    ? `<div class="recon-hint">Showing first ${RECON_PANEL_MAX_ROWS} of ${pendingCount} row(s). Read full file: <code>pending_reconciliation.jsonl</code></div>`
+    : "";
+
+  let pendingTable = `<div class="recon-empty">No pending reconciliation rows. Normal in <code>PIPELINE_DRY_RUN</code> unless live-path tests produced ambiguous submissions.</div>`;
+  if (pendingCount > 0) {
+    const body = displayRows.map(row => {
+      const blockHint = row.lastValidBlockHeight != null || row.currentBlockHeight != null
+        ? `LVBH ${row.lastValidBlockHeight ?? "—"} / cur ${row.currentBlockHeight ?? "—"}`
+        : "—";
+      const reason = row.reason ? String(row.reason).slice(0, 120) : "—";
+      const txFull = row.txSig ? String(row.txSig) : "";
+      return `<tr>
+        <td>${escapeHtml(formatRelativeAge(row.timestamp))}<br><span class="recon-muted">${escapeHtml(formatDate(row.timestamp))}</span></td>
+        <td><span class="status">${escapeHtml(row.action || "—")}</span></td>
+        <td>${escapeHtml(row.kind || "—")}</td>
+        <td title="${escapeHtml(row.tokenAddress || "")}">${escapeHtml(truncateMint(row.tokenAddress))}</td>
+        <td title="${escapeHtml(txFull)}">${escapeHtml(truncateTxSig(txFull))}</td>
+        <td>${row.positionSizeSol != null ? escapeHtml(Number(row.positionSizeSol).toFixed(4)) + " SOL" : "—"}</td>
+        <td>${escapeHtml(blockHint)}</td>
+        <td>${escapeHtml(reason)}</td>
+      </tr>`;
+    }).join("");
+    pendingTable = `
+    <table class="recon-table">
+      <thead><tr>
+        <th>Age</th><th>Action</th><th>Kind</th><th>Token</th><th>txSig</th><th>Size</th><th>Blocks</th><th>Reason</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    ${rowOverflow}`;
+  }
+
+  const divergenceNote = !queueClear && openLive.length > 0
+    ? `<div class="recon-warn">Wallet and bot state may diverge until runbook resolution — do not retry from the dashboard.</div>`
+    : "";
+
+  const parseWarn = (pending.invalid > 0 || liveLedger.invalid > 0 || auditStats.invalid > 0)
+    ? `<div class="recon-hint">JSONL parse warnings: pending ${pending.invalid}, live_trades ${liveLedger.invalid}, audit tail ${auditStats.invalid}.</div>`
+    : "";
+
+  return `
+  <section class="panel recon-panel">
+    <div class="recon-title-row">
+      <h2 class="recon-heading">⟐ RECONCILIATION &amp; TRUTH SNAPSHOT</h2>
+      <div class="recon-queue-badge ${queueBadge.cls}">${queueBadge.text}</div>
+    </div>
+    <div class="recon-subtitle">
+      Read-only display — no retries, no edits, no file writes.
+      <code>pending_reconciliation.jsonl</code>: <strong>${pendingCount}</strong> row(s).
+      Mode: <strong>${escapeHtml(modeLabel)}</strong>.
+      Runbook: ${runbookNote}
+    </div>
+    <div class="recon-safety-banner">⛔ Do not retry trades from the dashboard. Follow <code>RECONCILIATION_RUNBOOK.md</code> manually. Resolve on-chain status before updating ledgers or resuming automation.</div>
+    ${executionMode === "PIPELINE_DRY_RUN" ? `<div class="recon-hint">Pipeline observation writes to <code>execution_audit.jsonl</code>, not the reconciliation queue. An empty queue is expected during normal dry-run operation.</div>` : ""}
+    ${divergenceNote}
+    ${parseWarn}
+
+    <div class="recon-cards">
+      ${truthCard("Pending reconciliation", pendingCount, queueClear ? "recon-val-ok" : "recon-val-warn")}
+      ${truthCard("Open live positions", openLive.length)}
+      ${truthCard("Live ledger (live_trades.jsonl)", liveLedger.invalid === 0 ? `${liveLedger.rows.length} event(s)` : `${liveLedger.rows.length} event(s), ${liveLedger.invalid} invalid`, liveLedger.invalid ? "recon-val-warn" : "")}
+      ${truthCard("Pipeline observations (audit tail)", `${auditStats.pipelineCount} PIPELINE_DRY_RUN · ${auditDetail}`)}
+      ${truthCard("Open paper trades (research only)", openPaperCount, "recon-muted-val")}
+      ${truthCard("Live armed (M7)", armed ? (armed.liveArmed ? "YES — gates satisfied" : `NO — ${armed.operationalPosture}`) : "unavailable", armed?.liveArmed ? "recon-val-warn" : "recon-val-ok")}
+    </div>
+
+    <h3 class="recon-table-heading">Pending reconciliation queue</h3>
+    ${pendingTable}
+
+    <div class="recon-footer">
+      Paper trades ≠ live positions. Pipeline audit success ≠ live fill success. Empty reconciliation queue ≠ safe to arm live (see Live Automation / M7).
+    </div>
+  </section>`;
+}
+
 // ─── Live vs Paper Comparison Panel ───────────────────────────────────────────
 
 function liveVsPaperPanel() {
@@ -2049,6 +2220,31 @@ function sharedStyles() {
     .ac-live-armed-strip { border-radius:3px; padding:11px 13px; margin-bottom:12px; font-size:13px; font-weight:600; }
     .ac-live-armed-no { background:rgba(25,214,161,.1); border:1px solid var(--green); color:#9ff5dc; }
     .ac-live-armed-yes { background:rgba(245,43,63,.14); border:1px solid var(--red); color:#ff9aa8; animation:pulse 1.3s infinite; }
+    .recon-panel { border:1px solid rgba(8,124,240,.35); }
+    .recon-title-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .recon-heading { color:var(--cyan); font-size:17px; text-transform:uppercase; letter-spacing:.04em; margin:0; }
+    .recon-subtitle { color:var(--muted); font-size:12px; line-height:1.55; margin-bottom:10px; }
+    .recon-subtitle code, .recon-safety-banner code, .recon-hint code, .recon-footer code { background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:2px; padding:1px 5px; color:var(--cyan); font-size:11px; }
+    .recon-queue-badge { font-size:12px; font-weight:800; letter-spacing:.08em; padding:6px 12px; border-radius:4px; text-transform:uppercase; }
+    .recon-clear { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.09); }
+    .recon-attention { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); animation:pulse 1.5s infinite; }
+    .recon-safety-banner { background:rgba(245,43,63,.08); border:1px solid rgba(245,43,63,.45); color:#ff9aa8; border-radius:3px; padding:10px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
+    .recon-warn { background:rgba(255,155,11,.08); border:1px solid rgba(255,155,11,.4); color:var(--amber); border-radius:3px; padding:9px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
+    .recon-hint { color:var(--muted); font-size:12px; margin-bottom:10px; line-height:1.5; }
+    .recon-empty { color:var(--muted); font-size:12px; padding:12px; border:1px dashed var(--line); border-radius:4px; margin-bottom:8px; }
+    .recon-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:12px 0 16px; }
+    .recon-card { background:rgba(5,8,14,.6); border:1px solid var(--line); border-radius:4px; padding:11px 12px; }
+    .recon-card-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+    .recon-card-value { font-size:14px; font-weight:700; }
+    .recon-val-ok { color:var(--green); }
+    .recon-val-warn { color:var(--red); }
+    .recon-muted-val { color:var(--amber); }
+    .recon-table-heading { font-size:13px; color:var(--cyan); text-transform:uppercase; letter-spacing:.05em; margin:14px 0 8px; }
+    .recon-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .recon-table th, .recon-table td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; }
+    .recon-table th { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+    .recon-muted { color:var(--muted); font-size:10px; }
+    .recon-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
     @media(max-width:900px){ .ac-readiness{columns:1;} .ac-buttons{flex-direction:column;} .ac-btn{width:100%;} }
     /* ── End Live Automation Control ─────────────────────────────────────── */
 
@@ -2176,6 +2372,8 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
   ${phase1ReadinessPanel(forwardTrades)}
 
   ${liveAutomationControlPanel()}
+
+  ${reconciliationPanel()}
 
   ${walletConnectionPanel()}
 
