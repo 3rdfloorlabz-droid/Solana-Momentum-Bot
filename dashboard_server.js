@@ -983,6 +983,114 @@ function comparisonRows(winners, losers) {
   `).join("");
 }
 
+// ─── RPC source visibility (Q9 — mirror wallet_monitor.js / live_executor.js env priority) ─
+
+const PUBLIC_SOLANA_RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
+const PUBLIC_SOLANA_RPC_HOSTNAMES = new Set([
+  "api.mainnet-beta.solana.com",
+  "api.devnet.solana.com",
+  "api.testnet.solana.com"
+]);
+
+function isPublicSolanaRpcEndpoint(endpoint) {
+  if (typeof endpoint !== "string" || !endpoint.trim()) return false;
+  try {
+    return PUBLIC_SOLANA_RPC_HOSTNAMES.has(new URL(endpoint.trim()).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function redactRpcUrl(endpoint) {
+  if (typeof endpoint !== "string" || !endpoint.trim()) return "—";
+  return endpoint
+    .replace(/((?:[?&]|\b)(?:api[-_]?key|apikey|token)=)[^&\s]+/gi, "$1[REDACTED]")
+    .replace(/api-key=[^&\s]+/gi, "api-key=[REDACTED]");
+}
+
+function rpcEndpointHost(endpoint) {
+  try {
+    return new URL(endpoint).hostname;
+  } catch {
+    return redactRpcUrl(endpoint);
+  }
+}
+
+function rpcCandidatesWalletMonitor() {
+  return [
+    ["HELIUS_RPC_URL", process.env.HELIUS_RPC_URL],
+    ["HELIUS_API_KEY_DERIVED", process.env.HELIUS_API_KEY
+      ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(process.env.HELIUS_API_KEY)}`
+      : null],
+    ["SOLANA_RPC_URL", process.env.SOLANA_RPC_URL]
+  ];
+}
+
+function rpcCandidatesExecutor() {
+  return [
+    ["HELIUS_RPC_URL", process.env.HELIUS_RPC_URL],
+    ["SOLANA_RPC_URL", process.env.SOLANA_RPC_URL],
+    ["HELIUS_API_KEY_DERIVED", process.env.HELIUS_API_KEY
+      ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(process.env.HELIUS_API_KEY)}`
+      : null]
+  ];
+}
+
+function resolveRpcSourceForDisplay({ requireDedicated = false, candidates } = {}) {
+  const list = candidates || rpcCandidatesExecutor();
+  const selected = list.find(([, endpoint]) => endpoint && !isPublicSolanaRpcEndpoint(endpoint));
+  if (!selected) {
+    if (requireDedicated) {
+      return {
+        provider: null,
+        publicFallbackUsed: false,
+        dedicatedMissing: true,
+        displayLabel: "No dedicated RPC configured"
+      };
+    }
+    return {
+      provider: "PUBLIC_FALLBACK",
+      publicFallbackUsed: true,
+      dedicatedMissing: false,
+      displayLabel: `PUBLIC_FALLBACK · ${rpcEndpointHost(PUBLIC_SOLANA_RPC_ENDPOINT)}`
+    };
+  }
+  return {
+    provider: selected[0],
+    publicFallbackUsed: false,
+    dedicatedMissing: false,
+    displayLabel: `${selected[0]} · ${rpcEndpointHost(selected[1])}`
+  };
+}
+
+function rpcVisibilityContext() {
+  const walletMonitor = resolveRpcSourceForDisplay({
+    requireDedicated: false,
+    candidates: rpcCandidatesWalletMonitor()
+  });
+  const pipelineSimulation = resolveRpcSourceForDisplay({
+    requireDedicated: true,
+    candidates: rpcCandidatesExecutor()
+  });
+  const warnings = [];
+  if (walletMonitor.publicFallbackUsed) {
+    warnings.push(
+      `<div class="wc-rpc-warn">⚠ Public Solana RPC in use for wallet balance reads — rate limits may cause false DISCONNECTED status. Set <code>HELIUS_RPC_URL</code> or <code>SOLANA_RPC_URL</code> in <code>.env</code>.</div>`
+    );
+  }
+  if (pipelineSimulation.dedicatedMissing) {
+    warnings.push(
+      `<div class="wc-rpc-warn">⚠ No dedicated RPC configured for pipeline simulation — executor RPC stages would abort until a non-public <code>HELIUS_RPC_URL</code>, derived Helius key, or <code>SOLANA_RPC_URL</code> is set.</div>`
+    );
+  }
+  return { walletMonitor, pipelineSimulation, warningsHtml: warnings.join("") };
+}
+
+function rpcSourceValueCls(source) {
+  if (source.publicFallbackUsed || source.dedicatedMissing) return "wc-warn";
+  return "wc-pos";
+}
+
 // ─── Wallet Connection Status Panel ───────────────────────────────────────────
 
 function walletConnectionPanel() {
@@ -1031,6 +1139,7 @@ function walletConnectionPanel() {
   if (current === null && status && Number.isFinite(Number(status.balanceSol))) current = Number(status.balanceSol);
 
   const addr = status && status.walletAddress ? status.walletAddress : null;
+  const rpc = rpcVisibilityContext();
   const card = (label, value, cls = "") =>
     `<div class="wc-card"><div class="wc-label">${escapeHtml(label)}</div><div class="wc-value ${cls}">${escapeHtml(String(value ?? "—"))}</div></div>`;
 
@@ -1040,12 +1149,15 @@ function walletConnectionPanel() {
       <h2 class="wc-heading">◉ WALLET CONNECTION STATUS</h2>
       <div class="wc-health-badge ${health.cls}">${health.label}</div>
     </div>
-    <div class="wc-subtitle">Read-only monitor (wallet_monitor.js). Balance queried via RPC every 30s. No signer, no transactions.</div>
+    <div class="wc-subtitle">Read-only monitor (wallet_monitor.js). Balance queried via RPC every 30s. No signer, no transactions. RPC source reflects env vars visible to this dashboard process.</div>
+    ${rpc.warningsHtml}
     ${!status ? `<div class="wc-stale">No wallet_status.json yet — start the monitor: <code>node wallet_monitor.js</code></div>` : ""}
     ${statusError ? `<div class="wc-stale">Error reading wallet_status.json: ${escapeHtml(statusError)}</div>` : ""}
     ${staleNote}
 
     <div class="wc-cards">
+      ${card("RPC Source (wallet monitor)", rpc.walletMonitor.displayLabel, rpcSourceValueCls(rpc.walletMonitor))}
+      ${card("RPC Source (pipeline simulation)", rpc.pipelineSimulation.displayLabel, rpcSourceValueCls(rpc.pipelineSimulation))}
       ${card("Wallet Address", addr ? addr.slice(0, 8) + "…" + addr.slice(-6) : "—")}
       ${card("Current SOL Balance", status && status.balanceSol != null ? status.balanceSol.toFixed(4) + " SOL" : (status && !status.connected ? "unavailable" : "—"),
         status && status.connected ? "wc-pos" : "")}
@@ -1077,6 +1189,7 @@ function rpcHealthPanel() {
   try { if (fs.existsSync(RPC_HEALTH_FILE)) h = JSON.parse(fs.readFileSync(RPC_HEALTH_FILE, "utf8")); }
   catch (e) { err = e.message; }
 
+  const rpc = rpcVisibilityContext();
   const card = (label, value, cls = "") =>
     `<div class="wc-card"><div class="wc-label">${escapeHtml(label)}</div><div class="wc-value ${cls}">${escapeHtml(String(value ?? "—"))}</div></div>`;
 
@@ -1085,10 +1198,13 @@ function rpcHealthPanel() {
   return `
   <section class="panel wc-panel">
     <h2 class="wc-heading">⚡ RPC HEALTH</h2>
-    <div class="wc-subtitle">Connection quality for the wallet monitor's RPC endpoint. Read metrics only.</div>
+    <div class="wc-subtitle">Connection quality for the wallet monitor's RPC endpoint. Read metrics only. RPC source reflects env vars visible to this dashboard process.</div>
+    ${rpc.warningsHtml}
     ${!h ? `<div class="wc-stale">No rpc_health.json yet — start the monitor: <code>node wallet_monitor.js</code></div>` : ""}
     ${err ? `<div class="wc-stale">Error reading rpc_health.json: ${escapeHtml(err)}</div>` : ""}
     <div class="wc-cards">
+      ${card("RPC Source (wallet monitor)", rpc.walletMonitor.displayLabel, rpcSourceValueCls(rpc.walletMonitor))}
+      ${card("RPC Source (pipeline simulation)", rpc.pipelineSimulation.displayLabel, rpcSourceValueCls(rpc.pipelineSimulation))}
       ${card("Average Latency", h && h.avgLatencyMs != null ? h.avgLatencyMs + " ms" : "—",
         h && h.avgLatencyMs != null ? (h.avgLatencyMs < 500 ? "wc-pos" : "wc-warn") : "")}
       ${card("Worst Latency", h && h.worstLatencyMs != null ? h.worstLatencyMs + " ms" : "—",
@@ -1852,7 +1968,8 @@ function sharedStyles() {
     .wc-yellow { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
     .wc-red    { color:var(--red); border:1px solid var(--red); background:rgba(245,43,63,.1); }
     .wc-stale  { background:rgba(255,155,11,.07); border:1px solid rgba(255,155,11,.4); color:var(--amber); border-radius:3px; padding:9px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
-    .wc-stale code { background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:2px; padding:1px 5px; color:var(--cyan); }
+    .wc-rpc-warn { background:rgba(245,43,63,.08); border:1px solid rgba(245,43,63,.45); color:#ff9aa8; border-radius:3px; padding:9px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
+    .wc-stale code, .wc-rpc-warn code { background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:2px; padding:1px 5px; color:var(--cyan); }
     .wc-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:10px 0; }
     .wc-card { background:rgba(5,8,14,.6); border:1px solid var(--line); border-radius:4px; padding:11px 12px; }
     .wc-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }

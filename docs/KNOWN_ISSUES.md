@@ -244,13 +244,14 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### Public RPC rate limits false negatives
+### Public RPC rate limits false negatives (partially resolved — Sprint 1 Q9)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Wallet monitor and simulation fall back to public Solana RPC when Helius unset. |
 | **Impact** | False wallet disconnect; aborted preflight; flaky pipeline observation — masks real issues. |
-| **Possible solution** | Require dedicated RPC for non-dry-run readiness; surface RPC source in dashboard. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 1 Q9). Dashboard wallet and RPC health panels now show RPC source labels and a public-fallback warning when no dedicated env is set. |
+| **Possible solution** | Require dedicated RPC for non-dry-run readiness (Sprint 3 / A4). |
 | **Dependencies** | Helius or equivalent provisioning in TracktaOS. |
 
 ---
