@@ -6,6 +6,12 @@ const { spawnSync } = require("child_process");
 
 const ROOT = __dirname;
 const AUDIT_FILE = path.join(ROOT, "execution_audit.jsonl");
+const PREFLIGHT_FILES = [
+  [path.join(ROOT, "live_positions.json"), "[]\n"],
+  [path.join(ROOT, "live_trades.jsonl"), ""],
+  [path.join(ROOT, "live_errors.jsonl"), ""],
+  [path.join(ROOT, "paper_trades.json"), ""]
+];
 const TESTS = [
   "test_signer_guard.js",
   "test_pipeline_candidate_handoff.js",
@@ -16,6 +22,13 @@ const TESTS = [
 if (!fs.existsSync(AUDIT_FILE)) {
   fs.writeFileSync(AUDIT_FILE, "");
   console.log("Preflight: created empty execution_audit.jsonl");
+}
+
+for (const [file, contents] of PREFLIGHT_FILES) {
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, contents);
+    console.log(`Preflight: created empty ${path.basename(file)}`);
+  }
 }
 
 const node = process.execPath;
