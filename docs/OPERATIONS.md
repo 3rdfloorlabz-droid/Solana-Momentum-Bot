@@ -9,6 +9,7 @@ Before starting, restarting, or editing bot code:
 3. **Do not run or edit production code in archive folders:** `automation/`, `hardreset/`, `harness/`, `files/`, `phase1_files/`. Those trees are historical copies; changes there do not affect the running bot.
 4. Run `node live_executor.js --status` — expect `PIPELINE_DRY_RUN` and `dryRunMode: true` during migration.
 5. Use **`scanner_gmgn_trending.js`** only (not `scanner.js`, `scanner_v3.js`, or other legacy scanners).
+6. Before committing, confirm `git status` shows **source changes only** — runtime JSON/JSONL is gitignored per [MIGRATION_NOTES.md](./MIGRATION_NOTES.md); do not stage ledgers or backups.
 
 ## Verify Paper Mode
 

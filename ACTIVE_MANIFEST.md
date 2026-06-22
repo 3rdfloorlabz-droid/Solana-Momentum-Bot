@@ -115,7 +115,7 @@ Additional tests: `test_step9a_signing.js`, `test_step9b_submission.js`, and oth
 
 ## State and ledgers (repo root, runtime data)
 
-These files are **runtime artifacts**, not source code. Most are gitignored or should stay local.
+These files are **runtime artifacts**, not source code. Enforced by root [`.gitignore`](./.gitignore) — see [MIGRATION_NOTES.md](./MIGRATION_NOTES.md) local-data policy.
 
 ### Ledgers (JSONL; some use `.json` extension)
 

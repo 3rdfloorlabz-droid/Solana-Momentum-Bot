@@ -31,7 +31,15 @@ See **[ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md)** for the authoritative canonic
 
 ## Test Files
 
-The repo uses standalone Node test scripts rather than an npm test runner:
+Core safety tests run via npm (Sprint 1 Q6):
+
+```powershell
+npm test
+```
+
+Equivalent: `node run_safety_tests.js` — runs `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js` in order.
+
+Additional standalone scripts (manual / extended coverage):
 
 - `test_observation_pool.js`
 - `test_pipeline_candidate_handoff.js`
@@ -49,6 +57,12 @@ The repo uses standalone Node test scripts rather than an npm test runner:
 
 ## Runtime Data
 
+Runtime JSON/JSONL at the **repository root** is environment-specific operational history. It is **local-only** — do not commit ledgers, backups, or caches to source control.
+
+**Enforcement:** root [`.gitignore`](./.gitignore) (see also [ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md) preflight). Gitignore hides files from `git status`; it does not delete them from disk. **Do not** `git add` runtime files to “clean up” the working tree.
+
+**Fresh clones** may have no runtime files until processes run or `npm test` preflight creates empty stubs for safety tests.
+
 Review these before importing into TracktaOS:
 
 - `paper_trades.json`: paper trade history.
@@ -62,8 +76,26 @@ Review these before importing into TracktaOS:
 - `live_control_events.jsonl`: start/stop/emergency/reset events.
 - `wallet_history.jsonl`, `wallet_status.json`, `rpc_health.json`: read-only wallet/RPC telemetry.
 - `simulation_intents.jsonl`, `simulation_rejections.jsonl`, `simulation_results.json`: simulation outputs.
+- Legacy caches / manual backups: `boosts.json`, `signals.json`, `trending.json`, `*_backup.json`, `*_before_*.json`.
 
 These files may be large, append-only, or environment-specific. TracktaOS should classify them as data artifacts, not source code.
+
+### Future `data/` convention (TracktaOS packaging — not current behavior)
+
+**Today (Sprint 1):** all runtime writers and readers use repo-root filenames listed above and in ACTIVE_MANIFEST. Q10 does not move paths.
+
+**Future option:** TracktaOS may mount a dedicated `data/` directory (or external volume) for ledgers during packaging. A later sprint would update writers/readers together — not in Q10.
+
+Example layout for migration planning only:
+
+```text
+data/
+  paper_trades.json
+  pipeline_candidates.jsonl
+  live_trades.jsonl
+  execution_audit.jsonl
+  ...
+```
 
 ## Backup And Archive Material
 

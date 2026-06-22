@@ -41,6 +41,14 @@ near_misses.json
 near_miss_followups.json
 paper_trades.json
 
+# Legacy runtime JSON + operator backups (repo root)
+live_trades.json
+boosts.json
+signals.json
+trending.json
+*_backup.json
+*_before_*.json
+
 # Temporary files and caches
 tmp/
 temp/

@@ -233,13 +233,14 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### Runtime data mixed with source repository
+### Runtime data mixed with source repository (partially resolved — Sprint 1 Q10)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Large JSONL histories, backups, zip archives coexist with source in tree. |
 | **Impact** | Bloated clones; accidental commit of operational history; unclear migration scope. |
-| **Possible solution** | Data directory outside git; `.gitignore` enforcement; migration artifact manifest. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 1 Q10). Root `.gitignore` now covers legacy runtime JSON and operator backups; `MIGRATION_NOTES.md` documents local-only data policy and optional future `data/` convention. |
+| **Possible solution** | Physical `data/` directory outside git (TracktaOS packaging — future sprint). |
 | **Dependencies** | TracktaOS data migration playbook (`MIGRATION_NOTES.md`). |
 
 ---
