@@ -1254,6 +1254,9 @@ function liveAutomationControlPanel() {
   const readiness = (() => {
     try { return liveExecutor ? liveExecutor.readinessChecks(cfg) : null; } catch { return null; }
   })();
+  const armed = (() => {
+    try { return liveExecutor && cfg ? liveExecutor.computeLiveArmedStatus(cfg) : null; } catch { return null; }
+  })();
   const startDisabled = emergency || (readiness && !readiness.allPassed);
 
   const row = (label, value, cls = "") =>
@@ -1265,12 +1268,29 @@ function liveAutomationControlPanel() {
       ).join("")
     : `<li class="ac-fail">✘ executor not loaded</li>`;
 
+  const liveGateRows = armed
+    ? Object.values(armed.gates).map(g =>
+        `<li class="${g.ok ? "ac-ok" : "ac-fail"}">${g.ok ? "✔" : "✘"} ${escapeHtml(g.label)} <span>${escapeHtml(g.detail)}</span></li>`
+      ).join("")
+    : `<li class="ac-fail">✘ live arming status unavailable</li>`;
+
+  const armedStrip = armed
+    ? `<div class="ac-live-armed-strip ${armed.liveArmed ? "ac-live-armed-yes" : "ac-live-armed-no"}">
+        <strong>LIVE ARMED: ${armed.liveArmed ? "YES" : "NO"}</strong>
+        · Posture: ${escapeHtml(armed.operationalPosture)}
+        · ${escapeHtml(armed.summary)}
+      </div>
+      ${!armed.liveArmed ? `<div class="ac-hint">Readiness ALL PASS and automation RUNNING do not mean live armed — pipeline observation may still run without on-chain submission.</div>` : ""}
+      ${!armed.liveArmed && armed.failures.length ? `<div class="ac-hint">Blocking: ${escapeHtml(armed.failures.join("; "))}</div>` : ""}`
+    : `<div class="ac-hint">Live arming status unavailable — executor not loaded.</div>`;
+
   return `
   <section class="panel ac-panel">
     <div class="ac-title-row">
       <h2 class="ac-heading">⬢ LIVE AUTOMATION CONTROL</h2>
       <div class="ac-status-badge ${status.cls}">${status.text}</div>
     </div>
+    ${armedStrip}
     ${dryRun ? `<div class="ac-dryrun-banner">🧪 ${modeLabel} MODE — ${executionMode === "PIPELINE_DRY_RUN" ? "the full unsigned pipeline runs, but NOTHING is signed or submitted." : "transaction intents are generated and logged, but NOTHING is submitted on-chain."}</div>` : `<div class="ac-live-banner">⚠ LIVE MODE — real execution remains blocked until Step 9.</div>`}
     ${emergency ? `<div class="ac-emergency-banner">⛔ EMERGENCY STOP ACTIVE — all entries and exits halted. Run <code>node reset_live_safety.js</code> to clear (does not re-enable automation).</div>` : ""}
 
@@ -1301,6 +1321,9 @@ function liveAutomationControlPanel() {
       ${row("Last Action At", cfg && cfg.lastAutomationToggleAt ? new Date(cfg.lastAutomationToggleAt).toLocaleString() : "—")}
       ${row("Last Error", cfg && cfg.lastError ? cfg.lastError : "None", cfg && cfg.lastError ? "ac-fail" : "ac-ok")}
     </div>
+
+    <h2 class="table-heading" style="margin-top:18px">Live Submission Gates</h2>
+    <ul class="ac-readiness ac-live-gates">${liveGateRows}</ul>
 
     <h2 class="table-heading" style="margin-top:18px">Start Readiness Checks</h2>
     <ul class="ac-readiness">${readinessRows}</ul>
@@ -1811,6 +1834,10 @@ function phase1ReadinessPanel() {
   const subhead = title => `<tr class="p1subhead"><td colspan="3">${escapeHtml(title)}</td></tr>`;
   const boolText = value => value === true ? "true" : value === false ? "false" : "missing";
 
+  const armed = (() => {
+    try { return liveExecutor && cfg ? liveExecutor.computeLiveArmedStatus(cfg) : null; } catch { return null; }
+  })();
+
   return `
   <section class="panel p1-panel">
     <div class="p1-title-row">
@@ -1818,11 +1845,17 @@ function phase1ReadinessPanel() {
       <div class="p1-execution-badge ${statusClass}">${unifiedStatus}</div>
     </div>
     <div class="p1-subtitle">Unified safety status from the current Phase 1 automation schema. Real trading remains disabled while dry-run mode is active.</div>
+    ${armed ? `<div class="ac-live-armed-strip ${armed.liveArmed ? "ac-live-armed-yes" : "ac-live-armed-no"}" style="margin-bottom:12px">
+      <strong>LIVE ARMED: ${armed.liveArmed ? "YES" : "NO"}</strong>
+      · Posture: ${escapeHtml(armed.operationalPosture)}
+      · ${escapeHtml(armed.summary)}
+    </div>` : ""}
 
     <div class="cards">
       ${statusCard("Wallet Status", walletConnected ? "GREEN — CONNECTED" : "RED — DISCONNECTED", walletConnected ? "positive" : "negative")}
       ${statusCard("Automation Status", cfg?.automationEnabled ? "RUNNING" : "STOPPED", cfg?.automationEnabled ? "positive" : "")}
       ${statusCard("Dry-Run Mode", cfg?.dryRunMode ? "ENABLED" : "DISABLED", cfg?.dryRunMode ? "positive" : "negative")}
+      ${statusCard("Live Armed", armed ? (armed.liveArmed ? "YES — GATES SATISFIED" : "NO — DISARMED") : "—", armed?.liveArmed ? "negative" : "positive")}
       ${statusCard("Real Trading", cfg?.dryRunMode ? "DISABLED" : "BLOCKED", cfg?.dryRunMode ? "positive" : "negative")}
     </div>
 
@@ -1854,6 +1887,8 @@ function phase1ReadinessPanel() {
         ${row("Required files", missingFiles.length ? `missing: ${missingFiles.join(", ")}` : "all present", missingFiles.length === 0)}
         ${row("Configuration schema", configInvalid ? `invalid: ${missingConfigFields.join(", ") || cfgParseError}` : "valid", !configInvalid)}
         ${row("Real trading capability", cfg?.dryRunMode === true ? "DISABLED — DRY RUN" : "BLOCKED", cfg?.dryRunMode === true)}
+        ${row("liveArmed (computed)", armed ? (armed.liveArmed ? "true" : "false") : "unavailable", armed ? !armed.liveArmed : false, armed?.operationalPosture || "")}
+        ${armed && !armed.liveArmed ? row("Live submission blocked", armed.failures[0] || "gates not satisfied", false, armed.failures.join("; ")) : ""}
       </tbody>
     </table>
 
@@ -2011,6 +2046,9 @@ function sharedStyles() {
     .ac-readiness { list-style:none; padding:0; margin:8px 0 0; columns:2; }
     .ac-readiness li { font-size:12px; padding:3px 0; break-inside:avoid; }
     .ac-readiness li span { color:var(--muted); }
+    .ac-live-armed-strip { border-radius:3px; padding:11px 13px; margin-bottom:12px; font-size:13px; font-weight:600; }
+    .ac-live-armed-no { background:rgba(25,214,161,.1); border:1px solid var(--green); color:#9ff5dc; }
+    .ac-live-armed-yes { background:rgba(245,43,63,.14); border:1px solid var(--red); color:#ff9aa8; animation:pulse 1.3s infinite; }
     @media(max-width:900px){ .ac-readiness{columns:1;} .ac-buttons{flex-direction:column;} .ac-btn{width:100%;} }
     /* ── End Live Automation Control ─────────────────────────────────────── */
 

@@ -1560,22 +1560,93 @@ function buildReconciliationContext({ action, txSig, kind, tokenAddress, pairAdd
   };
 }
 
-function assertLiveSubmissionArmed(cfg) {
+function positionSizeOrZero(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function collectLiveSubmissionGateFailures(cfg) {
+  const executionMode = resolveExecutionMode(cfg);
+  const gates = {};
   const failures = [];
-  if (resolveExecutionMode(cfg) !== "LIVE") failures.push("executionMode must be LIVE");
-  if (cfg?.dryRunMode !== false) failures.push("dryRunMode must be false");
-  if (cfg?.emergencyStop !== false) failures.push("emergencyStop must be false");
-  if (cfg?.automationEnabled !== true) failures.push("automationEnabled must be true");
-  if (!process.env.SOLANA_SIGNER_SECRET) failures.push("SOLANA_SIGNER_SECRET must be present");
-  if (process.env.FOMO_ENABLE_LIVE_SUBMISSION !== "YES") failures.push("FOMO_ENABLE_LIVE_SUBMISSION must equal YES");
-  if (Number(cfg?.positionSizeSol) > 0.01 || Number(positionSizeOrZero(cfg?.positionSizeSol)) <= 0) {
-    failures.push("positionSizeSol must be > 0 and <= 0.01 for first-live safety");
-  }
+
+  const addGate = (key, label, ok, failMessage, detail = "") => {
+    gates[key] = { label, ok, detail: detail || (ok ? "ok" : failMessage) };
+    if (!ok) failures.push(failMessage);
+  };
+
+  addGate("executionMode", "executionMode is LIVE", executionMode === "LIVE", "executionMode must be LIVE", executionMode);
+  addGate("dryRunMode", "dryRunMode is false", cfg?.dryRunMode === false, "dryRunMode must be false", String(cfg?.dryRunMode));
+  addGate("emergencyStop", "emergencyStop is false", cfg?.emergencyStop === false, "emergencyStop must be false", String(cfg?.emergencyStop));
+  addGate("automationEnabled", "automationEnabled is true", cfg?.automationEnabled === true, "automationEnabled must be true", String(cfg?.automationEnabled));
+  addGate(
+    "signerEnv",
+    "SOLANA_SIGNER_SECRET present",
+    !!process.env.SOLANA_SIGNER_SECRET,
+    "SOLANA_SIGNER_SECRET must be present",
+    process.env.SOLANA_SIGNER_SECRET ? "present" : "absent"
+  );
+  addGate(
+    "liveSubmissionFlag",
+    "FOMO_ENABLE_LIVE_SUBMISSION is YES",
+    process.env.FOMO_ENABLE_LIVE_SUBMISSION === "YES",
+    "FOMO_ENABLE_LIVE_SUBMISSION must equal YES",
+    process.env.FOMO_ENABLE_LIVE_SUBMISSION || "unset"
+  );
+  const sizeOk = Number(cfg?.positionSizeSol) <= 0.01 && Number(positionSizeOrZero(cfg?.positionSizeSol)) > 0;
+  addGate(
+    "positionSizeSol",
+    "positionSizeSol within first-live cap",
+    sizeOk,
+    "positionSizeSol must be > 0 and <= 0.01 for first-live safety",
+    String(cfg?.positionSizeSol ?? "")
+  );
+
+  let rpcOk = false;
+  let rpcDetail = "";
   try {
-    resolveRpcEndpoint(cfg, { requireDedicated: true, purpose: "submission" });
+    const rpc = resolveRpcEndpoint(cfg, { requireDedicated: true, purpose: "submission" });
+    rpcOk = !!rpc?.endpoint;
+    rpcDetail = rpc?.provider || "dedicated";
   } catch (error) {
-    failures.push(`dedicated RPC required: ${safeErrorMessage(error)}`);
+    rpcDetail = safeErrorMessage(error);
   }
+  addGate(
+    "dedicatedRpc",
+    "Dedicated RPC for submission",
+    rpcOk,
+    `dedicated RPC required: ${rpcDetail}`,
+    rpcDetail
+  );
+
+  return { failures, gates };
+}
+
+function deriveOperationalPosture(cfg, liveArmed) {
+  if (cfg?.emergencyStop === true) return "EMERGENCY_HALTED";
+  if (liveArmed) return "LIVE_ARMED";
+  if (resolveExecutionMode(cfg) === "LIVE") return "LIVE_MODE_DISARMED";
+  if (resolveExecutionMode(cfg) === "PIPELINE_DRY_RUN" && cfg?.automationEnabled === true) return "PIPELINE_OBSERVING";
+  if (resolveExecutionMode(cfg) === "DRY_RUN") return "DRY_RUN_LEGACY";
+  return "STOPPED";
+}
+
+function computeLiveArmedStatus(cfg = loadConfig()) {
+  const { failures, gates } = collectLiveSubmissionGateFailures(cfg);
+  const liveArmed = failures.length === 0;
+  return {
+    liveArmed,
+    failures,
+    gates,
+    operationalPosture: deriveOperationalPosture(cfg, liveArmed),
+    summary: liveArmed
+      ? "Live submission gates satisfied"
+      : `DISARMED — ${failures[0] || "live submission gates not satisfied"}`
+  };
+}
+
+function assertLiveSubmissionArmed(cfg) {
+  const { failures } = collectLiveSubmissionGateFailures(cfg);
   if (failures.length) {
     throw makeExecutionError(
       EXECUTION_ABORT_CODES.REAL_PATH_DISABLED,
@@ -1584,11 +1655,6 @@ function assertLiveSubmissionArmed(cfg) {
       { failures }
     );
   }
-}
-
-function positionSizeOrZero(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
 }
 
 async function fetchJsonRpc(fetcher, endpoint, body, timeoutMs, failureCode, failureStage, networkMessage) {
@@ -2838,6 +2904,20 @@ if (require.main === module) {
       console.log("  Entries allowed:", gate.allowed, gate.allowed ? "" : "— " + gate.reasons.join("; "));
       const r = readinessChecks(cfg);
       console.log("  Readiness:", r.allPassed ? "ALL PASS" : "FAILS: " + r.checks.filter(c => !c.ok).map(c => c.label).join(", "));
+      const armed = computeLiveArmedStatus(cfg);
+      console.log("  liveArmed:", armed.liveArmed, armed.liveArmed ? "⚠ LIVE SUBMISSION GATES SATISFIED" : "");
+      console.log("  operationalPosture:", armed.operationalPosture);
+      console.log("  liveSubmission:", armed.summary);
+      if (!armed.liveArmed) {
+        console.log("  liveSubmission blocked:", armed.failures.join("; "));
+      }
+      const gateLine = Object.values(armed.gates)
+        .map(g => `${g.ok ? "ok" : "blocked"}: ${g.label} (${g.detail})`)
+        .join("; ");
+      console.log("  liveSubmissionGates:", gateLine);
+      if (!armed.liveArmed && gate.allowed) {
+        console.log("  Note: Entries allowed and Readiness ALL PASS do not mean liveArmed — pipeline observation may still run.");
+      }
       console.log("\nUsage: node live_executor.js [--loop | --cycle]");
     } catch (err) {
       console.error("[executor] error:", err.message);
@@ -2855,7 +2935,7 @@ module.exports = {
   observePipelineCandidate, matchesPhase1Thesis,
   // controls
   startAutomation, stopAutomation, emergencyStopControl, readinessChecks,
-  resolveExecutionMode, isAnyDryRun,
+  resolveExecutionMode, isAnyDryRun, computeLiveArmedStatus,
   // data / stats
   loadConfig, saveConfig, liveStats, safetyCheck, todayStats, dailyStopHit,
   readLiveTrades, readPositions, openPositions, findOpenLiveTradeByAddress,

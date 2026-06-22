@@ -222,13 +222,14 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### Env flag proliferation for live arming
+### Env flag proliferation for live arming (partially resolved — Sprint 2 M7)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Overlapping gates: `executionMode`, `dryRunMode`, `automationEnabled`, `FOMO_ENABLE_LIVE_SUBMISSION`, `FOMO_ALLOW_LOOP_LIVE`, `SOLANA_SIGNER_SECRET`, RPC env vars. |
 | **Impact** | Operator error arming live partially; hard to audit "fully disarmed" state. |
-| **Possible solution** | Single `liveArmed` computed status in `--status` and dashboard; checklist UI. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 2 M7). `computeLiveArmedStatus()` mirrors `assertLiveSubmissionArmed` gates; exposed in `node live_executor.js --status` and dashboard automation panels. |
+| **Possible solution** | M8 promotion checklist UI; optional env consolidation in a later sprint. |
 | **Dependencies** | Backward compatibility with existing env contracts. |
 
 ---
