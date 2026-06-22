@@ -42,6 +42,7 @@ const CONTROL_EVENTS_FILE = path.join(ROOT, "live_control_events.jsonl");
 const ERRORS_FILE         = path.join(ROOT, "live_errors.jsonl");
 const EXECUTION_AUDIT_FILE = path.join(ROOT, "execution_audit.jsonl");
 const PENDING_RECONCILIATION_FILE = path.join(ROOT, "pending_reconciliation.jsonl");
+const OBSERVATION_DEDUP_FILE = path.join(ROOT, "observation_dedup.json");
 
 const DEX = "https://api.dexscreener.com";
 const JUPITER_QUOTE_ENDPOINT = "https://quote-api.jup.ag/v6/quote";
@@ -1146,14 +1147,15 @@ function readPipelineCandidates() {
 const PIPELINE_OBSERVATION_PAIR_COOLDOWN_MS = 60 * 60 * 1000;
 
 // Observation dedup is intentionally separate from trading dedup. Intent keys
-// are restart-safe via execution audit seeding, while pair keys are only a
-// legacy fallback for older rows that predate candidateIntentId.
+// prefer candidateIntentId; pair cooldown uses address+pair. Restart state is
+// rebuilt from execution_audit.jsonl plus observation_dedup.json (M3).
 const observedPipelineCandidates = new Set();
 const observedPipelinePairTimestamps = new Map();
 let candidatePoolForTest = null;
 let pipelineCandidateQueueForTest = null;
 let observationSubmitSwapForTest = null;
 let observationAuditRowsForTest = null;
+let observationDedupFileForTest = null;
 let observationDedupSeeded = false;
 let lastPipelineObservationSelectionStats = {
   queueRowsRead: 0,
@@ -1209,6 +1211,63 @@ function isExpectedObservationAbort(error) {
   return !!error?.code && EXPECTED_OBSERVATION_ABORT_CODES.has(error.code);
 }
 
+function observationDedupFilePath() {
+  return observationDedupFileForTest || OBSERVATION_DEDUP_FILE;
+}
+
+function loadObservationDedupSnapshot() {
+  const file = observationDedupFilePath();
+  if (!fs.existsSync(file)) {
+    return { observedKeys: [], pairLastObservedMs: {} };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (parsed?.schemaVersion !== 1) {
+      return { observedKeys: [], pairLastObservedMs: {} };
+    }
+    return {
+      observedKeys: Array.isArray(parsed.observedKeys)
+        ? parsed.observedKeys.filter(key => typeof key === "string" && key)
+        : [],
+      pairLastObservedMs: parsed.pairLastObservedMs && typeof parsed.pairLastObservedMs === "object"
+        ? parsed.pairLastObservedMs
+        : {}
+    };
+  } catch (err) {
+    logError("observation_dedup_load", safeErrorMessage(err));
+    return { observedKeys: [], pairLastObservedMs: {} };
+  }
+}
+
+function mergeObservationDedupSnapshot(snapshot) {
+  if (!snapshot) return;
+  for (const key of snapshot.observedKeys || []) {
+    if (typeof key === "string" && key) observedPipelineCandidates.add(key);
+  }
+  for (const [pairKey, timestampMs] of Object.entries(snapshot.pairLastObservedMs || {})) {
+    if (!pairKey || !Number.isFinite(Number(timestampMs))) continue;
+    const parsed = Number(timestampMs);
+    const existing = observedPipelinePairTimestamps.get(pairKey);
+    if (!Number.isFinite(existing) || parsed > existing) {
+      observedPipelinePairTimestamps.set(pairKey, parsed);
+    }
+  }
+}
+
+function persistObservationDedupSnapshot() {
+  try {
+    const payload = {
+      schemaVersion: 1,
+      updatedAt: nowIso(),
+      observedKeys: [...observedPipelineCandidates],
+      pairLastObservedMs: Object.fromEntries(observedPipelinePairTimestamps)
+    };
+    fs.writeFileSync(observationDedupFilePath(), `${JSON.stringify(payload, null, 2)}\n`);
+  } catch (err) {
+    logError("observation_dedup_persist", safeErrorMessage(err));
+  }
+}
+
 function seedObservedPipelineCandidatesFromAudit({ force = false } = {}) {
   if (observationDedupSeeded && !force) return observedPipelineCandidates.size;
   const rows = Array.isArray(observationAuditRowsForTest)
@@ -1230,6 +1289,7 @@ function seedObservedPipelineCandidatesFromAudit({ force = false } = {}) {
     }
     if (pairKey) markObservedPair(row.payload, observationTimestampMs(row, observationTimestampMs(row.payload)));
   }
+  mergeObservationDedupSnapshot(loadObservationDedupSnapshot());
   observationDedupSeeded = true;
   return observedPipelineCandidates.size;
 }
@@ -1364,6 +1424,7 @@ async function observePipelineCandidate(cfg, candidate) {
   }
   observedPipelineCandidates.add(key);
   markObservedPair(candidate, observationTimestampMs(candidate));
+  persistObservationDedupSnapshot();
 
   const observation = {
     executionMode: "PIPELINE_DRY_RUN",
@@ -1398,6 +1459,7 @@ async function observePipelineCandidate(cfg, candidate) {
       address: candidate.address || null,
       pairAddress: candidate.pairAddress || null
     });
+    persistObservationDedupSnapshot();
     if (isExpectedObservationAbort(error)) {
       return {
         action: "OBSERVATION_ABORTED",
@@ -2942,7 +3004,7 @@ module.exports = {
   groupLiveTrades, getWalletBalanceSol, writeLiveEvent, logControl, readPipelineCandidates,
   // meta
   EXECUTOR_VERSION, PHASE,
-  FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE },
+  FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE, OBSERVATION_DEDUP_FILE },
   // Test-only logging surface. It exposes no signer, swap, or transaction methods.
   __executionLoggingTest: {
     EXECUTION_ABORT_CODES, EXECUTION_STAGES,
@@ -3015,7 +3077,11 @@ module.exports = {
     resetObservationSubmitSwapForTest: () => { observationSubmitSwapForTest = null; },
     setObservationAuditRowsForTest: rows => { observationAuditRowsForTest = rows; observationDedupSeeded = false; },
     resetObservationAuditRowsForTest: () => { observationAuditRowsForTest = null; observationDedupSeeded = false; },
+    setObservationDedupFileForTest: file => { observationDedupFileForTest = file; observationDedupSeeded = false; },
+    resetObservationDedupFileForTest: () => { observationDedupFileForTest = null; observationDedupSeeded = false; },
     seedObservedPipelineCandidatesFromAudit,
+    loadObservationDedupSnapshot,
+    persistObservationDedupSnapshot,
     resetObservationDedupForTest: () => {
       observedPipelineCandidates.clear();
       observedPipelinePairTimestamps.clear();

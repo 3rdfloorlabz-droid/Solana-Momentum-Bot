@@ -37,6 +37,7 @@ wallet_status.json
 simulation_results.json
 pending_reconciliation.jsonl
 panic_events.jsonl
+observation_dedup.json
 near_misses.json
 near_miss_followups.json
 paper_trades.json

@@ -1,6 +1,8 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const crypto = require("crypto");
 const executor = require("./live_executor");
 
@@ -66,11 +68,41 @@ function auditRowsSince(lineCount) {
     .map(JSON.parse);
 }
 
+function mockPipelineSubmitResult() {
+  return {
+    txSig: null,
+    filledPrice: null,
+    slippagePct: null,
+    feeSol: 0.000255,
+    latencyMs: 12,
+    isDryRun: true,
+    isPipelineDryRun: true,
+    pipelineMetadata: {
+      unitsConsumed: 180000,
+      cuHeadroomVsAssumed: 0.4,
+      appliedPriorityFeeLamports: 250000,
+      lastValidBlockHeight: 321,
+      rawOutputPerInput: 0.5,
+      quotedSlippageBps: 300,
+      feeBreakdown: {
+        baseFeeLamports: 5000,
+        priorityFeeLamports: 250000,
+        ataRentLamports: 0,
+        ataRentAccounted: true,
+        ataDetectionMethod: "simulation_logs_scan",
+        totalLamports: 255000
+      }
+    }
+  };
+}
+
 (async () => {
   const beforeHashes = Object.fromEntries(protectedFiles.map(file => [file, hash(file)]));
   const auditStart = fs.readFileSync(auditFile, "utf8").split(/\r?\n/).filter(Boolean).length;
+  const tempDedupFile = path.join(os.tmpdir(), `fomo-obs-dedup-${Date.now()}.json`);
   let submitCalls = 0;
   try {
+    observation.setObservationDedupFileForTest(tempDedupFile);
     const thesis = candidate();
     const nonThesis = candidate({
       symbol: "NON_THESIS_OBSERVATION",
@@ -128,31 +160,7 @@ function auditRowsSince(lineCount) {
 
     observation.setObservationSubmitSwapForTest(async () => {
       submitCalls += 1;
-      return {
-        txSig: null,
-        filledPrice: null,
-        slippagePct: null,
-        feeSol: 0.000255,
-        latencyMs: 12,
-        isDryRun: true,
-        isPipelineDryRun: true,
-        pipelineMetadata: {
-          unitsConsumed: 180000,
-          cuHeadroomVsAssumed: 0.4,
-          appliedPriorityFeeLamports: 250000,
-          lastValidBlockHeight: 321,
-          rawOutputPerInput: 0.5,
-          quotedSlippageBps: 300,
-          feeBreakdown: {
-            baseFeeLamports: 5000,
-            priorityFeeLamports: 250000,
-            ataRentLamports: 0,
-            ataRentAccounted: true,
-            ataDetectionMethod: "simulation_logs_scan",
-            totalLamports: 255000
-          }
-        }
-      };
+      return mockPipelineSubmitResult();
     });
 
     observation.resetObservationDedupForTest();
@@ -199,6 +207,134 @@ function auditRowsSince(lineCount) {
     assert(dry.isDryRun === true && !dry.isPipelineDryRun, "DRY_RUN legacy result changed");
     assert(fs.statSync(auditFile).size === beforeDryAudit, "DRY_RUN unexpectedly ran the pipeline");
 
+    // ─── M3: dedup snapshot restart / crash-window / cooldown persistence ───────
+    observation.resetObservationDedupForTest();
+    observation.setObservationAuditRowsForTest([]);
+    const restartCandidate = candidate({
+      symbol: "RESTART_PERSIST",
+      address: "RestartPersistMint111111111111111111111111",
+      pairAddress: "RestartPersistPair111111111111111111111111",
+      candidateIntentId: "restart-persist-fixture-intent"
+    });
+    observation.setCandidatePoolForTest([restartCandidate]);
+    observation.setPipelineCandidateQueueForTest([]);
+    let restartSubmitCalls = 0;
+    observation.setObservationSubmitSwapForTest(async () => {
+      restartSubmitCalls += 1;
+      return mockPipelineSubmitResult();
+    });
+    const restartObserve = await observation.observePipelineCandidate(cfg("PIPELINE_DRY_RUN"), restartCandidate);
+    assert(restartObserve.action === "OBSERVED", "restart fixture was not observed");
+    assert(fs.existsSync(tempDedupFile), "observation_dedup snapshot was not written");
+    const snapshotAfterObserve = JSON.parse(fs.readFileSync(tempDedupFile, "utf8"));
+    assert(snapshotAfterObserve.schemaVersion === 1, "snapshot schemaVersion missing");
+    assert(snapshotAfterObserve.observedKeys.includes(`intent|${restartCandidate.candidateIntentId}`),
+      "snapshot missing observed intent key");
+
+    observation.resetObservationDedupForTest();
+    observation.setObservationAuditRowsForTest([]);
+    observation.seedObservedPipelineCandidatesFromAudit({ force: true });
+    const restartDuplicate = await observation.observePipelineCandidate(cfg("PIPELINE_DRY_RUN"), restartCandidate);
+    assert(restartDuplicate.action === "OBSERVATION_SKIPPED_DUPLICATE",
+      "restart re-seed from snapshot did not skip duplicate observation");
+    assert(restartSubmitCalls === 1, "restart duplicate observation re-ran the pipeline");
+
+    observation.resetObservationDedupForTest();
+    observation.setObservationAuditRowsForTest([]);
+    fs.writeFileSync(tempDedupFile, `${JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      observedKeys: ["intent|crash-window-fixture-intent"],
+      pairLastObservedMs: {}
+    }, null, 2)}\n`);
+    observation.seedObservedPipelineCandidatesFromAudit({ force: true });
+    const crashCandidate = candidate({
+      symbol: "CRASH_WINDOW",
+      address: "CrashWindowMint1111111111111111111111111",
+      pairAddress: "CrashWindowPair1111111111111111111111111",
+      candidateIntentId: "crash-window-fixture-intent"
+    });
+    let crashSubmitCalls = 0;
+    observation.setObservationSubmitSwapForTest(async () => {
+      crashSubmitCalls += 1;
+      return mockPipelineSubmitResult();
+    });
+    const crashDuplicate = await observation.observePipelineCandidate(cfg("PIPELINE_DRY_RUN"), crashCandidate);
+    assert(crashDuplicate.action === "OBSERVATION_SKIPPED_DUPLICATE",
+      "snapshot-only crash window did not block duplicate observation");
+    assert(crashSubmitCalls === 0, "crash-window duplicate observation ran submit");
+
+    const cooldownAddress = "CooldownPersistMint111111111111111111111111";
+    const cooldownPair = "CooldownPersistPair111111111111111111111111";
+    const cooldownBaseMs = new Date("2026-01-01T00:00:00.000Z").getTime();
+    const cooldownWithinMs = new Date("2026-01-01T00:30:00.000Z").getTime();
+    fs.writeFileSync(tempDedupFile, `${JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      observedKeys: ["intent|cooldown-base-intent"],
+      pairLastObservedMs: {
+        [`address_pair|${cooldownAddress}|${cooldownPair}`]: cooldownBaseMs
+      }
+    }, null, 2)}\n`);
+    observation.resetObservationDedupForTest();
+    observation.setObservationAuditRowsForTest([]);
+    observation.seedObservedPipelineCandidatesFromAudit({ force: true });
+    observation.setPipelineCandidateQueueForTest([candidate({
+      symbol: "COOLDOWN_WITHIN",
+      address: cooldownAddress,
+      pairAddress: cooldownPair,
+      candidateIntentId: "cooldown-within-intent",
+      timestamp: "2026-01-01T00:30:00.000Z",
+      candidateHandoffSource: "pipeline_candidates"
+    })]);
+    observation.setCandidatePoolForTest([]);
+    const withinCooldown = observation.findCandidates(cfg("PIPELINE_DRY_RUN"));
+    assert(withinCooldown.length === 0, "pair cooldown was not preserved across restart re-seed");
+    const withinStats = observation.getLastPipelineObservationSelectionStatsForTest();
+    assert(withinStats.skippedByPairCooldown === 1,
+      "within-cooldown candidate was not counted as pair cooldown skip");
+
+    observation.resetObservationDedupForTest();
+    observation.setPipelineCandidateQueueForTest([candidate({
+      symbol: "COOLDOWN_EXPIRED",
+      address: cooldownAddress,
+      pairAddress: cooldownPair,
+      candidateIntentId: "cooldown-expired-intent",
+      timestamp: "2026-01-01T01:01:00.000Z",
+      candidateHandoffSource: "pipeline_candidates"
+    })]);
+    observation.seedObservedPipelineCandidatesFromAudit({ force: true });
+    const expiredCooldown = observation.findCandidates(cfg("PIPELINE_DRY_RUN"));
+    assert(expiredCooldown.length === 1,
+      "expired pair cooldown was not allowed after restart re-seed");
+    assert(expiredCooldown[0].candidateIntentId === "cooldown-expired-intent",
+      "expired cooldown candidate intent id not preserved");
+
+    observation.resetObservationDedupForTest();
+    observation.setObservationAuditRowsForTest([{
+      timestamp: "2026-01-01T00:00:00.000Z",
+      eventType: "EXECUTION_STAGE",
+      stage: "PIPELINE_DRY_RUN",
+      payload: {
+        candidateIntentId: "merge-audit-intent",
+        address: "MergeAuditMint11111111111111111111111111",
+        pairAddress: "MergeAuditPair11111111111111111111111111"
+      }
+    }]);
+    fs.writeFileSync(tempDedupFile, `${JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: "2026-01-01T01:00:00.000Z",
+      observedKeys: [],
+      pairLastObservedMs: {
+        "address_pair|MergeAuditMint11111111111111111111111111|MergeAuditPair11111111111111111111111111": cooldownWithinMs
+      }
+    }, null, 2)}\n`);
+    observation.seedObservedPipelineCandidatesFromAudit({ force: true });
+    const mergedPairTs = observation.getObservedPairTimestampsForTest();
+    const mergePairKey = "address_pair|MergeAuditMint11111111111111111111111111|MergeAuditPair11111111111111111111111111";
+    assert(mergedPairTs[mergePairKey] === cooldownWithinMs,
+      "audit/snapshot merge did not use max pair timestamp");
+
     console.log("NON-THESIS OBSERVATION AUDIT:");
     console.log(JSON.stringify(nonThesisAudit));
     console.log("THESIS OBSERVATION AUDIT:");
@@ -211,6 +347,8 @@ function auditRowsSince(lineCount) {
     observation.resetObservationSubmitSwapForTest();
     observation.resetObservationAuditRowsForTest();
     observation.resetObservationDedupForTest();
+    observation.resetObservationDedupFileForTest();
+    if (fs.existsSync(tempDedupFile)) fs.unlinkSync(tempDedupFile);
   }
 })().catch(error => {
   console.error("OBSERVATION POOL TEST FAILED:", error.message);

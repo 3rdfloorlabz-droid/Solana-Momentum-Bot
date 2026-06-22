@@ -169,14 +169,15 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### In-memory observation dedup partially lost on restart
+### In-memory observation dedup partially lost on restart (partially resolved — Sprint 2 M3)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Intent dedup seeds from `execution_audit.jsonl`; pair cooldown timestamps live in memory (`observedPipelinePairTimestamps`). |
-| **Impact** | Restart may repeat pipeline observations or miss cooldown until audit replay completes. |
-| **Possible solution** | Persist pair cooldown map to small state file or audit-derived cache. |
-| **Dependencies** | Executor refactor; dedup metrics. |
+| **Description** | Intent dedup seeds from `execution_audit.jsonl`; pair cooldown timestamps lived in memory (`observedPipelinePairTimestamps`) only. |
+| **Impact** | Restart could repeat pipeline observations in the crash window between memory mark and audit write. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 2 M3). Executor persists `observation_dedup.json` (`observedKeys`, `pairLastObservedMs`) on dedup mutation; startup seed merges audit replay ∪ snapshot (union keys, max pair timestamps). Dual-process races remain until A1. |
+| **Possible solution** | A1 unified state with atomic writes; dedup metrics in dashboard (M4+). |
+| **Dependencies** | Single executor loop recommended; audit completeness. |
 
 ---
 

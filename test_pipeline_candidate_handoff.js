@@ -68,6 +68,15 @@ function scannerCandidate(overrides = {}) {
   };
 }
 
+function emptyDedupSnapshot() {
+  return {
+    schemaVersion: 1,
+    updatedAt: new Date().toISOString(),
+    observedKeys: [],
+    pairLastObservedMs: {}
+  };
+}
+
 (async () => {
   const originalCwd = process.cwd();
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "fomo-handoff-"));
@@ -79,9 +88,15 @@ function scannerCandidate(overrides = {}) {
     "paper_trades.json"
   ].filter(file => fs.existsSync(file));
   const beforeHashes = Object.fromEntries(protectedFiles.map(file => [file, hash(file)]));
+  const tempDedupFile = path.join(os.tmpdir(), `fomo-handoff-dedup-${Date.now()}.json`);
 
   let submitCalls = 0;
   try {
+    observation.setObservationDedupFileForTest(tempDedupFile);
+    const resetObservationDedupState = () => {
+      fs.writeFileSync(tempDedupFile, `${JSON.stringify(emptyDedupSnapshot(), null, 2)}\n`);
+      observation.resetObservationDedupForTest();
+    };
     process.chdir(tempDir);
     scanner.logPaperTrade(scannerCandidate());
     const paperRows = readJsonLines(scanner.PAPER_FILE);
@@ -162,7 +177,7 @@ function scannerCandidate(overrides = {}) {
       };
     });
 
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([]);
 
     const pipelineCandidates = observation.findCandidates(cfg("PIPELINE_DRY_RUN"));
@@ -202,7 +217,7 @@ function scannerCandidate(overrides = {}) {
       pairAddress: "QuoteAbortPair444444444444444444444444444",
       candidateIntentId: "quote-abort-fixture"
     };
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([]);
     observation.setPipelineCandidateQueueForTest([quoteFailCandidate]);
     observation.setCandidatePoolForTest([]);
@@ -227,7 +242,7 @@ function scannerCandidate(overrides = {}) {
       aborted.livePositionCreated === false,
     "typed observation abort did not preserve safety invariant fields");
 
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([]);
     observation.setPipelineCandidateQueueForTest([quoteFailCandidate]);
     observation.setCandidatePoolForTest([]);
@@ -238,7 +253,7 @@ function scannerCandidate(overrides = {}) {
     assert(unexpected.action === "OBSERVATION_ERROR",
       "unexpected observation exception should still return OBSERVATION_ERROR");
 
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([{
       eventType: "EXECUTION_STAGE",
       stage: "PIPELINE_DRY_RUN",
@@ -262,7 +277,7 @@ function scannerCandidate(overrides = {}) {
       candidateIntentId: undefined,
       timestamp: "2026-01-01T00:30:00.000Z"
     };
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([{
       timestamp: "2026-01-01T00:00:00.000Z",
       eventType: "EXECUTION_STAGE",
@@ -286,7 +301,7 @@ function scannerCandidate(overrides = {}) {
       candidateIntentId: "quote-abort-new-intent-within-cooldown",
       timestamp: "2026-01-01T00:30:00.000Z"
     };
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([{
       timestamp: "2026-01-01T00:00:00.000Z",
       eventType: "EXECUTION_STAGE",
@@ -310,7 +325,7 @@ function scannerCandidate(overrides = {}) {
       candidateIntentId: "quote-abort-new-intent-after-cooldown",
       timestamp: "2026-01-01T01:01:00.000Z"
     };
-    observation.resetObservationDedupForTest();
+    resetObservationDedupState();
     observation.setObservationAuditRowsForTest([{
       timestamp: "2026-01-01T00:00:00.000Z",
       eventType: "EXECUTION_STAGE",
@@ -347,6 +362,8 @@ function scannerCandidate(overrides = {}) {
     observation.resetObservationSubmitSwapForTest();
     observation.resetObservationAuditRowsForTest();
     observation.resetObservationDedupForTest();
+    observation.resetObservationDedupFileForTest();
+    if (fs.existsSync(tempDedupFile)) fs.unlinkSync(tempDedupFile);
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 })().catch(error => {
