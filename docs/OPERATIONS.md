@@ -27,6 +27,15 @@ Safe state should show:
 
 Also check `live_config.json` manually if needed. Do not change it to `LIVE` during migration.
 
+## Mode transitions
+
+Execution mode controls whether the executor **observes** the swap pipeline, runs **legacy dry-run entries**, or **submits live trades**. The most important operational fact: **`PIPELINE_DRY_RUN` does not call `manageOpenPositions`** — open live positions are not exited while you stay in pipeline mode.
+
+Read the full runbook before changing `executionMode` or live env flags:
+
+- **[docs/MODE_TRANSITION.md](./MODE_TRANSITION.md)** — mode matrix, wind-down procedure, pre-flip checklist
+- **[LIVE_AUTHORIZATION_RECORD.md](../LIVE_AUTHORIZATION_RECORD.md)** — required before any LIVE flip
+
 ## Start Scanner
 
 Run one scanner pass:

@@ -200,14 +200,14 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### `PIPELINE_DRY_RUN` skips open live position management
+### ~~`PIPELINE_DRY_RUN` skips open live position management~~ (documented — Sprint 1 Q8)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Executor in pipeline mode does not call `manageOpenPositions`. |
-| **Impact** | Mode flip to live without runbook may leave position management ambiguous during transition. |
-| **Possible solution** | Document mode transition; explicit "wind down pipeline → enable live management" procedure; config guard. |
-| **Dependencies** | Live go-live runbook; operator training. |
+| **Description** | Executor in `PIPELINE_DRY_RUN` intentionally does not call `manageOpenPositions`. Open live positions are not exited while in pipeline mode. |
+| **Impact** | Flipping to `DRY_RUN` or `LIVE` without a runbook starts live position management on the next cycle — easy to misunderstand during transition. |
+| **Status** | **Documented** — see **[MODE_TRANSITION.md](./MODE_TRANSITION.md)** (mode matrix, wind-down, pre-flip checklist). |
+| **Note** | A future config guard remains optional (medium-term); Q8 is documentation only. |
 
 ---
 
