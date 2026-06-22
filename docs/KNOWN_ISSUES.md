@@ -181,13 +181,14 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### GMGN CLI subprocess fragility
+### GMGN CLI subprocess fragility (partially resolved — Sprint 2 M4)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Blocking `execSync` with 30s timeout, `shell: true`, no circuit breaker or structured retry. |
 | **Impact** | Silent scanner degradation; missed candidates; operator sees empty scans. |
-| **Possible solution** | Structured API client with retries, backoff, health metric, alert on zero trending rows N cycles. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 2 M4). Scanner writes `scanner_health.json` each cycle (`lastScanAt`, interval results, funnel stats, error counters). Dashboard read-only scanner health panel distinguishes HEALTHY / DEGRADED / STALLED / NO DATA and quiet market vs GMGN failure. CLI fragility and retries remain. |
+| **Possible solution** | Structured API client with retries, backoff, circuit breaker; M5 process heartbeats. |
 | **Dependencies** | GMGN availability in TracktaOS runtime; API terms. |
 
 ---

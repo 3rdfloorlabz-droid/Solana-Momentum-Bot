@@ -6,7 +6,12 @@ const DEX = "https://api.dexscreener.com";
 const PAPER_FILE = "paper_trades.json";
 const NEAR_MISS_FILE = "near_misses.json";
 const PIPELINE_CANDIDATES_FILE = "pipeline_candidates.jsonl";
+const SCANNER_HEALTH_FILE = "scanner_health.json";
 const WATCH_MODE = process.argv.includes("--watch");
+const WATCH_INTERVAL_MS = 60 * 1000;
+
+let scannerHealthFileForTest = null;
+let activeScanHealth = null;
 
 const MIN_SCORE_TO_LOG = 79;
 const REENTRY_COOLDOWN_HOURS = 24;
@@ -112,6 +117,7 @@ function getGmgnTrending() {
   const unique = new Map();
 
   for (const interval of TRENDING_INTERVALS) {
+    const intervalStats = { ok: true, rowCount: 0, error: null };
     try {
       console.log(`Fetching GMGN trending interval: ${interval}`);
 
@@ -120,44 +126,63 @@ function getGmgnTrending() {
       );
 
       const json = safeJsonParse(output, `GMGN TRENDING ${interval}`);
-      const rank = json?.data?.rank || [];
+      if (!json) {
+        intervalStats.ok = false;
+        intervalStats.error = "json parse failed";
+        if (activeScanHealth) {
+          activeScanHealth.errors.gmgnTrendingFailures += 1;
+          activeScanHealth.errors.lastError = `GMGN TRENDING ${interval} JSON parse failed`;
+        }
+      } else {
+        const rank = json?.data?.rank || [];
+        intervalStats.rowCount = rank.length;
 
-      for (const item of rank) {
-        if (!item.address) continue;
+        for (const item of rank) {
+          if (!item.address) continue;
 
-        const existing = unique.get(item.address);
+          const existing = unique.get(item.address);
 
-        if (!existing) {
-          unique.set(item.address, {
-            ...item,
-            intervals: [interval]
-          });
-        } else {
-          existing.intervals.push(interval);
-
-          const existingScore =
-            Number(existing.volume || 0) +
-            Math.abs(Number(existing.price_change_percent1h || 0));
-
-          const newScore =
-            Number(item.volume || 0) +
-            Math.abs(Number(item.price_change_percent1h || 0));
-
-          if (newScore > existingScore) {
+          if (!existing) {
             unique.set(item.address, {
               ...item,
-              intervals: existing.intervals
+              intervals: [interval]
             });
+          } else {
+            existing.intervals.push(interval);
+
+            const existingScore =
+              Number(existing.volume || 0) +
+              Math.abs(Number(existing.price_change_percent1h || 0));
+
+            const newScore =
+              Number(item.volume || 0) +
+              Math.abs(Number(item.price_change_percent1h || 0));
+
+            if (newScore > existingScore) {
+              unique.set(item.address, {
+                ...item,
+                intervals: existing.intervals
+              });
+            }
           }
         }
       }
     } catch (err) {
+      intervalStats.ok = false;
+      intervalStats.error = String(err.message || err).slice(0, 200);
       console.log(`GMGN trending fetch failed for interval ${interval}.`);
       if (err.stderr) console.log(err.stderr.toString());
       console.log(err.message);
+      if (activeScanHealth) {
+        activeScanHealth.errors.gmgnTrendingFailures += 1;
+        activeScanHealth.errors.lastError =
+          `GMGN trending fetch failed for interval ${interval}: ${intervalStats.error}`;
+      }
     }
+    if (activeScanHealth) activeScanHealth.trendingIntervals[interval] = intervalStats;
   }
 
+  if (activeScanHealth) activeScanHealth.uniqueTokenCount = unique.size;
   return [...unique.values()];
 }
 
@@ -166,12 +191,19 @@ async function getBestPair(tokenAddress) {
     const res = await axios.get(`${DEX}/token-pairs/v1/solana/${tokenAddress}`);
     const pairs = res.data || [];
 
-    if (!pairs.length) return null;
+    if (!pairs.length) {
+      if (activeScanHealth) activeScanHealth.errors.dexPairFailures += 1;
+      return null;
+    }
 
     pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
 
     return pairs[0];
-  } catch {
+  } catch (err) {
+    if (activeScanHealth) {
+      activeScanHealth.errors.dexPairFailures += 1;
+      activeScanHealth.errors.lastError = `Dex pair fetch failed: ${String(err.message || err).slice(0, 120)}`;
+    }
     return null;
   }
 }
@@ -179,8 +211,17 @@ async function getBestPair(tokenAddress) {
 function getGmgnInfo(address) {
   try {
     const output = gmgnCli(`gmgn-cli token info --chain sol --address ${address}`);
-    return safeJsonParse(output, "GMGN INFO");
-  } catch {
+    const parsed = safeJsonParse(output, "GMGN INFO");
+    if (!parsed && activeScanHealth) {
+      activeScanHealth.errors.gmgnInfoFailures += 1;
+      activeScanHealth.errors.lastError = "GMGN INFO JSON parse failed";
+    }
+    return parsed;
+  } catch (err) {
+    if (activeScanHealth) {
+      activeScanHealth.errors.gmgnInfoFailures += 1;
+      activeScanHealth.errors.lastError = `GMGN INFO failed: ${String(err.message || err).slice(0, 120)}`;
+    }
     return null;
   }
 }
@@ -188,8 +229,17 @@ function getGmgnInfo(address) {
 function getGmgnPool(address) {
   try {
     const output = gmgnCli(`gmgn-cli token pool --chain sol --address ${address}`);
-    return safeJsonParse(output, "GMGN POOL");
-  } catch {
+    const parsed = safeJsonParse(output, "GMGN POOL");
+    if (!parsed && activeScanHealth) {
+      activeScanHealth.errors.gmgnPoolFailures += 1;
+      activeScanHealth.errors.lastError = "GMGN POOL JSON parse failed";
+    }
+    return parsed;
+  } catch (err) {
+    if (activeScanHealth) {
+      activeScanHealth.errors.gmgnPoolFailures += 1;
+      activeScanHealth.errors.lastError = `GMGN POOL failed: ${String(err.message || err).slice(0, 120)}`;
+    }
     return null;
   }
 }
@@ -310,6 +360,7 @@ function logNearMiss(c, reason) {
     chart: c.url
   });
 
+  if (activeScanHealth) activeScanHealth.scanStats.nearMissesLoggedThisScan += 1;
   console.log("🟡 NEAR MISS LOGGED");
 }
 
@@ -380,153 +431,321 @@ function buildPipelineCandidateIntent(c, timestamp = new Date().toISOString()) {
 
 function logPaperTrade(c) {
   const entryPrice = Number(c.priceUsd || 0);
-  if (!entryPrice) return;
+  if (!entryPrice) return false;
 
   if (alreadyOpen(c.address)) {
     console.log("Already open. Skipped duplicate.");
-    return;
+    return false;
   }
 
   if (recentlyLost(c.address)) {
     console.log("Recent loss cooldown. Skipped.");
-    return;
+    return false;
   }
 
   if (recentlyTraded(c.address, REENTRY_COOLDOWN_HOURS)) {
   console.log("Recent trade cooldown. Skipped.");
-  return;
+  return false;
   }
 
   const timestamp = new Date().toISOString();
   appendJsonLine(PAPER_FILE, buildPaperTradeRecord(c, timestamp));
   appendJsonLine(PIPELINE_CANDIDATES_FILE, buildPipelineCandidateIntent(c, timestamp));
 
+  if (activeScanHealth) activeScanHealth.scanStats.paperTradesLoggedThisScan += 1;
   console.log("📒 PAPER TRADE LOGGED");
+  return true;
+}
+
+// ─── Scanner health snapshot (M4) ─────────────────────────────────────────────
+
+function createScanHealthContext() {
+  return {
+    scanStartedAt: new Date().toISOString(),
+    scanStartedMs: Date.now(),
+    uniqueTokenCount: 0,
+    trendingIntervals: {},
+    errors: {
+      gmgnTrendingFailures: 0,
+      gmgnInfoFailures: 0,
+      gmgnPoolFailures: 0,
+      dexPairFailures: 0,
+      lastError: null
+    },
+    scanStats: {
+      pairsEvaluated: 0,
+      passedMomentumFilters: 0,
+      gmgnSafetyChecksRun: 0,
+      resultsCount: 0,
+      paperTradesLoggedThisScan: 0,
+      nearMissesLoggedThisScan: 0
+    }
+  };
+}
+
+function scannerHealthFilePath() {
+  return scannerHealthFileForTest || SCANNER_HEALTH_FILE;
+}
+
+function deriveLastScanStatus(ctx, overrides = {}) {
+  if (overrides.lastScanStatus) return overrides.lastScanStatus;
+  if (overrides.fatalError) return "failed";
+
+  const intervals = ctx.trendingIntervals || {};
+  const allIntervalsFailed = TRENDING_INTERVALS.every(interval => intervals[interval]?.ok === false);
+  if (allIntervalsFailed) return "failed";
+  if (ctx.uniqueTokenCount === 0 && ctx.errors.gmgnTrendingFailures >= TRENDING_INTERVALS.length) {
+    return "failed";
+  }
+  if (ctx.errors.gmgnTrendingFailures > 0 ||
+      ctx.errors.gmgnInfoFailures > 0 ||
+      ctx.errors.gmgnPoolFailures > 0 ||
+      TRENDING_INTERVALS.some(interval => intervals[interval]?.ok === false)) {
+    return "degraded";
+  }
+  return "ok";
+}
+
+function buildScannerHealthSnapshot(ctx, overrides = {}) {
+  const lastScanStatus = deriveLastScanStatus(ctx, overrides);
+  return {
+    schemaVersion: 1,
+    scannerFile: "scanner_gmgn_trending.js",
+    strategyVersion: STRATEGY_VERSION,
+    watchMode: WATCH_MODE,
+    scanIntervalMs: WATCH_INTERVAL_MS,
+    lastScanAt: overrides.lastScanAt || new Date().toISOString(),
+    lastScanStartedAt: ctx.scanStartedAt,
+    lastScanDurationMs: Math.max(0, Date.now() - ctx.scanStartedMs),
+    lastScanStatus,
+    quietMarket: lastScanStatus === "ok" && ctx.scanStats.resultsCount === 0,
+    trending: {
+      uniqueTokenCount: ctx.uniqueTokenCount,
+      intervals: ctx.trendingIntervals
+    },
+    scanStats: { ...ctx.scanStats },
+    errors: { ...ctx.errors },
+    ...(overrides.fatalError
+      ? { fatalError: String(overrides.fatalError).slice(0, 200) }
+      : {})
+  };
+}
+
+function writeScannerHealthSnapshot(snapshot, file = scannerHealthFilePath()) {
+  try {
+    fs.writeFileSync(file, `${JSON.stringify(snapshot, null, 2)}\n`);
+  } catch (err) {
+    console.log(`scanner health write failed: ${err.message}`);
+  }
+}
+
+function classifyScannerHealth(health, nowMs = Date.now()) {
+  if (!health || typeof health !== "object" || !health.lastScanAt) {
+    return {
+      status: "NO_DATA",
+      label: "NO DATA",
+      cls: "wc-red",
+      reasons: ["scanner_health.json missing or unreadable"]
+    };
+  }
+
+  const lastMs = new Date(health.lastScanAt).getTime();
+  if (!Number.isFinite(lastMs)) {
+    return {
+      status: "NO_DATA",
+      label: "NO DATA",
+      cls: "wc-red",
+      reasons: ["lastScanAt invalid"]
+    };
+  }
+
+  const ageMs = Math.max(0, nowMs - lastMs);
+  const intervalMs = Number(health.scanIntervalMs) > 0 ? Number(health.scanIntervalMs) : WATCH_INTERVAL_MS;
+  const reasons = [];
+
+  if (health.watchMode === true && ageMs > intervalMs * 2) {
+    reasons.push(`last scan ${Math.round(ageMs / 1000)}s ago (> 2× ${Math.round(intervalMs / 1000)}s interval)`);
+    return { status: "STALLED", label: "STALLED", cls: "wc-red", reasons, ageMs, intervalMs };
+  }
+
+  const intervalFailures = Object.values(health.trending?.intervals || {})
+    .some(interval => interval && interval.ok === false);
+  const degraded = health.lastScanStatus === "degraded" ||
+    health.lastScanStatus === "failed" ||
+    Number(health.errors?.gmgnTrendingFailures) > 0 ||
+    Number(health.errors?.gmgnInfoFailures) > 0 ||
+    Number(health.errors?.gmgnPoolFailures) > 0 ||
+    intervalFailures;
+
+  if (degraded) {
+    if (Number(health.errors?.gmgnTrendingFailures) > 0) {
+      reasons.push(`GMGN trending failures: ${health.errors.gmgnTrendingFailures}`);
+    }
+    if (intervalFailures) reasons.push("one or more GMGN trending intervals failed");
+    if (Number(health.errors?.gmgnInfoFailures) > 0) {
+      reasons.push(`GMGN info failures: ${health.errors.gmgnInfoFailures}`);
+    }
+    if (Number(health.errors?.gmgnPoolFailures) > 0) {
+      reasons.push(`GMGN pool failures: ${health.errors.gmgnPoolFailures}`);
+    }
+    if (!reasons.length) reasons.push(`lastScanStatus: ${health.lastScanStatus}`);
+    return { status: "DEGRADED", label: "DEGRADED", cls: "wc-yellow", reasons, ageMs, intervalMs };
+  }
+
+  if (health.quietMarket === true || Number(health.scanStats?.resultsCount) === 0) {
+    reasons.push("scan completed without GMGN errors — zero results may be quiet market/filters");
+  } else {
+    reasons.push("scan completed without GMGN errors");
+  }
+  return { status: "HEALTHY", label: "HEALTHY", cls: "wc-green", reasons, ageMs, intervalMs };
 }
 
 async function scan() {
-  console.log("\nScanner GMGN Trending: GMGN Trending + Dex Metrics + GMGN Filters\n");
+  activeScanHealth = createScanHealthContext();
+  try {
+    console.log("\nScanner GMGN Trending: GMGN Trending + Dex Metrics + GMGN Filters\n");
 
-  const trending = getGmgnTrending();
-  console.log(`GMGN trending tokens found: ${trending.length}`);
+    const trending = getGmgnTrending();
+    console.log(`GMGN trending tokens found: ${trending.length}`);
 
-  const candidates = [];
+    const candidates = [];
 
-  for (const trend of trending) {
-    const pair = await getBestPair(trend.address);
-    await sleep(120);
+    for (const trend of trending) {
+      const pair = await getBestPair(trend.address);
+      await sleep(120);
 
-    if (!pair) continue;
+      if (!pair) continue;
 
-    const score = scoreCandidate(pair, trend);
+      const score = scoreCandidate(pair, trend);
 
-    candidates.push({
-      trend,
-      score,
-      address: trend.address,
-      symbol: pair.baseToken?.symbol || trend.symbol || "???",
-      name: pair.baseToken?.name || trend.name || "Unknown",
-      pairAddress: pair.pairAddress,
-      priceUsd: Number(pair.priceUsd || trend.price || 0),
-      liquidity: pair.liquidity?.usd || trend.liquidity || 0,
-      marketCap: pair.marketCap || pair.fdv || trend.market_cap || 0,
-      volume5m: pair.volume?.m5 || 0,
-      volume1h: pair.volume?.h1 || trend.volume || 0,
-      buys5m: pair.txns?.m5?.buys || 0,
-      sells5m: pair.txns?.m5?.sells || 0,
-      change5m: pair.priceChange?.m5 || trend.price_change_percent5m || 0,
-      change1h: pair.priceChange?.h1 || trend.price_change_percent1h || 0,
-      url: pair.url
-    });
-  }
-
-  candidates.sort((a, b) => b.score - a.score);
-  const passedDex = candidates.filter(c => c.score > 0).slice(0, 20);
-
-  console.log(`Pairs evaluated: ${candidates.length}`);
-  console.log(`Passed momentum filters: ${passedDex.length}`);
-
-  console.log("\nTop candidates before GMGN:");
-  for (const c of candidates.slice(0, 10)) {
-    console.log(
-      `${c.symbol} | Score ${c.score} | MC $${Math.round(c.marketCap).toLocaleString()} | Liq $${Math.round(c.liquidity).toLocaleString()} | Vol5m $${Math.round(c.volume5m).toLocaleString()} | Vol1h $${Math.round(c.volume1h).toLocaleString()} | 5m ${c.change5m}% | 1h ${c.change1h}% | Buys/Sells ${c.buys5m}/${c.sells5m}`
-    );
-  }
-
-  const results = [];
-
-  for (const c of passedDex) {
-    console.log(`\nGMGN checking: ${c.symbol}`);
-    console.log(`Address: ${c.address}`);
-
-    const info = getGmgnInfo(c.address);
-    await sleep(200);
-
-    const pool = getGmgnPool(c.address);
-    await sleep(200);
-
-    c.holderCount = Number(info?.holder_count || c.trend.holder_count || 0);
-    c.top10HolderRate = Number(info?.stat?.top_10_holder_rate || c.trend.top_10_holder_rate || 0);
-    c.botDegenRate = Number(info?.stat?.bot_degen_rate || c.trend.bot_degen_rate || 0);
-    c.bundlerRate = Number(c.trend.bundler_rate || info?.stat?.top_bundler_trader_percentage || 0);
-    c.poolLiquidity = Number(pool?.liquidity || c.trend.liquidity || 0);
-
-    const reason = rejectReason(info, pool, c.trend);
-
-    if (reason) {
-      console.log(`Rejected: ${c.symbol} | ${reason}`);
-      if (c.score >= 70) logNearMiss(c, `HIGH SCORE REJECT | ${reason}`);
-      continue;
+      candidates.push({
+        trend,
+        score,
+        address: trend.address,
+        symbol: pair.baseToken?.symbol || trend.symbol || "???",
+        name: pair.baseToken?.name || trend.name || "Unknown",
+        pairAddress: pair.pairAddress,
+        priceUsd: Number(pair.priceUsd || trend.price || 0),
+        liquidity: pair.liquidity?.usd || trend.liquidity || 0,
+        marketCap: pair.marketCap || pair.fdv || trend.market_cap || 0,
+        volume5m: pair.volume?.m5 || 0,
+        volume1h: pair.volume?.h1 || trend.volume || 0,
+        buys5m: pair.txns?.m5?.buys || 0,
+        sells5m: pair.txns?.m5?.sells || 0,
+        change5m: pair.priceChange?.m5 || trend.price_change_percent5m || 0,
+        change1h: pair.priceChange?.h1 || trend.price_change_percent1h || 0,
+        url: pair.url
+      });
     }
 
-    results.push(c);
-  }
+    candidates.sort((a, b) => b.score - a.score);
+    const passedDex = candidates.filter(c => c.score > 0).slice(0, 20);
+    activeScanHealth.scanStats.pairsEvaluated = candidates.length;
+    activeScanHealth.scanStats.passedMomentumFilters = passedDex.length;
 
-  console.log("\n=== GMGN TRENDING RESULTS ===\n");
+    console.log(`Pairs evaluated: ${candidates.length}`);
+    console.log(`Passed momentum filters: ${passedDex.length}`);
 
-  if (!results.length) {
-    console.log("No quality GMGN trending setups found right now.\n");
-    return;
-  }
+    console.log("\nTop candidates before GMGN:");
+    for (const c of candidates.slice(0, 10)) {
+      console.log(
+        `${c.symbol} | Score ${c.score} | MC $${Math.round(c.marketCap).toLocaleString()} | Liq $${Math.round(c.liquidity).toLocaleString()} | Vol5m $${Math.round(c.volume5m).toLocaleString()} | Vol1h $${Math.round(c.volume1h).toLocaleString()} | 5m ${c.change5m}% | 1h ${c.change1h}% | Buys/Sells ${c.buys5m}/${c.sells5m}`
+      );
+    }
 
-  for (const r of results) {
-    const status = r.score >= MIN_SCORE_TO_LOG ? "TRADE WATCH" : "WATCH ONLY";
+    const results = [];
 
-    console.log(`${status} | ${r.symbol} | ${r.name}`);
-    console.log(`Score: ${r.score}/100`);
-    console.log(`Address: ${r.address}`);
-    console.log(`Price: $${r.priceUsd}`);
-    console.log(`Market Cap: $${Math.round(r.marketCap).toLocaleString()}`);
-    console.log(`Liquidity: $${Math.round(r.liquidity).toLocaleString()}`);
-    console.log(`Pool Liquidity: $${Math.round(r.poolLiquidity).toLocaleString()}`);
-    console.log(`Holders: ${r.holderCount}`);
-    console.log(`Top 10 Holder Rate: ${(r.top10HolderRate * 100).toFixed(2)}%`);
-    console.log(`Bot Degen Rate: ${(r.botDegenRate * 100).toFixed(2)}%`);
-    console.log(`Bundler Rate: ${(r.bundlerRate * 100).toFixed(2)}%`);
-    console.log(`Vol 5m: $${Math.round(r.volume5m).toLocaleString()}`);
-    console.log(`Vol 1h: $${Math.round(r.volume1h).toLocaleString()}`);
-    console.log(`Buys/Sells 5m: ${r.buys5m}/${r.sells5m}`);
-    console.log(`Change 5m: ${r.change5m}%`);
-    console.log(`Change 1h: ${r.change1h}%`);
-    console.log(`Chart: ${r.url}`);
+    for (const c of passedDex) {
+      activeScanHealth.scanStats.gmgnSafetyChecksRun += 1;
+      console.log(`\nGMGN checking: ${c.symbol}`);
+      console.log(`Address: ${c.address}`);
 
-    if (r.score >= MIN_SCORE_TO_LOG) logPaperTrade(r);
+      const info = getGmgnInfo(c.address);
+      await sleep(200);
 
-    console.log("--------------------------------\n");
+      const pool = getGmgnPool(c.address);
+      await sleep(200);
+
+      c.holderCount = Number(info?.holder_count || c.trend.holder_count || 0);
+      c.top10HolderRate = Number(info?.stat?.top_10_holder_rate || c.trend.top_10_holder_rate || 0);
+      c.botDegenRate = Number(info?.stat?.bot_degen_rate || c.trend.bot_degen_rate || 0);
+      c.bundlerRate = Number(c.trend.bundler_rate || info?.stat?.top_bundler_trader_percentage || 0);
+      c.poolLiquidity = Number(pool?.liquidity || c.trend.liquidity || 0);
+
+      const reason = rejectReason(info, pool, c.trend);
+
+      if (reason) {
+        console.log(`Rejected: ${c.symbol} | ${reason}`);
+        if (c.score >= 70) logNearMiss(c, `HIGH SCORE REJECT | ${reason}`);
+        continue;
+      }
+
+      results.push(c);
+    }
+
+    activeScanHealth.scanStats.resultsCount = results.length;
+
+    console.log("\n=== GMGN TRENDING RESULTS ===\n");
+
+    if (!results.length) {
+      console.log("No quality GMGN trending setups found right now.\n");
+      return;
+    }
+
+    for (const r of results) {
+      const status = r.score >= MIN_SCORE_TO_LOG ? "TRADE WATCH" : "WATCH ONLY";
+
+      console.log(`${status} | ${r.symbol} | ${r.name}`);
+      console.log(`Score: ${r.score}/100`);
+      console.log(`Address: ${r.address}`);
+      console.log(`Price: $${r.priceUsd}`);
+      console.log(`Market Cap: $${Math.round(r.marketCap).toLocaleString()}`);
+      console.log(`Liquidity: $${Math.round(r.liquidity).toLocaleString()}`);
+      console.log(`Pool Liquidity: $${Math.round(r.poolLiquidity).toLocaleString()}`);
+      console.log(`Holders: ${r.holderCount}`);
+      console.log(`Top 10 Holder Rate: ${(r.top10HolderRate * 100).toFixed(2)}%`);
+      console.log(`Bot Degen Rate: ${(r.botDegenRate * 100).toFixed(2)}%`);
+      console.log(`Bundler Rate: ${(r.bundlerRate * 100).toFixed(2)}%`);
+      console.log(`Vol 5m: $${Math.round(r.volume5m).toLocaleString()}`);
+      console.log(`Vol 1h: $${Math.round(r.volume1h).toLocaleString()}`);
+      console.log(`Buys/Sells 5m: ${r.buys5m}/${r.sells5m}`);
+      console.log(`Change 5m: ${r.change5m}%`);
+      console.log(`Change 1h: ${r.change1h}%`);
+      console.log(`Chart: ${r.url}`);
+
+      if (r.score >= MIN_SCORE_TO_LOG) logPaperTrade(r);
+
+      console.log("--------------------------------\n");
+    }
+  } finally {
+    if (activeScanHealth) {
+      writeScannerHealthSnapshot(buildScannerHealthSnapshot(activeScanHealth));
+      activeScanHealth = null;
+    }
   }
 }
 
 async function main() {
   if (!WATCH_MODE) {
-    await scan();
+    try {
+      await scan();
+    } catch (err) {
+      const ctx = createScanHealthContext();
+      writeScannerHealthSnapshot(buildScannerHealthSnapshot(ctx, { fatalError: err.message, lastScanStatus: "failed" }));
+      throw err;
+    }
     return;
   }
 
   while (true) {
     console.clear();
-    await scan();
+    try {
+      await scan();
+    } catch (err) {
+      console.error("Scan failed:", err.message);
+    }
     console.log("Next scan in 60 seconds. Press Ctrl+C to stop.");
-    await sleep(60000);
+    await sleep(WATCH_INTERVAL_MS);
   }
 }
 
@@ -538,12 +757,21 @@ module.exports = {
   PAPER_FILE,
   NEAR_MISS_FILE,
   PIPELINE_CANDIDATES_FILE,
+  SCANNER_HEALTH_FILE,
   STRATEGY_VERSION,
   MONITOR_VERSION,
+  WATCH_INTERVAL_MS,
   appendJsonLine,
   readJsonLines,
   buildPaperTradeRecord,
   buildPipelineCandidateIntent,
+  buildScannerHealthSnapshot,
+  classifyScannerHealth,
+  createScanHealthContext,
+  deriveLastScanStatus,
+  writeScannerHealthSnapshot,
   computeScannerThesisMatch,
-  logPaperTrade
+  logPaperTrade,
+  setScannerHealthFileForTest: file => { scannerHealthFileForTest = file; },
+  resetScannerHealthFileForTest: () => { scannerHealthFileForTest = null; }
 };

@@ -10,6 +10,13 @@ try {
   // If live_executor.js is not present, dashboard still works.
 }
 
+let scannerHealthModule = null;
+try {
+  scannerHealthModule = require("./scanner_gmgn_trending");
+} catch {
+  // Scanner module optional for dashboard render fallback.
+}
+
 const app = express();
 const PORT = 3000;
 const ROOT = __dirname;
@@ -31,6 +38,7 @@ const AUDIT_TAIL_MAX_LINES = 500;
 const WALLET_STATUS_FILE = path.join(ROOT, "wallet_status.json");
 const WALLET_HISTORY_FILE = path.join(ROOT, "wallet_history.jsonl");
 const RPC_HEALTH_FILE = path.join(ROOT, "rpc_health.json");
+const SCANNER_HEALTH_FILE = path.join(ROOT, "scanner_health.json");
 const EMERGENCY_STOP_FILE = path.join(ROOT, "emergency_stop.js");
 const LIVE_LOGGER_FILE = path.join(ROOT, "live_trade_logger.js");
 const LIVE_EXECUTOR_FILE = path.join(ROOT, "live_executor.js");
@@ -314,12 +322,19 @@ function brandHeader(context = "") {
 }
 
 function systemStatusPanel() {
+  const { classified } = getScannerHealthClassification();
+  const scannerCls = classified.status === "HEALTHY"
+    ? "positive"
+    : classified.status === "DEGRADED"
+      ? "wc-text-warn"
+      : "negative";
+
   return `
     <section class="system-status-panel">
       <div class="terminal-label">SYSTEM PROCESS MATRIX</div>
       <div class="status-grid">
         <div class="status-row"><span>SYSTEM STATUS</span><strong><i></i>ONLINE</strong></div>
-        <div class="status-row"><span>SCANNER</span><strong><i></i>RUNNING</strong></div>
+        <div class="status-row"><span>SCANNER</span><strong class="${scannerCls}"><i></i>${escapeHtml(classified.label)}</strong></div>
         <div class="status-row"><span>MONITOR</span><strong><i></i>RUNNING</strong></div>
         <div class="status-row"><span>FOLLOWUP</span><strong><i></i>RUNNING</strong></div>
         <div class="status-row"><span>DASHBOARD</span><strong><i></i>ACTIVE</strong></div>
@@ -1185,6 +1200,106 @@ function rpcVisibilityContext() {
 function rpcSourceValueCls(source) {
   if (source.publicFallbackUsed || source.dedicatedMissing) return "wc-warn";
   return "wc-pos";
+}
+
+function loadScannerHealth() {
+  if (!fs.existsSync(SCANNER_HEALTH_FILE)) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(SCANNER_HEALTH_FILE, "utf8"));
+    return parsed?.schemaVersion === 1 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function getScannerHealthClassification(nowMs = Date.now()) {
+  const health = loadScannerHealth();
+  if (scannerHealthModule?.classifyScannerHealth) {
+    return { health, classified: scannerHealthModule.classifyScannerHealth(health, nowMs) };
+  }
+  return {
+    health,
+    classified: {
+      status: "NO_DATA",
+      label: "NO DATA",
+      cls: "wc-red",
+      reasons: ["scanner health module unavailable"]
+    }
+  };
+}
+
+function formatScannerAge(ageMs) {
+  if (!Number.isFinite(ageMs)) return "—";
+  const sec = Math.round(ageMs / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 120) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  return `${hr}h ago`;
+}
+
+function scannerHealthPanel() {
+  const { health, classified } = getScannerHealthClassification();
+  const card = (label, value, cls = "") =>
+    `<div class="wc-card"><div class="wc-label">${escapeHtml(label)}</div><div class="wc-value ${cls}">${escapeHtml(String(value ?? "—"))}</div></div>`;
+
+  const intervalRows = health?.trending?.intervals
+    ? Object.entries(health.trending.intervals).map(([interval, item]) => {
+        const ok = item?.ok === true;
+        const detail = ok
+          ? `${item.rowCount ?? 0} rows`
+          : escapeHtml(item?.error || "failed");
+        return `<div><span>GMGN ${escapeHtml(interval)}</span><strong class="${ok ? "wc-pos" : "wc-neg"}">${ok ? "OK" : "FAIL"} · ${detail}</strong></div>`;
+      }).join("")
+    : `<div><span>GMGN intervals</span><strong>—</strong></div>`;
+
+  const quietNote = health && classified.status === "HEALTHY" && Number(health.scanStats?.resultsCount) === 0
+    ? `<div class="wc-stale scanner-note-clean">Zero results with a clean scan usually means quiet market or strict filters — not executor or pipeline failure.</div>`
+    : "";
+
+  const reasonNote = classified.reasons?.length
+    ? `<div class="wc-subtitle">${classified.reasons.map(r => escapeHtml(r)).join(" · ")}</div>`
+    : "";
+
+  return `
+  <section class="panel wc-panel scanner-health-panel">
+    <div class="wc-title-row">
+      <h2 class="wc-heading">⟐ SCANNER HEALTH &amp; DISCOVERY</h2>
+      <div class="wc-health-badge ${classified.cls}">${escapeHtml(classified.label)}</div>
+    </div>
+    <div class="wc-subtitle">Discovery layer only — not pipeline execution, liveArmed, or paper PnL. Stalled scanner ≠ executor failure.</div>
+    ${!health ? `<div class="wc-stale">No scanner_health.json yet — run: <code>node scanner_gmgn_trending.js --watch</code></div>` : ""}
+    ${reasonNote}
+    ${quietNote}
+
+    <div class="wc-cards">
+      ${card("Last Scan", health?.lastScanAt ? formatDate(health.lastScanAt) : "—")}
+      ${card("Scan Age", health ? formatScannerAge(classified.ageMs) : "—",
+        classified.status === "STALLED" ? "wc-neg" : classified.status === "HEALTHY" ? "wc-pos" : "wc-warn")}
+      ${card("Mode", health ? (health.watchMode ? `watch (${Math.round((health.scanIntervalMs || 60000) / 1000)}s)` : "single pass") : "—")}
+      ${card("Scan Status", health?.lastScanStatus || "—",
+        health?.lastScanStatus === "ok" ? "wc-pos" : health?.lastScanStatus === "degraded" ? "wc-warn" : health ? "wc-neg" : "")}
+      ${card("Trending Tokens", health?.trending?.uniqueTokenCount ?? "—")}
+      ${card("Results / Paper", health
+        ? `${health.scanStats?.resultsCount ?? 0} results · ${health.scanStats?.paperTradesLoggedThisScan ?? 0} paper`
+        : "—")}
+      ${card("Pairs Evaluated", health?.scanStats?.pairsEvaluated ?? "—")}
+      ${card("Passed Momentum", health?.scanStats?.passedMomentumFilters ?? "—")}
+      ${card("Duration", health?.lastScanDurationMs != null ? `${Math.round(health.lastScanDurationMs / 1000)}s` : "—")}
+    </div>
+
+    <h3 class="table-heading">GMGN Intervals &amp; Errors (last scan)</h3>
+    <div class="mini-stats scanner-interval-stats">${intervalRows}</div>
+    <div class="mini-stats scanner-error-stats">
+      <div><span>Trending failures</span><strong>${health?.errors?.gmgnTrendingFailures ?? "—"}</strong></div>
+      <div><span>Info failures</span><strong>${health?.errors?.gmgnInfoFailures ?? "—"}</strong></div>
+      <div><span>Pool failures</span><strong>${health?.errors?.gmgnPoolFailures ?? "—"}</strong></div>
+      <div><span>Dex pair failures</span><strong>${health?.errors?.dexPairFailures ?? "—"}</strong></div>
+    </div>
+    ${health?.errors?.lastError
+      ? `<div class="wc-stale">Last error: ${escapeHtml(String(health.errors.lastError).slice(0, 240))}</div>`
+      : ""}
+  </section>`;
 }
 
 // ─── Wallet Connection Status Panel ───────────────────────────────────────────
@@ -2184,6 +2299,8 @@ function sharedStyles() {
     .thesis-estimated { background:rgba(255,155,11,.08); color:var(--amber); border:1px solid rgba(255,155,11,.28); border-radius:2px; padding:3px 7px; margin:2px 0 2px 4px; font-size:11px; font-style:italic; }
     .thesis-note { margin:10px 0 14px; padding:9px 13px; background:rgba(255,155,11,.07); border:1px solid rgba(255,155,11,.30); border-radius:3px; color:var(--amber); font-size:12px; line-height:1.55; }
     .thesis-note-clean { background:rgba(25,214,161,.06); border-color:rgba(25,214,161,.25); color:var(--green); }
+    .scanner-note-clean { background:rgba(25,214,161,.06); border-color:rgba(25,214,161,.25); color:var(--green); }
+    .scanner-interval-stats, .scanner-error-stats { margin-top:12px; }
     .thesis-cards { grid-template-columns:repeat(4,minmax(140px,1fr)); }
     .candidate-summary { display:grid; grid-template-columns:repeat(4,minmax(145px,1fr)); gap:10px; margin:14px 0; }
     .candidate-summary div { border:1px solid currentColor; border-radius:3px; padding:10px 12px; background:rgba(5,8,14,.72); }
@@ -2419,6 +2536,8 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
   ${brandHeader("Dashboard Terminal")}
 
   ${systemStatusPanel()}
+
+  ${scannerHealthPanel()}
 
   ${phase1ReadinessPanel(forwardTrades)}
 
