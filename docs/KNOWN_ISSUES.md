@@ -95,14 +95,14 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 
 ---
 
-### No CI test harness for safety gates (partial — Sprint 1 Q6 done, Q7 pending)
+### ~~No CI test harness for safety gates~~ (resolved — Sprint 1 Q7)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Root `run_safety_tests.js` and `npm test` now run the four core safety scripts in order with fail-fast. GitHub Actions workflow not yet added (Sprint 1 Q7). |
-| **Impact** | Local/PR enforcement still relies on developers running `npm test` until CI lands. |
-| **Status** | **In progress** — npm runner resolved Q6; GHA pending Q7. |
-| **Dependencies** | `.github/workflows/safety-tests.yml`; Node 18+ in CI. |
+| **Description** | `.github/workflows/safety-tests.yml` runs `npm ci` and `npm test` on push and pull_request to `main` (Node 20). Same four-script suite as local `run_safety_tests.js`. |
+| **Impact** | Was: safety regressions could merge without automated checks. |
+| **Status** | **Resolved** (2026-06-22, Sprint 1 Q7). |
+| **Note** | Branch protection requiring the workflow check is optional repo admin configuration. |
 
 ---
 

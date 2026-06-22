@@ -83,7 +83,9 @@ Equivalent manual run:
 node run_safety_tests.js
 ```
 
-Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`. GitHub Actions (Sprint 1 Q7) runs the same via `npm test`.
+Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`.
+
+**CI:** GitHub Actions workflow **Safety Tests** (`.github/workflows/safety-tests.yml`) runs `npm test` on every push and pull request to `main`.
 
 Additional tests: `test_step9a_signing.js`, `test_step9b_submission.js`, and others listed in [MIGRATION_NOTES.md](./MIGRATION_NOTES.md).
 
