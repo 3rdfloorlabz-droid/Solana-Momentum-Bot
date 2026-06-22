@@ -95,14 +95,14 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 
 ---
 
-### No CI test harness for safety gates
+### No CI test harness for safety gates (partial — Sprint 1 Q6 done, Q7 pending)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | `package.json` test script exits with error. Safety tests (`test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, etc.) are manual. |
-| **Impact** | Regressions in signer guards, handoff schema, or pipeline dry-run ship unnoticed during refactors. |
-| **Possible solution** | npm test runner invoking all `test_*.js`; GitHub Actions on PR. |
-| **Dependencies** | CI environment without secrets; deterministic test fixtures. |
+| **Description** | Root `run_safety_tests.js` and `npm test` now run the four core safety scripts in order with fail-fast. GitHub Actions workflow not yet added (Sprint 1 Q7). |
+| **Impact** | Local/PR enforcement still relies on developers running `npm test` until CI lands. |
+| **Status** | **In progress** — npm runner resolved Q6; GHA pending Q7. |
+| **Dependencies** | `.github/workflows/safety-tests.yml`; Node 18+ in CI. |
 
 ---
 
@@ -261,14 +261,13 @@ Hygiene, developer experience, and incremental improvements — address after hi
 
 ---
 
-### No npm test script integration
+### ~~No npm test script integration~~ (resolved — Sprint 1 Q6)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Related to CI gap but also affects local DX — `npm test` unusable. |
-| **Impact** | Friction for new contributors; inconsistent pre-commit behavior. |
-| **Possible solution** | Wire test runner; document in README. |
-| **Dependencies** | High-priority CI item can subsume this. |
+| **Description** | `npm test` runs `node run_safety_tests.js` (four core safety scripts). |
+| **Status** | **Resolved** (2026-06-22, Sprint 1 Q6). |
+| **Note** | `test_pipeline_candidate_handoff.js` calls `runCycle()` and expects committed `live_config.json` with `automationEnabled: true`; local changes from `reset_live_safety.js` can cause handoff failure until config is restored. |
 
 ---
 

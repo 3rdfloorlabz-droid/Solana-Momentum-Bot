@@ -69,16 +69,21 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 
 ---
 
-## Safety tests (manual until Sprint 1 CI)
+## Safety tests
 
 Run from repo root before executor changes:
 
 ```powershell
-node test_signer_guard.js
-node test_pipeline_candidate_handoff.js
-node test_pipeline_dry_run.js
-node test_observation_pool.js
+npm test
 ```
+
+Equivalent manual run:
+
+```powershell
+node run_safety_tests.js
+```
+
+Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`. GitHub Actions (Sprint 1 Q7) runs the same via `npm test`.
 
 Additional tests: `test_step9a_signing.js`, `test_step9b_submission.js`, and others listed in [MIGRATION_NOTES.md](./MIGRATION_NOTES.md).
 
