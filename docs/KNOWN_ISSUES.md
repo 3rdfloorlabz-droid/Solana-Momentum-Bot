@@ -106,14 +106,14 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 
 ---
 
-### `start_fomo.ps1` hardcoded wrong project path
+### ~~`start_fomo.ps1` hardcoded wrong project path~~ (resolved — Sprint 1 Q1/Q2)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Script uses `C:\Users\nalle\sol-momentum-bot` instead of current workspace path. |
-| **Impact** | Processes launch in wrong directory or fail; operator believes bot is running when it is not. |
-| **Possible solution** | Parameterize `$ProjectPath`; default to `$PSScriptRoot`; validate `live_config.json` exists before launch. |
-| **Dependencies** | Ops script ownership; `fomo_status.ps1` alignment. |
+| **Description** | Ops scripts used a hardcoded `C:\Users\nalle\sol-momentum-bot` path instead of the current workspace. |
+| **Impact** | Was: processes launched in wrong directory or failed; operator believed bot was running when it was not. |
+| **Status** | **Resolved** (Sprint 1 Q1/Q2). `start_fomo.ps1` defaults `$ProjectPath` to `$PSScriptRoot` and validates `live_config.json` before launch (`3b98588`). `fomo_status.ps1` uses the same path resolution (`b4e5949`). |
+| **Note** | Ops scripts accept optional `-ProjectPath`; default is repo root where the script lives. |
 
 ---
 
