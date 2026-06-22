@@ -7,7 +7,8 @@
 
 Phase 0 (preservation, migration, documentation, memory) is complete. Phase 1 does **not** add strategy features or live trading. It makes the existing system **understandable, reliable, and honestly measured** before any capital moves.
 
-**Source documents:** [ENGINEERING_REVIEW.md](./ENGINEERING_REVIEW.md) · [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) · [DECISIONS.md](./DECISIONS.md) · [ORI_MEMORY.md](./ORI_MEMORY.md)
+**Source documents:** [ENGINEERING_REVIEW.md](./ENGINEERING_REVIEW.md) · [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) · [DECISIONS.md](./DECISIONS.md) · [ORI_MEMORY.md](./ORI_MEMORY.md)  
+**Sprint execution plans:** [SPRINT_1_PLAN.md](./SPRINT_1_PLAN.md) · [SPRINT_1_REVIEW.md](./SPRINT_1_REVIEW.md) · [SPRINT_2_PLAN.md](./SPRINT_2_PLAN.md)
 
 ---
 
@@ -224,11 +225,13 @@ These are **correct by design** or **dangerous to change casually**. Phase 1 mus
 
 ### Sprint 1 — Quick wins (Q1–Q10)
 
-Focus: paths, CI, manifest, ledger naming, documentation. Mode behavior and transitions: **[MODE_TRANSITION.md](./MODE_TRANSITION.md)** (Q8).
+Focus: paths, CI, manifest, ledger naming, documentation. Mode behavior and transitions: **[MODE_TRANSITION.md](./MODE_TRANSITION.md)** (Q8).  
+**Complete:** see [SPRINT_1_REVIEW.md](./SPRINT_1_REVIEW.md). Task detail: [SPRINT_1_PLAN.md](./SPRINT_1_PLAN.md).
 
-### Sprint 2 — Honest measurement (M1–M4, M6–M8)
+### Sprint 2 — Honest measurement (M1–M4, M6–M8) ← **current phase**
 
-Focus: thesis visibility, dedup persistence, reconciliation panel, promotion checklist.
+Focus: thesis visibility, dedup persistence, reconciliation panel, promotion checklist.  
+**Execution plan:** [SPRINT_2_PLAN.md](./SPRINT_2_PLAN.md).
 
 ### Sprint 3 — Operational reliability (M5, M9–M10, A3–A4)
 
