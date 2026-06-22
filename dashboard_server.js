@@ -19,7 +19,8 @@ const NEAR_MISS_FILE = path.join(ROOT, "near_misses.json");
 const FOLLOWUP_FILE = path.join(ROOT, "near_miss_followups.json");
 const MONITOR_FILE = path.join(ROOT, "monitor.js");
 const CONFIG_FILE = path.join(ROOT, "live_config.json");
-const LIVE_TRADES_FILE = path.join(ROOT, "live_trades.json");
+const LIVE_TRADES_FILE =
+  liveExecutor?.FILES?.LIVE_TRADES_FILE || path.join(ROOT, "live_trades.jsonl");
 const WALLET_STATUS_FILE = path.join(ROOT, "wallet_status.json");
 const WALLET_HISTORY_FILE = path.join(ROOT, "wallet_history.jsonl");
 const RPC_HEALTH_FILE = path.join(ROOT, "rpc_health.json");
@@ -1340,7 +1341,7 @@ function liveExecutionPanel() {
 
   // Parse error warning
   const parseErrWarn = stats && stats.parseErrors > 0
-    ? `<div class="le-warning-banner">⚠ ${stats.parseErrors} unparseable line(s) in live_trades.json — file may be partially corrupt. Run node reset_live_safety.js --reset-live-trades to inspect.</div>`
+    ? `<div class="le-warning-banner">⚠ ${stats.parseErrors} unparseable line(s) in live_trades.jsonl — file may be partially corrupt. Run node reset_live_safety.js --reset-live-trades to inspect.</div>`
     : "";
 
   return `
@@ -1572,12 +1573,12 @@ function legacyPhase1ReadinessPanel(forwardTrades) {
         ${row("Drawdown stop available?", drawdownStopAvailable ? "YES — live_trade_logger.js" : "NO — FILE MISSING", drawdownStopAvailable)}
 
         ${subhead("📁  FILES")}
-        ${row("live_trades.json exists", ltStatus.exists ? "YES" : "NO", ltStatus.exists)}
+        ${row("live_trades.jsonl exists", ltStatus.exists ? "YES" : "NO", ltStatus.exists)}
         ${ltStatus.empty
-          ? row("live_trades.json empty and valid JSONL", "EMPTY — ready", true, "No prior live events")
+          ? row("live_trades.jsonl empty and valid JSONL", "EMPTY — ready", true, "No prior live events")
           : ltStatus.valid
-            ? rowWarn("live_trades.json empty and valid JSONL", `${ltStatus.eventCount} event(s) present`, "Has prior events — not empty but JSONL is valid")
-            : row("live_trades.json empty and valid JSONL", `INVALID — ${ltStatus.parseErrors} parse error(s)`, false, "Run: node reset_live_safety.js --reset-live-trades")}
+            ? rowWarn("live_trades.jsonl empty and valid JSONL", `${ltStatus.eventCount} event(s) present`, "Has prior events — not empty but JSONL is valid")
+            : row("live_trades.jsonl empty and valid JSONL", `INVALID — ${ltStatus.parseErrors} parse error(s)`, false, "Run: node reset_live_safety.js --reset-live-trades")}
         ${row("Live logger operational", liveLoggerAvailable ? "YES — live_trade_logger.js present" : "NO — FILE MISSING", liveLoggerAvailable)}
         ${row("Dashboard live panel operational", "YES — rendering now", true)}
 
@@ -1602,7 +1603,7 @@ function legacyPhase1ReadinessPanel(forwardTrades) {
       }${
         emergencyStopActive ? "Emergency stop active — run reset_live_safety.js. " : ""
       }${
-        !ltStatus.valid ? "live_trades.json invalid — run reset_live_safety.js --reset-live-trades. " : ""
+        !ltStatus.valid ? "live_trades.jsonl invalid — run reset_live_safety.js --reset-live-trades. " : ""
       }${
         !liveDisabled ? "liveTradingEnabled must remain false. " : ""
       }${
@@ -1629,7 +1630,6 @@ function phase1ReadinessPanel() {
     "positionSizeSol", "maxOpenTrades", "maxDailyLossSol", "maxDailyLossCount",
     "maxDrawdownPercent", "compoundingEnabled", "averagingDownEnabled", "martingaleEnabled"
   ];
-  const runtimeLiveTradesFile = liveExecutor?.FILES?.LIVE_TRADES_FILE || path.join(ROOT, "live_trades.jsonl");
   const requiredFiles = [
     ["live_config.json", CONFIG_FILE],
     ["wallet_status.json", WALLET_STATUS_FILE],
@@ -1644,7 +1644,7 @@ function phase1ReadinessPanel() {
   try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")); } catch (err) { cfgParseError = err.message; }
   try { wallet = JSON.parse(fs.readFileSync(WALLET_STATUS_FILE, "utf8")); } catch (err) { walletParseError = err.message; }
 
-  const ledger = readJsonLines(runtimeLiveTradesFile);
+  const ledger = readJsonLines(LIVE_TRADES_FILE);
   const missingFiles = requiredFiles.filter(([, file]) => !fs.existsSync(file)).map(([name]) => name);
   const missingConfigFields = cfg ? requiredConfigFields.filter(field => !Object.hasOwn(cfg, field)) : requiredConfigFields;
   const configInvalid = Boolean(cfgParseError) || missingConfigFields.length > 0;
@@ -1734,7 +1734,7 @@ function phase1ReadinessPanel() {
         ${row("updatedAt", wallet?.updatedAt ? formatDate(wallet.updatedAt) : "missing", Boolean(wallet?.updatedAt), wallet?.updatedAt || "")}
 
         ${subhead("SAFETY AND FILE HEALTH")}
-        ${row("Live JSONL", ledger.invalid === 0 ? `valid — ${ledger.rows.length} event(s)` : `${ledger.invalid} invalid line(s)`, ledger.invalid === 0, path.basename(runtimeLiveTradesFile))}
+        ${row("Live JSONL", ledger.invalid === 0 ? `valid — ${ledger.rows.length} event(s)` : `${ledger.invalid} invalid line(s)`, ledger.invalid === 0, path.basename(LIVE_TRADES_FILE))}
         ${row("Required files", missingFiles.length ? `missing: ${missingFiles.join(", ")}` : "all present", missingFiles.length === 0)}
         ${row("Configuration schema", configInvalid ? `invalid: ${missingConfigFields.join(", ") || cfgParseError}` : "valid", !configInvalid)}
         ${row("Real trading capability", cfg?.dryRunMode === true ? "DISABLED — DRY RUN" : "BLOCKED", cfg?.dryRunMode === true)}

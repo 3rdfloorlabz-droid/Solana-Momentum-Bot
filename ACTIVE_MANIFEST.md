@@ -140,7 +140,7 @@ These files are **runtime artifacts**, not source code. Most are gitignored or s
 | `rpc_health.json` | RPC ping statistics |
 | `simulation_results.json` | `simulate_live_executor.js` output |
 
-**Legacy note:** Some dashboard panels still reference `live_trades.json`; executor v2 writes `live_trades.jsonl` (Sprint 1 Q5 will align readers).
+**Dashboard:** Root `dashboard_server.js` reads the same canonical ledger via `liveExecutor.FILES.LIVE_TRADES_FILE` (fallback: `live_trades.jsonl`).
 
 ---
 

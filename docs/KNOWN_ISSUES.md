@@ -62,14 +62,14 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 
 ---
 
-### `live_trades.json` vs `live_trades.jsonl` split
+### ~~`live_trades.json` vs `live_trades.jsonl` split~~ (resolved — Sprint 1 Q5)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | `live_executor.js` (v2) writes `live_trades.jsonl`. `dashboard_server.js` and legacy copies reference `live_trades.json`. Readiness panel partially falls back to `.jsonl`. |
-| **Impact** | Operators see stale/empty live history; readiness checks disagree; migration imports wrong file. |
-| **Possible solution** | Canonicalize on `live_trades.jsonl`; update all readers; migrate or symlink legacy file once. |
-| **Dependencies** | Dashboard refactor; validation in `reset_live_safety.js` / `validate_live_system.js`. |
+| **Description** | Root `dashboard_server.js` now resolves `LIVE_TRADES_FILE` to `liveExecutor.FILES.LIVE_TRADES_FILE` with fallback to `live_trades.jsonl`, matching `live_executor.js` v2. Archive copies may still reference `.json`; do not run those. |
+| **Impact** | Was: operators saw stale/empty live history in some checks. |
+| **Status** | **Resolved** (2026-06-21, Sprint 1 Q5). |
+| **Note** | If a local orphan `live_trades.json` exists with history not in `.jsonl`, merge manually — executor does not read `.json`. |
 
 ---
 
