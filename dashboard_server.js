@@ -48,6 +48,15 @@ const MONITOR_VERSION = "monitor_v4";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CLOSED_STATUSES = new Set(["WIN", "LOSS", "TIMEOUT"]);
 
+// M5 — process heartbeat stale thresholds (seconds). Visibility only; not supervision.
+const HEARTBEAT_THRESHOLDS_SEC = {
+  scanner: 120,
+  executor: 150,
+  wallet_monitor: 90,
+  paper_monitor: 150,
+  dashboard: 90
+};
+
 function readJsonLines(file) {
   if (!fs.existsSync(file)) return { rows: [], invalid: 0 };
 
@@ -321,6 +330,160 @@ function brandHeader(context = "") {
   `;
 }
 
+// ─── Process Heartbeat Visibility (M5) ────────────────────────────────────────
+// Read-only proof-of-life for long-running processes. M5 answers "Are the parts
+// alive?" — it never starts, stops, restarts, spawns, kills, or PID-checks any
+// process. Supervisor behavior is A2 (Sprint 4), deliberately not implemented here.
+
+const HEARTBEAT_STATE_META = {
+  HEALTHY: { label: "HEALTHY", cls: "heartbeat-healthy" },
+  STALE: { label: "STALE", cls: "heartbeat-stale" },
+  MISSING: { label: "MISSING", cls: "heartbeat-missing" },
+  "NO DATA": { label: "NO DATA", cls: "heartbeat-no-data" }
+};
+
+function classifyHeartbeat(timestampMs, thresholdSec, { found = true } = {}, nowMs = Date.now()) {
+  if (!found) {
+    return { state: "MISSING", ageMs: null, ...HEARTBEAT_STATE_META.MISSING };
+  }
+  if (!Number.isFinite(timestampMs)) {
+    return { state: "NO DATA", ageMs: null, ...HEARTBEAT_STATE_META["NO DATA"] };
+  }
+  const ageMs = Math.max(0, nowMs - timestampMs);
+  if (ageMs > thresholdSec * 1000) {
+    return { state: "STALE", ageMs, ...HEARTBEAT_STATE_META.STALE };
+  }
+  return { state: "HEALTHY", ageMs, ...HEARTBEAT_STATE_META.HEALTHY };
+}
+
+function formatHeartbeatAge(ageMs) {
+  if (!Number.isFinite(ageMs)) return "—";
+  const sec = Math.round(ageMs / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 120) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  return `${hr}h ago`;
+}
+
+// Read-only: derive executor liveness from existing audit trail. No executor change.
+function latestExecutorCycleMs() {
+  if (!fs.existsSync(EXECUTION_AUDIT_FILE)) return { found: false, timestampMs: null };
+  let timestampMs = null;
+  try {
+    const { rows } = readJsonLinesTail(EXECUTION_AUDIT_FILE);
+    for (const row of rows) {
+      if (row && (row.stage === "CYCLE_END" || row.stage === "CYCLE_START")) {
+        const ms = Date.parse(row.timestamp);
+        if (Number.isFinite(ms) && (timestampMs === null || ms > timestampMs)) timestampMs = ms;
+      }
+    }
+  } catch {
+    return { found: true, timestampMs: null };
+  }
+  return { found: true, timestampMs };
+}
+
+function readJsonTimestamp(file, field) {
+  if (!fs.existsSync(file)) return { found: false, timestampMs: null };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    const ms = Date.parse(parsed?.[field]);
+    return { found: true, timestampMs: Number.isFinite(ms) ? ms : null };
+  } catch {
+    return { found: true, timestampMs: null };
+  }
+}
+
+function fileMtimeMs(file) {
+  if (!fs.existsSync(file)) return { found: false, timestampMs: null };
+  try {
+    return { found: true, timestampMs: fs.statSync(file).mtimeMs };
+  } catch {
+    return { found: true, timestampMs: null };
+  }
+}
+
+function buildHeartbeatContext(nowMs = Date.now()) {
+  const scanner = readJsonTimestamp(SCANNER_HEALTH_FILE, "lastScanAt");
+  const executor = latestExecutorCycleMs();
+  const wallet = readJsonTimestamp(WALLET_STATUS_FILE, "updatedAt");
+  const paper = fileMtimeMs(PAPER_FILE);
+
+  return [
+    {
+      key: "scanner",
+      label: "Scanner",
+      source: "scanner_health.json · lastScanAt",
+      thresholdSec: HEARTBEAT_THRESHOLDS_SEC.scanner,
+      ...scanner
+    },
+    {
+      key: "executor",
+      label: "Executor",
+      source: "execution_audit.jsonl · CYCLE_END (derived)",
+      thresholdSec: HEARTBEAT_THRESHOLDS_SEC.executor,
+      ...executor
+    },
+    {
+      key: "wallet_monitor",
+      label: "Wallet Monitor",
+      source: "wallet_status.json · updatedAt",
+      thresholdSec: HEARTBEAT_THRESHOLDS_SEC.wallet_monitor,
+      ...wallet
+    },
+    {
+      key: "paper_monitor",
+      label: "Paper Monitor",
+      source: "paper_trades.json · mtime (proxy)",
+      thresholdSec: HEARTBEAT_THRESHOLDS_SEC.paper_monitor,
+      ...paper
+    },
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      source: "self (internal)",
+      thresholdSec: HEARTBEAT_THRESHOLDS_SEC.dashboard,
+      found: true,
+      timestampMs: nowMs
+    }
+  ].map(p => ({ ...p, classification: classifyHeartbeat(p.timestampMs, p.thresholdSec, { found: p.found }, nowMs) }));
+}
+
+function processHeartbeatRow(proc) {
+  const c = proc.classification;
+  const proxyNote = proc.key === "paper_monitor" ? `<span class="hb-proxy">proxy</span>` : "";
+  return `<tr>
+    <td class="hb-proc">${escapeHtml(proc.label)}</td>
+    <td><span class="hb-badge ${c.cls}">${c.label}</span></td>
+    <td>${escapeHtml(formatHeartbeatAge(c.ageMs))}</td>
+    <td class="hb-source">${escapeHtml(proc.source)} ${proxyNote}</td>
+    <td>${proc.thresholdSec}s</td>
+  </tr>`;
+}
+
+function processHeartbeatPanel() {
+  const procs = buildHeartbeatContext();
+  return `
+  <section class="panel hb-panel">
+    <div class="hb-title-row">
+      <h2 class="hb-heading">⟐ PROCESS HEARTBEATS</h2>
+    </div>
+    <div class="hb-banner">Heartbeat status reflects recent proof of life, not process control.</div>
+    <table class="hb-table">
+      <thead><tr><th>Process</th><th>Status</th><th>Last proof of life</th><th>Source artifact</th><th>Threshold</th></tr></thead>
+      <tbody>${procs.map(processHeartbeatRow).join("")}</tbody>
+    </table>
+    <div class="hb-legend">
+      <span><span class="hb-badge heartbeat-healthy">HEALTHY</span> recent proof of life</span>
+      <span><span class="hb-badge heartbeat-stale">STALE</span> no recent proof of life — not necessarily dead</span>
+      <span><span class="hb-badge heartbeat-missing">MISSING</span> expected artifact absent</span>
+      <span><span class="hb-badge heartbeat-no-data">NO DATA</span> unreadable or invalid data</span>
+    </div>
+    <div class="hb-footer">M5 provides visibility only. Supervisor behavior belongs to A2.</div>
+  </section>`;
+}
+
 function systemStatusPanel() {
   const { classified } = getScannerHealthClassification();
   const scannerCls = classified.status === "HEALTHY"
@@ -329,15 +492,23 @@ function systemStatusPanel() {
       ? "wc-text-warn"
       : "negative";
 
+  // M5 — derive process states from heartbeat context instead of hardcoding RUNNING/ACTIVE.
+  const beats = buildHeartbeatContext();
+  const beatByKey = Object.fromEntries(beats.map(b => [b.key, b.classification]));
+  const monitor = beatByKey.paper_monitor;
+  const dashboard = beatByKey.dashboard;
+  // FOLLOWUP (near_miss_followup.js) has no heartbeat artifact — report NO DATA, never RUNNING.
+  const followup = HEARTBEAT_STATE_META["NO DATA"];
+
   return `
     <section class="system-status-panel">
       <div class="terminal-label">SYSTEM PROCESS MATRIX</div>
       <div class="status-grid">
         <div class="status-row"><span>SYSTEM STATUS</span><strong><i></i>ONLINE</strong></div>
         <div class="status-row"><span>SCANNER</span><strong class="${scannerCls}"><i></i>${escapeHtml(classified.label)}</strong></div>
-        <div class="status-row"><span>MONITOR</span><strong><i></i>RUNNING</strong></div>
-        <div class="status-row"><span>FOLLOWUP</span><strong><i></i>RUNNING</strong></div>
-        <div class="status-row"><span>DASHBOARD</span><strong><i></i>ACTIVE</strong></div>
+        <div class="status-row"><span>MONITOR</span><strong class="${monitor.cls}"><i></i>${escapeHtml(monitor.label)}</strong></div>
+        <div class="status-row"><span>FOLLOWUP</span><strong class="${followup.cls}"><i></i>${escapeHtml(followup.label)}</strong></div>
+        <div class="status-row"><span>DASHBOARD</span><strong class="${dashboard.cls}"><i></i>${escapeHtml(dashboard.label)}</strong></div>
       </div>
     </section>
   `;
@@ -1665,6 +1836,234 @@ function reconciliationPanel() {
   </section>`;
 }
 
+// ─── Promotion Checklist Panel (M8) ───────────────────────────────────────────
+// Read-only promotion-readiness narrative. No execution behavior, no new gates,
+// no live enablement. Distinguishes PASS / OPEN / DEFERRED / FAIL so operators
+// never mistake measurement visibility for live authorization.
+
+const PROMOTION_STATE_META = {
+  PASS: { label: "PASS", cls: "promotion-pass" },
+  OPEN: { label: "OPEN", cls: "promotion-open" },
+  DEFERRED: { label: "DEFERRED", cls: "promotion-deferred" },
+  FAIL: { label: "FAIL", cls: "promotion-fail" }
+};
+
+function buildPromotionContext() {
+  let cfg = null;
+  try {
+    if (fs.existsSync(CONFIG_FILE)) cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+  } catch { /* leave cfg null */ }
+
+  const executionMode = liveExecutor && cfg
+    ? liveExecutor.resolveExecutionMode(cfg)
+    : (cfg?.executionMode || (cfg?.dryRunMode === false ? "LIVE" : "DRY_RUN"));
+
+  let armed = null;
+  try {
+    armed = liveExecutor && cfg ? liveExecutor.computeLiveArmedStatus(cfg) : null;
+  } catch { armed = null; }
+
+  const { health, classified } = getScannerHealthClassification();
+
+  const pending = readJsonLines(PENDING_RECONCILIATION_FILE);
+  const paper = readJsonLines(PAPER_FILE);
+  const taggedThesisRows = paper.rows.filter(hasPersistedThesisTag).length;
+
+  const dedupFile = liveExecutor?.FILES?.OBSERVATION_DEDUP_FILE || path.join(ROOT, "observation_dedup.json");
+  const dedupExists = fs.existsSync(dedupFile);
+
+  const ciWorkflowExists = fs.existsSync(path.join(ROOT, ".github", "workflows", "safety-tests.yml"));
+
+  return {
+    cfg,
+    executionMode,
+    armed,
+    health,
+    scannerStatus: classified?.status || "NO_DATA",
+    pendingCount: pending.rows.length,
+    pendingInvalid: pending.invalid,
+    paperRowCount: paper.rows.length,
+    taggedThesisRows,
+    dedupExists,
+    ciWorkflowExists
+  };
+}
+
+function evaluatePromotionGates(ctx) {
+  const sprint2 = [
+    (() => {
+      if (ctx.paperRowCount === 0) {
+        return { id: "thesis", label: "Thesis visibility (M1 + M2)", state: "OPEN", detail: "Schema ready — no scanner candidates logged yet." };
+      }
+      if (ctx.taggedThesisRows > 0) {
+        return { id: "thesis", label: "Thesis visibility (M1 + M2)", state: "PASS", detail: `${ctx.taggedThesisRows} row(s) carry persisted thesisMatch; dashboard segments thesis vs non-thesis.` };
+      }
+      return { id: "thesis", label: "Thesis visibility (M1 + M2)", state: "OPEN", detail: "Paper rows present but pre-M1 (estimated). New scanner rows will carry persisted tags." };
+    })(),
+    {
+      id: "reconciliation",
+      label: "Reconciliation visibility (M6a)",
+      state: "PASS",
+      detail: ctx.pendingCount === 0
+        ? "Read-only panel live; queue clear (expected in PIPELINE_DRY_RUN)."
+        : `Read-only panel live; ${ctx.pendingCount} row(s) require runbook review (no retry).`
+    },
+    (() => {
+      if (!ctx.armed) {
+        return { id: "livearmed", label: "liveArmed truth (M7)", state: "FAIL", detail: "Executor liveArmed status unavailable — cannot confirm disarmed posture." };
+      }
+      return {
+        id: "livearmed",
+        label: "liveArmed truth (M7)",
+        state: "PASS",
+        detail: `liveArmed: ${ctx.armed.liveArmed ? "true" : "false"} · ${ctx.armed.operationalPosture}. Computed gates visible in --status and dashboard.`
+      };
+    })(),
+    (() => {
+      const s = ctx.scannerStatus;
+      if (s === "HEALTHY") return { id: "scanner", label: "Scanner health (M4)", state: "PASS", detail: "scanner_health.json fresh; status HEALTHY." };
+      if (s === "DEGRADED") return { id: "scanner", label: "Scanner health (M4)", state: "PASS", detail: "Health visibility working; scanner DEGRADED — investigate GMGN/discovery, not executor." };
+      if (s === "STALLED") return { id: "scanner", label: "Scanner health (M4)", state: "FAIL", detail: "Scanner STALLED — last scan older than 2× interval while watch expected." };
+      return { id: "scanner", label: "Scanner health (M4)", state: "OPEN", detail: "No scanner_health.json yet — run scanner_gmgn_trending.js to populate." };
+    })(),
+    {
+      id: "obsidian",
+      label: "Obsidian memory framework (M8b)",
+      state: "PASS",
+      detail: "Framework + manual vault sync documented (docs/OBSIDIAN_SYNC_PLAN.md). Operator attests on sprint close."
+    },
+    (() => {
+      if (ctx.dedupExists) {
+        return { id: "dedup", label: "Dedup persistence (M3)", state: "PASS", detail: "observation_dedup.json present; survives restart (dual-process races remain until A1)." };
+      }
+      return { id: "dedup", label: "Dedup persistence (M3)", state: "OPEN", detail: "Snapshot written on first dedup mutation; audit replay seeds startup. Restart test pending." };
+    })(),
+    {
+      id: "ci",
+      label: "CI safety tests (Q7)",
+      state: "OPEN",
+      detail: ctx.ciWorkflowExists
+        ? "Workflow present (.github/workflows/safety-tests.yml). Confirm latest GitHub Actions run green on main."
+        : "CI workflow not found — confirm safety suite runs on main."
+    }
+  ];
+
+  const sprint3 = [
+    { id: "heartbeats", label: "Process heartbeats (M5)", state: "DEFERRED", detail: "Sprint 3 — not implemented yet. Stale-process detection beyond presence checks." },
+    { id: "archive", label: "Archive quarantine (M9)", state: "DEFERRED", detail: "Sprint 3 — not implemented yet. Isolate non-canonical archive trees." },
+    { id: "rpc", label: "Dedicated RPC (A4)", state: "DEFERRED", detail: "Sprint 3 — not implemented yet. Required dedicated endpoint for pipeline readiness." }
+  ];
+
+  const preLive = [
+    { id: "unified_state", label: "Unified state (A1)", state: "DEFERRED", detail: "Sprint 4 — not implemented yet. Atomic writes; eliminate file races (24h stress test)." },
+    { id: "supervisor", label: "Supervisor (A2)", state: "DEFERRED", detail: "Sprint 4 — not implemented yet. Process supervision + restart policy." },
+    { id: "human_auth", label: "Human authorization", state: "OPEN", detail: "LIVE_AUTHORIZATION_RECORD.md not signed. Humans authorize capital — required before any live arming." },
+    { id: "ori_signoff", label: "Ori sign-off", state: "OPEN", detail: "Advisory only. Ori sign-off does not arm live submission." }
+  ];
+
+  return { sprint2, sprint3, preLive };
+}
+
+function derivePromotionStatus(groups) {
+  const structural = [
+    ...groups.sprint2,
+    ...groups.sprint3,
+    ...groups.preLive.filter(g => g.id === "unified_state" || g.id === "supervisor")
+  ];
+  const anyFail = [...groups.sprint2, ...groups.sprint3, ...groups.preLive].some(g => g.state === "FAIL");
+  const structuralAllPass = structural.every(g => g.state === "PASS");
+
+  if (!anyFail && structuralAllPass) {
+    return {
+      key: "REVIEW",
+      label: "READY FOR REVIEW — NOT AUTHORIZED FOR LIVE",
+      cls: "promotion-banner-review"
+    };
+  }
+  return {
+    key: "NOT_READY",
+    label: "NOT READY FOR LIVE PROMOTION",
+    cls: "promotion-banner-notready"
+  };
+}
+
+function promotionGateRow(gate) {
+  const meta = PROMOTION_STATE_META[gate.state] || PROMOTION_STATE_META.OPEN;
+  return `<tr>
+    <td class="promotion-gate-label">${escapeHtml(gate.label)}</td>
+    <td><span class="promotion-badge ${meta.cls}">${meta.label}</span></td>
+    <td class="promotion-gate-detail">${escapeHtml(gate.detail)}</td>
+  </tr>`;
+}
+
+function promotionGroupTable(title, gates) {
+  return `
+    <h3 class="promotion-group-heading">${escapeHtml(title)}</h3>
+    <table class="promotion-table">
+      <thead><tr><th>Gate</th><th>Status</th><th>Detail</th></tr></thead>
+      <tbody>${gates.map(promotionGateRow).join("")}</tbody>
+    </table>`;
+}
+
+function promotionChecklistPanel() {
+  const ctx = buildPromotionContext();
+  const groups = evaluatePromotionGates(ctx);
+  const status = derivePromotionStatus(groups);
+
+  const modeLabel = String(ctx.executionMode).replaceAll("_", " ");
+  const liveArmedText = ctx.armed
+    ? (ctx.armed.liveArmed ? "true" : "false")
+    : "unavailable";
+  const postureText = ctx.armed?.operationalPosture || "—";
+
+  const runtimeCard = (label, value, cls = "") =>
+    `<div class="promotion-runtime-card"><div class="promotion-runtime-label">${escapeHtml(label)}</div><div class="promotion-runtime-value ${cls}">${escapeHtml(String(value ?? "—"))}</div></div>`;
+
+  return `
+  <section class="panel promotion-panel">
+    <div class="promotion-title-row">
+      <h2 class="promotion-heading">⟐ PROMOTION CHECKLIST</h2>
+      <div class="promotion-overall-badge ${status.cls}">${escapeHtml(status.label)}</div>
+    </div>
+
+    <div class="promotion-info-banner">Informational only. This panel does not change execution mode or arm live submission.</div>
+
+    <div class="promotion-why">
+      <strong>Why PIPELINE_DRY_RUN remains default:</strong>
+      The bot runs full Jupiter quote → build → simulate without signing or submitting. Paper trades and pipeline
+      observations accumulate research data; live capital is not the default outcome. PASS gates below do not change
+      <code>executionMode</code>. Only human authorization plus satisfied liveArmed gates may move toward LIVE — outside this panel.
+    </div>
+
+    <div class="promotion-runtime">
+      ${runtimeCard("executionMode", modeLabel, ctx.executionMode === "PIPELINE_DRY_RUN" ? "promotion-runtime-ok" : "promotion-runtime-warn")}
+      ${runtimeCard("operationalPosture", postureText)}
+      ${runtimeCard("liveArmed", liveArmedText, ctx.armed?.liveArmed ? "promotion-runtime-warn" : "promotion-runtime-ok")}
+      ${runtimeCard("liveSubmission", ctx.armed?.liveArmed ? "ARMED" : "DISARMED", ctx.armed?.liveArmed ? "promotion-runtime-warn" : "promotion-runtime-ok")}
+    </div>
+
+    ${promotionGroupTable("Sprint 2 — Measurement & visibility", groups.sprint2)}
+    ${promotionGroupTable("Sprint 3 — Operational reliability", groups.sprint3)}
+    ${promotionGroupTable("Pre-Live — Structural & authorization", groups.preLive)}
+
+    <div class="promotion-legend">
+      <span><span class="promotion-badge promotion-pass">PASS</span> implemented &amp; healthy</span>
+      <span><span class="promotion-badge promotion-open">OPEN</span> implemented but incomplete / awaiting action</span>
+      <span><span class="promotion-badge promotion-deferred">DEFERRED</span> planned future work — not a failure</span>
+      <span><span class="promotion-badge promotion-fail">FAIL</span> currently unhealthy</span>
+    </div>
+
+    <div class="promotion-links">
+      References: <code>LIVE_AUTHORIZATION_RECORD.md</code> · <code>RECONCILIATION_RUNBOOK.md</code> ·
+      <code>docs/MODE_TRANSITION.md</code> · <code>docs/OBSIDIAN_SYNC_PLAN.md</code> · <code>docs/M8_PROMOTION_CHECKLIST_PLAN.md</code>
+    </div>
+
+    <div class="promotion-footer">
+      Readiness ALL PASS does not imply live authorization. Ori advises. Humans authorize.
+    </div>
+  </section>`;
+}
+
 // ─── Live vs Paper Comparison Panel ───────────────────────────────────────────
 
 function liveVsPaperPanel() {
@@ -2416,6 +2815,60 @@ function sharedStyles() {
     @media(max-width:900px){ .ac-readiness{columns:1;} .ac-buttons{flex-direction:column;} .ac-btn{width:100%;} }
     /* ── End Live Automation Control ─────────────────────────────────────── */
 
+    /* ── Promotion Checklist (M8) ────────────────────────────────────────── */
+    .promotion-panel { border:1px solid rgba(255,155,11,.35); }
+    .promotion-title-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .promotion-heading { color:var(--amber); font-size:17px; text-transform:uppercase; letter-spacing:.04em; margin:0; }
+    .promotion-overall-badge { font-size:12px; font-weight:800; letter-spacing:.05em; padding:6px 12px; border-radius:4px; text-transform:uppercase; }
+    .promotion-banner-notready { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .promotion-banner-review { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.12); }
+    .promotion-info-banner { background:rgba(255,155,11,.08); border:1px solid rgba(255,155,11,.4); color:var(--amber); border-radius:3px; padding:10px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
+    .promotion-why { color:var(--muted); font-size:12px; line-height:1.55; margin-bottom:12px; }
+    .promotion-why code, .promotion-links code, .promotion-gate-detail code { background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:2px; padding:1px 5px; color:var(--cyan); font-size:11px; }
+    .promotion-runtime { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:0 0 16px; }
+    .promotion-runtime-card { background:rgba(5,8,14,.6); border:1px solid var(--line); border-radius:4px; padding:11px 12px; }
+    .promotion-runtime-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+    .promotion-runtime-value { font-size:14px; font-weight:700; }
+    .promotion-runtime-ok { color:var(--green); }
+    .promotion-runtime-warn { color:var(--red); }
+    .promotion-group-heading { font-size:13px; color:var(--amber); text-transform:uppercase; letter-spacing:.05em; margin:16px 0 8px; }
+    .promotion-table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:4px; }
+    .promotion-table th, .promotion-table td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; }
+    .promotion-table th { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+    .promotion-gate-label { font-weight:600; white-space:nowrap; }
+    .promotion-gate-detail { color:var(--muted); line-height:1.5; }
+    .promotion-badge { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.06em; padding:3px 9px; border-radius:3px; text-transform:uppercase; }
+    .promotion-pass { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.1); }
+    .promotion-open { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .promotion-deferred { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .promotion-fail { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .promotion-legend { display:flex; flex-wrap:wrap; gap:14px; margin:12px 0; font-size:11px; color:var(--muted); }
+    .promotion-legend span { display:inline-flex; align-items:center; gap:6px; }
+    .promotion-links { color:var(--muted); font-size:11px; line-height:1.6; margin-top:6px; }
+    .promotion-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
+    /* ── End Promotion Checklist ─────────────────────────────────────────── */
+
+    /* ── Process Heartbeats (M5) ─────────────────────────────────────────── */
+    .hb-panel { border:1px solid rgba(5,217,245,.3); }
+    .hb-title-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .hb-heading { color:var(--cyan); font-size:17px; text-transform:uppercase; letter-spacing:.04em; margin:0; }
+    .hb-banner { background:rgba(5,217,245,.07); border:1px solid rgba(5,217,245,.35); color:#a9eefb; border-radius:3px; padding:10px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
+    .hb-table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:4px; }
+    .hb-table th, .hb-table td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; }
+    .hb-table th { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+    .hb-proc { font-weight:600; white-space:nowrap; }
+    .hb-source { color:var(--muted); }
+    .hb-proxy { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.05em; padding:1px 5px; border-radius:2px; text-transform:uppercase; color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.08); margin-left:4px; }
+    .hb-badge { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.06em; padding:3px 9px; border-radius:3px; text-transform:uppercase; }
+    .heartbeat-healthy { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.1); }
+    .heartbeat-stale { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .heartbeat-missing { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .heartbeat-no-data { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .hb-legend { display:flex; flex-wrap:wrap; gap:14px; margin:12px 0; font-size:11px; color:var(--muted); }
+    .hb-legend span { display:inline-flex; align-items:center; gap:6px; }
+    .hb-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
+    /* ── End Process Heartbeats ──────────────────────────────────────────── */
+
     /* ── Live Execution Dashboard ────────────────────────────────────────── */
     .le-panel { border-color:rgba(5,217,245,.35); box-shadow:0 0 28px rgba(5,217,245,.06),inset 0 0 40px rgba(5,217,245,.025); margin-bottom:18px; }
     .le-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
@@ -2537,6 +2990,8 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
 
   ${systemStatusPanel()}
 
+  ${processHeartbeatPanel()}
+
   ${scannerHealthPanel()}
 
   ${phase1ReadinessPanel(forwardTrades)}
@@ -2544,6 +2999,8 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
   ${liveAutomationControlPanel()}
 
   ${reconciliationPanel()}
+
+  ${promotionChecklistPanel()}
 
   ${walletConnectionPanel()}
 

@@ -136,6 +136,7 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 |-------|--------|
 | **Description** | Paper ignores fees, slippage, failed txs, MEV, and partial fills. Pipeline dry-run does not submit transactions. |
 | **Impact** | Premature live approval; strategy tuning on non-executable metrics. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 2 M8). Dashboard read-only **Promotion Checklist** panel (`promotionChecklistPanel()`) groups gates by Sprint 2 / Sprint 3 / Pre-Live with PASS / OPEN / DEFERRED / FAIL states and runtime probes (`computeLiveArmedStatus()`, `scanner_health.json`, reconciliation queue, persisted thesis rows, CI workflow presence). Overall status is **NOT READY FOR LIVE PROMOTION** by default; never displays "READY FOR LIVE". Banner and footer state the panel is informational only and that humans authorize. Promotion narrative now visible without reading executor source. Full paper/pipeline/live cost modelling (A5) and human authorization workflow remain open. |
 | **Possible solution** | Separate reporting for paper / pipeline / live; simulation replay via `simulate_live_executor.js`; explicit promotion checklist. |
 | **Dependencies** | `LIVE_AUTHORIZATION_RECORD.md`; engineering review sign-off culture. |
 
@@ -193,14 +194,15 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### No process supervisor or health checks
+### No process supervisor or health checks (partially resolved — Sprint 3 M5)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Multi-process bot relies on manual PowerShell windows; no liveness probes or auto-restart. |
-| **Impact** | Silent process death overnight; stale open paper trades; missed pipeline cycles. |
-| **Possible solution** | TracktaOS supervisor with heartbeat files, restart policy, alert on stale audit timestamps. |
-| **Dependencies** | TracktaOS Phase 1 stabilization; `fomo_status.ps1` enhancement. |
+| **Description** | Multi-process bot relies on manual PowerShell windows; no liveness probes or auto-restart. The dashboard `systemStatusPanel()` previously hardcoded `MONITOR=RUNNING`, `FOLLOWUP=RUNNING`, `DASHBOARD=ACTIVE` regardless of real state — a false-confidence surface. |
+| **Impact** | Silent process death overnight; stale open paper trades; missed pipeline cycles. Operators could not distinguish alive from dead components. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 3 M5). Read-only **Process Heartbeats** panel (`processHeartbeatPanel()`) classifies Scanner, Executor, Wallet Monitor, Paper Monitor, and Dashboard as **HEALTHY / STALE / MISSING / NO DATA** from existing artifacts (scanner_health.json `lastScanAt`, execution_audit.jsonl `CYCLE_END` derived, wallet_status.json `updatedAt`, paper_trades.json mtime proxy, dashboard self). Stale thresholds ≈ 2× cadence (120/150/90/150/90s). `systemStatusPanel()` hardcoded RUNNING/ACTIVE rows replaced with derived status; "RUNNING" no longer displayed. **Visibility only** — no supervision, restart, PID checks, spawning, or killing (that is A2, Sprint 4). No new heartbeat files or status writers; no executor changes. |
+| **Possible solution** | TracktaOS supervisor with heartbeat files, restart policy, alert on stale audit timestamps (A2). |
+| **Dependencies** | TracktaOS Phase 1 stabilization; `fomo_status.ps1` enhancement; A2 supervisor (Sprint 4) for restart/control. |
 
 ---
 
