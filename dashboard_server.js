@@ -1373,6 +1373,81 @@ function rpcSourceValueCls(source) {
   return "wc-pos";
 }
 
+// ─── Dedicated RPC readiness (A4 — visibility + promotion relevance, read-only) ──
+// Evaluates env-visible RPC config and classifies promotion readiness. Does NOT
+// connect, retry, fail over, or enable anything. Observation tolerates public
+// fallback; simulation/execution/promotion require a dedicated (non-public) endpoint.
+
+const DEDICATED_RPC_STATE_META = {
+  DEDICATED_READY: { label: "DEDICATED READY", cls: "rpc-ready" },
+  PUBLIC_FALLBACK_OBSERVATION_ONLY: { label: "PUBLIC FALLBACK — OBSERVATION ONLY", cls: "rpc-observation" },
+  MISSING_DEDICATED_RPC: { label: "MISSING DEDICATED RPC", cls: "rpc-missing" },
+  UNKNOWN: { label: "UNKNOWN", cls: "rpc-unknown" }
+};
+
+function classifyDedicatedRpcPosture() {
+  try {
+    const candidates = rpcCandidatesExecutor();
+    const configured = candidates.filter(([, ep]) => !!ep);
+    const dedicated = candidates.find(([, ep]) => ep && !isPublicSolanaRpcEndpoint(ep));
+    if (dedicated) {
+      return {
+        state: "DEDICATED_READY",
+        provider: dedicated[0],
+        host: rpcEndpointHost(dedicated[1]),
+        ...DEDICATED_RPC_STATE_META.DEDICATED_READY
+      };
+    }
+    const hasPublicConfigured = configured.some(([, ep]) => isPublicSolanaRpcEndpoint(ep));
+    if (hasPublicConfigured) {
+      return {
+        state: "PUBLIC_FALLBACK_OBSERVATION_ONLY",
+        provider: "PUBLIC_FALLBACK",
+        host: rpcEndpointHost(PUBLIC_SOLANA_RPC_ENDPOINT),
+        ...DEDICATED_RPC_STATE_META.PUBLIC_FALLBACK_OBSERVATION_ONLY
+      };
+    }
+    return {
+      state: "MISSING_DEDICATED_RPC",
+      provider: null,
+      host: null,
+      ...DEDICATED_RPC_STATE_META.MISSING_DEDICATED_RPC
+    };
+  } catch {
+    return { state: "UNKNOWN", provider: null, host: null, ...DEDICATED_RPC_STATE_META.UNKNOWN };
+  }
+}
+
+function dedicatedRpcReadinessContext() {
+  const posture = classifyDedicatedRpcPosture();
+  const dedicatedReady = posture.state === "DEDICATED_READY";
+  return {
+    posture,
+    observation: { ok: true, label: dedicatedReady ? posture.provider : "Public fallback" },
+    simulationExecution: { ok: dedicatedReady, label: dedicatedReady ? "Dedicated RPC ready" : "Requires dedicated RPC" },
+    promotionReady: dedicatedReady
+  };
+}
+
+function dedicatedRpcReadinessBlock() {
+  const ctx = dedicatedRpcReadinessContext();
+  const p = ctx.posture;
+  const obsCls = ctx.observation.ok ? "rpc-ok" : "rpc-warn";
+  const seCls = ctx.simulationExecution.ok ? "rpc-ok" : "rpc-warn";
+  return `
+    <div class="rpc-readiness">
+      <div class="rpc-readiness-head">
+        <span class="rpc-readiness-title">DEDICATED RPC READINESS (A4)</span>
+        <span class="rpc-badge ${p.cls}">${escapeHtml(p.label)}</span>
+      </div>
+      <div class="rpc-readiness-paths">
+        <div class="rpc-path"><span class="rpc-path-label">Observation path</span><span class="rpc-path-val ${obsCls}">${escapeHtml(ctx.observation.label)} · public fallback tolerated</span></div>
+        <div class="rpc-path"><span class="rpc-path-label">Simulation / Execution / Promotion</span><span class="rpc-path-val ${seCls}">${escapeHtml(ctx.simulationExecution.label)}</span></div>
+      </div>
+      <div class="rpc-readiness-note">Observation can tolerate public fallback. Simulation, execution, and promotion require a dedicated (non-public) RPC. Public fallback is <strong>not</strong> acceptable for promotion. A missing dedicated RPC does not mean the bot is broken — it means infrastructure is not promotion-ready.</div>
+    </div>`;
+}
+
 function loadScannerHealth() {
   if (!fs.existsSync(SCANNER_HEALTH_FILE)) return null;
   try {
@@ -1532,6 +1607,7 @@ function walletConnectionPanel() {
       <div class="wc-health-badge ${health.cls}">${health.label}</div>
     </div>
     <div class="wc-subtitle">Read-only monitor (wallet_monitor.js). Balance queried via RPC every 30s. No signer, no transactions. RPC source reflects env vars visible to this dashboard process.</div>
+    ${dedicatedRpcReadinessBlock()}
     ${rpc.warningsHtml}
     ${!status ? `<div class="wc-stale">No wallet_status.json yet — start the monitor: <code>node wallet_monitor.js</code></div>` : ""}
     ${statusError ? `<div class="wc-stale">Error reading wallet_status.json: ${escapeHtml(statusError)}</div>` : ""}
@@ -1874,6 +1950,8 @@ function buildPromotionContext() {
 
   const ciWorkflowExists = fs.existsSync(path.join(ROOT, ".github", "workflows", "safety-tests.yml"));
 
+  const rpcPosture = classifyDedicatedRpcPosture();
+
   return {
     cfg,
     executionMode,
@@ -1885,7 +1963,8 @@ function buildPromotionContext() {
     paperRowCount: paper.rows.length,
     taggedThesisRows,
     dedupExists,
-    ciWorkflowExists
+    ciWorkflowExists,
+    rpcPosture
   };
 }
 
@@ -1951,7 +2030,19 @@ function evaluatePromotionGates(ctx) {
   const sprint3 = [
     { id: "heartbeats", label: "Process heartbeats (M5)", state: "DEFERRED", detail: "Sprint 3 — not implemented yet. Stale-process detection beyond presence checks." },
     { id: "archive", label: "Archive quarantine (M9)", state: "DEFERRED", detail: "Sprint 3 — not implemented yet. Isolate non-canonical archive trees." },
-    { id: "rpc", label: "Dedicated RPC (A4)", state: "DEFERRED", detail: "Sprint 3 — not implemented yet. Required dedicated endpoint for pipeline readiness." }
+    (() => {
+      const st = ctx.rpcPosture?.state;
+      if (st === "DEDICATED_READY") {
+        return { id: "rpc", label: "Dedicated RPC (A4)", state: "PASS", detail: `Dedicated RPC configured (${ctx.rpcPosture.provider}). Simulation/execution refuse public fallback; this gate is promotion-ready (does not authorize live).` };
+      }
+      if (st === "PUBLIC_FALLBACK_OBSERVATION_ONLY") {
+        return { id: "rpc", label: "Dedicated RPC (A4)", state: "OPEN", detail: "Public RPC configured — observation tolerated, but simulation/execution/promotion require a dedicated (non-public) endpoint. Not a bot failure; infrastructure not promotion-ready." };
+      }
+      if (st === "MISSING_DEDICATED_RPC") {
+        return { id: "rpc", label: "Dedicated RPC (A4)", state: "OPEN", detail: "No dedicated RPC configured — set a non-public HELIUS_RPC_URL, derived Helius key, or SOLANA_RPC_URL. Observation still runs on public fallback; promotion not ready." };
+      }
+      return { id: "rpc", label: "Dedicated RPC (A4)", state: "OPEN", detail: "RPC readiness could not be determined — treated as not promotion-ready (conservative)." };
+    })()
   ];
 
   const preLive = [
@@ -2743,6 +2834,24 @@ function sharedStyles() {
     .wc-stale  { background:rgba(255,155,11,.07); border:1px solid rgba(255,155,11,.4); color:var(--amber); border-radius:3px; padding:9px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
     .wc-rpc-warn { background:rgba(245,43,63,.08); border:1px solid rgba(245,43,63,.45); color:#ff9aa8; border-radius:3px; padding:9px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
     .wc-stale code, .wc-rpc-warn code { background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:2px; padding:1px 5px; color:var(--cyan); }
+    /* ── Dedicated RPC readiness (A4) ─────────────────────────────────────── */
+    .rpc-readiness { border:1px solid rgba(5,217,245,.3); border-radius:4px; padding:11px 13px; margin-bottom:11px; background:rgba(5,217,245,.04); }
+    .rpc-readiness-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:9px; }
+    .rpc-readiness-title { font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--cyan); text-transform:uppercase; }
+    .rpc-badge { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; padding:3px 9px; border-radius:3px; text-transform:uppercase; }
+    .rpc-ready { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.1); }
+    .rpc-observation { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .rpc-missing { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .rpc-unknown { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .rpc-readiness-paths { display:flex; flex-direction:column; gap:6px; margin-bottom:9px; }
+    .rpc-path { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; border-bottom:1px solid var(--line); padding-bottom:5px; }
+    .rpc-path-label { color:var(--muted); }
+    .rpc-path-val { font-weight:600; }
+    .rpc-path-val.rpc-ok { color:var(--green); }
+    .rpc-path-val.rpc-warn { color:var(--amber); }
+    .rpc-readiness-note { font-size:11px; line-height:1.55; color:var(--muted); }
+    .rpc-readiness-note strong { color:#ff9aa8; }
+    /* ── End Dedicated RPC readiness (A4) ─────────────────────────────────── */
     .wc-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:10px 0; }
     .wc-card { background:rgba(5,8,14,.6); border:1px solid var(--line); border-radius:4px; padding:11px 12px; }
     .wc-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }

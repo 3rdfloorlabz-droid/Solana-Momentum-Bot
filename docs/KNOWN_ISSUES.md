@@ -252,15 +252,15 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### Public RPC rate limits false negatives (partially resolved — Sprint 1 Q9)
+### Public RPC rate limits false negatives (partially resolved — Sprint 1 Q9, Sprint 3 A4)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Wallet monitor and simulation fall back to public Solana RPC when Helius unset. |
 | **Impact** | False wallet disconnect; aborted preflight; flaky pipeline observation — masks real issues. |
-| **Status** | **Partially resolved** (2026-06-22, Sprint 1 Q9). Dashboard wallet and RPC health panels now show RPC source labels and a public-fallback warning when no dedicated env is set. |
-| **Possible solution** | Require dedicated RPC for non-dry-run readiness (Sprint 3 / A4). |
-| **Dependencies** | Helius or equivalent provisioning in TracktaOS. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 1 Q9 + Sprint 3 A4). Q9: dashboard wallet/RPC health panels show RPC source labels and a public-fallback warning. A4: dashboard read-only **Dedicated RPC Readiness** block (`dedicatedRpcReadinessBlock()` / `classifyDedicatedRpcPosture()`) classifies posture as **DEDICATED_READY / PUBLIC_FALLBACK_OBSERVATION_ONLY / MISSING_DEDICATED_RPC / UNKNOWN**, separates observation (public tolerated) from simulation/execution/promotion (dedicated required), and the **Promotion Checklist** "Dedicated RPC (A4)" gate now moves DEFERRED → **PASS** (dedicated configured) / **OPEN** (missing). Execution-critical paths already refuse public fallback in `live_executor.js` (`requireDedicated`). Visibility only — no live enablement, no provider lock-in, no failover/retries. Missing dedicated RPC ≠ bot broken; it means infrastructure is not promotion-ready. |
+| **Possible solution** | Provision a dedicated (non-public) endpoint; full pipeline-observation readiness enforcement remains future work. |
+| **Dependencies** | Dedicated RPC (any non-public provider) provisioning in TracktaOS. |
 
 ---
 
