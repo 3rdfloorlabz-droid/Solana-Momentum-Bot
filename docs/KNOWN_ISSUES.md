@@ -196,15 +196,15 @@ Material tech debt affecting operability, data quality, or migration speed — l
 
 ---
 
-### No process supervisor or health checks (partially resolved — Sprint 3 M5)
+### No process supervisor or health checks (partially resolved — Sprint 3 M5 + Sprint 4 A2a)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Multi-process bot relies on manual PowerShell windows; no liveness probes or auto-restart. The dashboard `systemStatusPanel()` previously hardcoded `MONITOR=RUNNING`, `FOLLOWUP=RUNNING`, `DASHBOARD=ACTIVE` regardless of real state — a false-confidence surface. |
 | **Impact** | Silent process death overnight; stale open paper trades; missed pipeline cycles. Operators could not distinguish alive from dead components. |
-| **Status** | **Partially resolved** (2026-06-22, Sprint 3 M5). Read-only **Process Heartbeats** panel (`processHeartbeatPanel()`) classifies Scanner, Executor, Wallet Monitor, Paper Monitor, and Dashboard as **HEALTHY / STALE / MISSING / NO DATA** from existing artifacts (scanner_health.json `lastScanAt`, execution_audit.jsonl `CYCLE_END` derived, wallet_status.json `updatedAt`, paper_trades.json mtime proxy, dashboard self). Stale thresholds ≈ 2× cadence (120/150/90/150/90s). `systemStatusPanel()` hardcoded RUNNING/ACTIVE rows replaced with derived status; "RUNNING" no longer displayed. **Visibility only** — no supervision, restart, PID checks, spawning, or killing (that is A2, Sprint 4). No new heartbeat files or status writers; no executor changes. |
-| **Possible solution** | TracktaOS supervisor with heartbeat files, restart policy, alert on stale audit timestamps (A2). |
-| **Dependencies** | TracktaOS Phase 1 stabilization; `fomo_status.ps1` enhancement; A2 supervisor (Sprint 4) for restart/control. |
+| **Status** | **Partially resolved** (2026-06-22, Sprint 3 M5 + Sprint 4 A2a). **M5:** read-only **Process Heartbeats** panel (`processHeartbeatPanel()`) classifies Scanner, Executor, Wallet Monitor, Paper Monitor, and Dashboard as **HEALTHY / STALE / MISSING / NO DATA** from existing artifacts (scanner_health.json `lastScanAt`, execution_audit.jsonl `CYCLE_END` derived, wallet_status.json `updatedAt`, paper_positions.json mtime proxy, dashboard self); stale thresholds ≈ 2× cadence (120/150/90/150/90s); hardcoded RUNNING/ACTIVE rows replaced. **A2a (advisory, A2 Level 1):** read-only **Supervisor Recommendations** panel (`supervisorRecommendationsPanel()`) maps each process's health to symptoms, likely causes, a recommended operator action, and an escalation level, supporting **HEALTHY / STALE / MISSING / NO DATA / DEGRADED / FAILED** (DEGRADED derived from existing M4/A4 signals; FAILED policy-defined, not auto-derived — no PID checks). **Still visibility/advice only** — no restart, stop, spawn, kill, PID check, automatic repair, buttons, or POST routes (action remains human/manual, A2 Level 2; autonomous recovery A2 Level 3 not built). No executor/config/strategy changes. |
+| **Possible solution** | TracktaOS supervisor with heartbeat files, restart policy, alert on stale audit timestamps (A2 Levels 2–3, per [A2_SUPERVISOR_PLAN.md](./A2_SUPERVISOR_PLAN.md)). |
+| **Dependencies** | TracktaOS Phase 1 stabilization; `fomo_status.ps1` enhancement; A2 supervisor (Sprint 4) for human-confirmed/autonomous recovery. |
 
 ---
 

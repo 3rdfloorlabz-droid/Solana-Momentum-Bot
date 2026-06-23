@@ -512,6 +512,285 @@ function processHeartbeatPanel() {
   </section>`;
 }
 
+// ─── Supervisor Recommendations (A2a) ─────────────────────────────────────────
+// READ-ONLY advisory layer (A2 Level 1). It maps each process's observed health
+// state to operator recommendations. It NEVER restarts, stops, spawns, kills,
+// PID-checks, repairs, or mutates any process or file — there are no buttons and
+// no POST routes here. Action stays a human decision (Level 2, manual).
+// Recovery must never outrun ownership.
+
+const SUPERVISOR_STATE_META = {
+  HEALTHY:   { cls: "sr-healthy" },
+  STALE:     { cls: "sr-stale" },
+  MISSING:   { cls: "sr-missing" },
+  "NO DATA": { cls: "sr-no-data" },
+  DEGRADED:  { cls: "sr-degraded" },
+  FAILED:    { cls: "sr-failed" }
+};
+
+// Per-process, per-state policy. Every value is informational text: symptoms,
+// likely causes, a recommended operator action (what a human MAY choose to do),
+// and an escalation level. Nothing here executes.
+const SUPERVISOR_POLICY = {
+  scanner: {
+    label: "Scanner",
+    process: "scanner_gmgn_trending.js --watch",
+    states: {
+      HEALTHY: { recommendedAction: "None", escalation: "None" },
+      STALE: {
+        symptoms: ["scanner_health.json lastScanAt older than threshold"],
+        likelyCauses: ["GMGN API interruption", "scanner stopped", "heartbeat delay"],
+        recommendedAction: "Restart scanner_gmgn_trending.js (append-only ledger; safe to restart)",
+        escalation: "L1 Advisory"
+      },
+      MISSING: {
+        symptoms: ["scanner_health.json absent"],
+        likelyCauses: ["scanner never started this session"],
+        recommendedAction: "Start scanner_gmgn_trending.js --watch (or start_fomo.ps1)",
+        escalation: "L1 Advisory"
+      },
+      "NO DATA": {
+        symptoms: ["scanner_health.json present but unreadable"],
+        likelyCauses: ["partial/corrupt write", "schema mismatch"],
+        recommendedAction: "Inspect scanner_health.json; restart scanner if needed (ledger is append-only)",
+        escalation: "L1 Advisory"
+      },
+      DEGRADED: {
+        symptoms: ["Heartbeat fresh but M4 health DEGRADED/STALLED or repeated 0-result scans"],
+        likelyCauses: ["GMGN API/auth (GMGN_API_KEY)", "upstream outage", "rate limits"],
+        recommendedAction: "Investigate GMGN CLI/key first — do not blind-restart; infrastructure, not the process",
+        escalation: "L1 Advisory"
+      },
+      FAILED: {
+        symptoms: ["Confirmed crash/exit or repeated fatal errors"],
+        likelyCauses: ["unhandled exception", "missing dependency"],
+        recommendedAction: "Human-confirmed restart of scanner_gmgn_trending.js (safe; append-only)",
+        escalation: "L2 Human-confirmed"
+      }
+    }
+  },
+  executor: {
+    label: "Executor",
+    process: "live_executor.js --loop",
+    states: {
+      HEALTHY: { recommendedAction: "None", escalation: "None" },
+      STALE: {
+        symptoms: ["execution_audit.jsonl CYCLE_END older than threshold"],
+        likelyCauses: ["loop hung", "long RPC stage", "process stopped"],
+        recommendedAction: "Verify the executor terminal before any restart — it owns positions/dedup; human-confirmed restart only",
+        escalation: "L2 Human-confirmed"
+      },
+      MISSING: {
+        symptoms: ["no recent audit cycles"],
+        likelyCauses: ["executor loop not running (only --status was used)"],
+        recommendedAction: "Start live_executor.js --loop (human)",
+        escalation: "L1 Advisory"
+      },
+      "NO DATA": {
+        symptoms: ["execution_audit.jsonl tail unreadable"],
+        likelyCauses: ["corrupt/partial audit append"],
+        recommendedAction: "Human inspection first — do NOT auto-restart on corruption (restart is not repair)",
+        escalation: "Human only"
+      },
+      DEGRADED: {
+        symptoms: ["Alive but repeated SIMULATION_FAILED / PRIORITY_FEE_UNAVAILABLE, or no dedicated RPC for trust-critical paths"],
+        likelyCauses: ["missing dedicated RPC (A4)", "infrastructure rate limits"],
+        recommendedAction: "Address RPC/infrastructure (A4) — do not restart to mask it; infra is not a process fault",
+        escalation: "L1 Advisory"
+      },
+      FAILED: {
+        symptoms: ["Confirmed crash/exit or repeated fatal cycle errors"],
+        likelyCauses: ["unhandled exception", "config parse error"],
+        recommendedAction: "Human-confirmed restart, then confirm --status shows PIPELINE_DRY_RUN / liveArmed:false. If tied to config/state corruption: panic.ps1, then human repair",
+        escalation: "L2 Human-confirmed"
+      }
+    }
+  },
+  wallet_monitor: {
+    label: "Wallet Monitor",
+    process: "wallet_monitor.js",
+    states: {
+      HEALTHY: { recommendedAction: "None", escalation: "None" },
+      STALE: {
+        symptoms: ["wallet_status.json updatedAt older than threshold"],
+        likelyCauses: ["process stopped", "RPC stall"],
+        recommendedAction: "Restart wallet_monitor.js (snapshot is rebuildable; safe)",
+        escalation: "L1 Advisory"
+      },
+      MISSING: {
+        symptoms: ["wallet_status.json absent"],
+        likelyCauses: ["wallet monitor never started"],
+        recommendedAction: "Start wallet_monitor.js (or start_fomo.ps1)",
+        escalation: "L1 Advisory"
+      },
+      "NO DATA": {
+        symptoms: ["wallet_status.json unreadable"],
+        likelyCauses: ["partial write"],
+        recommendedAction: "Restart wallet_monitor.js (snapshot regenerates)",
+        escalation: "L1 Advisory"
+      },
+      DEGRADED: {
+        symptoms: ["Alive but using public Solana RPC fallback (rate-limit / false DISCONNECTED risk)"],
+        likelyCauses: ["no dedicated RPC configured (A4)"],
+        recommendedAction: "Configure a dedicated RPC (A4) — expect false DISCONNECTED on public; do not restart to fix infra",
+        escalation: "L1 Advisory"
+      },
+      FAILED: {
+        symptoms: ["Confirmed crash/exit"],
+        likelyCauses: ["exception", "RPC client error"],
+        recommendedAction: "Human-confirmed restart of wallet_monitor.js (safe)",
+        escalation: "L2 Human-confirmed"
+      }
+    }
+  },
+  paper_monitor: {
+    label: "Paper Monitor",
+    process: "monitor.js",
+    states: {
+      HEALTHY: { recommendedAction: "None", escalation: "None" },
+      STALE: {
+        symptoms: ["paper_positions.json mtime older than threshold (proxy)"],
+        likelyCauses: ["process stopped or hung", "quiet: no open trades to update (proxy limitation)"],
+        recommendedAction: "Verify the monitor terminal — STALE may mean quiet, not dead; restart monitor.js if actually stopped (re-seeds idempotently)",
+        escalation: "L1 Advisory"
+      },
+      MISSING: {
+        symptoms: ["paper_positions.json absent"],
+        likelyCauses: ["monitor not started", "store not yet seeded"],
+        recommendedAction: "Start monitor.js (re-seeds idempotently from the ledger)",
+        escalation: "L1 Advisory"
+      },
+      "NO DATA": {
+        symptoms: ["paper_positions.json unreadable"],
+        likelyCauses: ["partial write"],
+        recommendedAction: "Restart monitor.js (re-seed) or inspect the file",
+        escalation: "L1 Advisory"
+      },
+      DEGRADED: {
+        symptoms: ["Alive but repeated DexScreener price-fetch failures or NEEDS_REVIEW spikes"],
+        likelyCauses: ["pricing API issues", "anomaly guard firing"],
+        recommendedAction: "Review pricing/anomaly cause — do not blind-restart",
+        escalation: "L1 Advisory"
+      },
+      FAILED: {
+        symptoms: ["Confirmed crash/exit"],
+        likelyCauses: ["exception"],
+        recommendedAction: "Human-confirmed restart of monitor.js (safe; idempotent re-seed)",
+        escalation: "L2 Human-confirmed"
+      }
+    }
+  },
+  dashboard: {
+    label: "Dashboard",
+    process: "dashboard_server.js",
+    states: {
+      HEALTHY: { recommendedAction: "None", escalation: "None" },
+      STALE: {
+        symptoms: ["page unresponsive / port 3000 not serving"],
+        likelyCauses: ["process down", "port conflict", "exception"],
+        recommendedAction: "Restart dashboard_server.js; check port 3000 (pure reader; safe)",
+        escalation: "L1 Advisory"
+      },
+      MISSING: {
+        symptoms: ["dashboard not running"],
+        likelyCauses: ["never started"],
+        recommendedAction: "Start dashboard_server.js",
+        escalation: "L1 Advisory"
+      },
+      "NO DATA": {
+        symptoms: ["panels show NO DATA / MISSING"],
+        likelyCauses: ["source artifacts absent because OTHER processes are down"],
+        recommendedAction: "Fix the upstream source process (see heartbeats) — restarting the dashboard will not fill source gaps",
+        escalation: "L1 Advisory"
+      },
+      DEGRADED: {
+        symptoms: ["renders, but many panels degraded due to upstream"],
+        likelyCauses: ["upstream process/infra impairment"],
+        recommendedAction: "Diagnose the upstream cause, not the dashboard",
+        escalation: "L1 Advisory"
+      },
+      FAILED: {
+        symptoms: ["Confirmed crash/exit; port 3000 dead"],
+        likelyCauses: ["exception", "port conflict"],
+        recommendedAction: "Human-confirmed restart of dashboard_server.js",
+        escalation: "L2 Human-confirmed"
+      }
+    }
+  }
+};
+
+// Read-only state derivation. Base state comes from the M5 heartbeat
+// classification (HEALTHY/STALE/MISSING/NO DATA). A HEALTHY process may be
+// upgraded to DEGRADED ONLY from existing read-only impairment signals
+// (M4 scanner health; A4 RPC posture) — no PID checks, no new probes.
+// FAILED is intentionally never auto-derived here: confirming a process is dead
+// requires evidence A2a does not collect (PID liveness / crash signatures). It
+// remains a fully supported policy state for future (separately approved) phases.
+function deriveSupervisorState(beatState, key) {
+  let state = beatState;
+  if (state === "HEALTHY") {
+    if (key === "scanner") {
+      try {
+        const { classified } = getScannerHealthClassification();
+        if (classified.status === "DEGRADED" || classified.status === "STALLED") state = "DEGRADED";
+      } catch { /* leave HEALTHY on any read error */ }
+    } else if (key === "wallet_monitor") {
+      try {
+        if (classifyDedicatedRpcPosture().state === "PUBLIC_FALLBACK_OBSERVATION_ONLY") state = "DEGRADED";
+      } catch { /* leave HEALTHY */ }
+    }
+  }
+  return state;
+}
+
+function buildSupervisorContext() {
+  return buildHeartbeatContext().map(b => {
+    const cfg = SUPERVISOR_POLICY[b.key];
+    if (!cfg) return null;
+    const state = deriveSupervisorState(b.classification.state, b.key);
+    const policy = cfg.states[state] || cfg.states["NO DATA"] || {};
+    const meta = SUPERVISOR_STATE_META[state] || SUPERVISOR_STATE_META["NO DATA"];
+    return { key: b.key, label: cfg.label, process: cfg.process, state, cls: meta.cls, policy };
+  }).filter(Boolean);
+}
+
+function supervisorRecommendationCard(item) {
+  const p = item.policy || {};
+  const isHealthy = item.state === "HEALTHY";
+  const list = (title, arr) => (Array.isArray(arr) && arr.length)
+    ? `<div class="sr-block"><div class="sr-block-label">${escapeHtml(title)}</div><ul class="sr-list">${arr.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul></div>`
+    : "";
+  return `
+    <div class="sr-card">
+      <div class="sr-card-head">
+        <span class="sr-proc">${escapeHtml(item.label)}</span>
+        <span class="sr-badge ${item.cls}">${escapeHtml(item.state)}</span>
+      </div>
+      <div class="sr-proc-cmd">${escapeHtml(item.process)}</div>
+      ${isHealthy ? "" : list("Symptoms", p.symptoms)}
+      ${isHealthy ? "" : list("Likely causes", p.likelyCauses)}
+      <div class="sr-block"><div class="sr-block-label">Recommended action</div><div class="sr-action">${escapeHtml(p.recommendedAction || "None")}</div></div>
+      <div class="sr-esc">Escalation: <strong>${escapeHtml(p.escalation || "None")}</strong></div>
+    </div>`;
+}
+
+function supervisorRecommendationsPanel() {
+  const items = buildSupervisorContext();
+  return `
+  <section class="panel sr-panel">
+    <div class="sr-title-row">
+      <h2 class="sr-heading">⚑ SUPERVISOR RECOMMENDATIONS</h2>
+    </div>
+    <div class="sr-banner">This panel provides recommendations only.<br>It does not restart, stop, or modify any process.</div>
+    <div class="sr-grid">${items.map(supervisorRecommendationCard).join("")}</div>
+    <div class="sr-footer">
+      Advisory (A2 Level 1). Recommendations map observed health to operator options; a human decides and acts (Level 2, manual).
+      <strong>FAILED</strong> requires evidence A2a does not collect (no PID checks); it is policy-defined for future phases.
+      Recovery must never outrun ownership. Humans authorize. Ori advises. Gates enforce.
+    </div>
+  </section>`;
+}
+
 function systemStatusPanel() {
   const { classified } = getScannerHealthClassification();
   const scannerCls = classified.status === "HEALTHY"
@@ -3054,6 +3333,31 @@ function sharedStyles() {
     .hb-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
     /* ── End Process Heartbeats ──────────────────────────────────────────── */
 
+    /* ── Supervisor Recommendations (A2a) ────────────────────────────────── */
+    .sr-panel { border:1px solid rgba(255,155,11,.3); }
+    .sr-title-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .sr-heading { color:var(--amber); font-size:17px; text-transform:uppercase; letter-spacing:.04em; margin:0; }
+    .sr-banner { background:rgba(255,155,11,.08); border:1px solid rgba(255,155,11,.4); color:#ffd79a; border-radius:3px; padding:10px 12px; margin-bottom:12px; font-size:12px; font-weight:700; line-height:1.5; }
+    .sr-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+    .sr-card { border:1px solid var(--line); border-radius:4px; padding:12px; background:rgba(255,255,255,.02); }
+    .sr-card-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px; }
+    .sr-proc { font-weight:700; font-size:13px; }
+    .sr-proc-cmd { color:var(--muted); font-size:10px; font-family:monospace; margin-bottom:8px; }
+    .sr-badge { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.06em; padding:3px 9px; border-radius:3px; text-transform:uppercase; white-space:nowrap; }
+    .sr-healthy { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.1); }
+    .sr-stale { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .sr-degraded { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.18); }
+    .sr-missing { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .sr-failed { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.2); }
+    .sr-no-data { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .sr-block { margin-top:8px; }
+    .sr-block-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
+    .sr-list { margin:0; padding-left:16px; font-size:11px; line-height:1.5; }
+    .sr-action { font-size:12px; font-weight:600; line-height:1.5; }
+    .sr-esc { margin-top:8px; font-size:11px; color:var(--muted); }
+    .sr-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:14px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
+    /* ── End Supervisor Recommendations ──────────────────────────────────── */
+
     /* ── Config Change Audit (A3) ────────────────────────────────────────── */
     .config-audit-panel { border:1px solid rgba(255,155,11,.3); }
     .ca-title-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
@@ -3196,6 +3500,8 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
   ${systemStatusPanel()}
 
   ${processHeartbeatPanel()}
+
+  ${supervisorRecommendationsPanel()}
 
   ${scannerHealthPanel()}
 
