@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const configStore = require("./config_store"); // A1b: shared atomic config writer
 
 const ROOT = __dirname;
 const CONFIG_FILE = path.join(ROOT, "live_config.json");
@@ -43,7 +44,7 @@ if (cfg.dryRunMode !== true) {
 cfg.lastAutomationToggleAt = new Date().toISOString();
 cfg.lastAutomationToggleReason = "reset_live_safety.js cleared emergency stop";
 
-fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + "\n");
+configStore.writeConfigAtomic(cfg, CONFIG_FILE);
 console.log(`  ${G} Emergency stop cleared. automation remains OFF, dry run remains ON.`);
 
 try {

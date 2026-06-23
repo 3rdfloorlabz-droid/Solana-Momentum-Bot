@@ -5,6 +5,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const configStore = require("./config_store"); // A1b: shared atomic config writer
 
 const CONFIG_FILE = path.join(__dirname, "live_config.json");
 const CONTROL_FILE = path.join(__dirname, "live_control_events.jsonl");
@@ -21,7 +22,7 @@ function emergencyStop(reason = "Manual emergency_stop.js") {
     lastAutomationToggleAt: new Date().toISOString(),
     lastAutomationToggleReason: reason
   };
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(stopped, null, 2) + "\n");
+  configStore.writeConfigAtomic(stopped, CONFIG_FILE);
 
   try {
     fs.appendFileSync(CONTROL_FILE,

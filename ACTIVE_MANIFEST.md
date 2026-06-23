@@ -105,7 +105,7 @@ Additional tests: `test_step9a_signing.js`, `test_step9b_submission.js`, and oth
 
 | File | Purpose |
 |------|---------|
-| `live_config.json` | **Operational truth:** mode, automation, limits, thesis bounds |
+| `live_config.json` | **Operational truth:** mode, automation, limits, thesis bounds. **Sprint 4 A1b:** all JS writers go through `config_store.writeConfigAtomic()` (temp → validate → atomic rename); PowerShell writers were already atomic |
 | `.env` | Local secrets and RPC (from `.env.example`; never commit) |
 | `.env.example` | Template for env vars |
 

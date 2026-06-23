@@ -45,6 +45,10 @@ near_miss_followups.json
 paper_trades.json
 paper_positions.json
 
+# Atomic-write temp files (A1b config_store; A1a paper store)
+live_config.json.*.tmp
+*.json.*.tmp
+
 # Legacy runtime JSON + operator backups (repo root)
 live_trades.json
 boosts.json

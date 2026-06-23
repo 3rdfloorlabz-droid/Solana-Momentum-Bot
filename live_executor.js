@@ -26,6 +26,7 @@
 const fs   = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const configStore = require("./config_store"); // A1b: shared atomic config writer
 
 let axios = null;
 try { axios = require("axios"); } catch { /* price polling will degrade gracefully */ }
@@ -1017,7 +1018,9 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + "\n");
+  // A1b: atomic write (temp → validate → rename). Behavior/format unchanged;
+  // value gates remain in loadConfig()/readinessChecks(), audit remains in callers.
+  configStore.writeConfigAtomic(cfg, CONFIG_FILE);
 }
 
 // ─── Config change audit (A3 — append-only, redacted; never mutates config) ─────
