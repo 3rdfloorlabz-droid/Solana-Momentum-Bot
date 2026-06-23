@@ -754,6 +754,328 @@ function buildSupervisorContext() {
   }).filter(Boolean);
 }
 
+// ─── Recovery Advisor (A2b) ───────────────────────────────────────────────────
+// MANUAL GUIDANCE ONLY. For each process + unhealthy state, provides severity,
+// an operator-readable diagnosis, manual recovery steps (plain command TEXT),
+// verification steps, an escalation rule, and a runbook reference. It executes
+// nothing: no buttons, no forms, no POST routes, no shell calls, no PID logic.
+// It reuses the A2a state model (buildSupervisorContext) unchanged.
+
+const RUNBOOK_RESTART = "docs/OPERATIONS.md → Restart After Crashes";
+const RUNBOOK_MODE = "docs/MODE_TRANSITION.md";
+const RUNBOOK_A2 = "docs/A2_SUPERVISOR_PLAN.md";
+const RUNBOOK_A4 = "Dashboard → Dedicated RPC Readiness (A4)";
+
+// Keyed by process key, then by unhealthy state. HEALTHY has no advisor entry.
+const RECOVERY_ADVISOR = {
+  scanner: {
+    STALE: {
+      severity: "Medium",
+      diagnosis: "Scanner heartbeat is older than threshold — it may be hung, stopped, or its GMGN source stalled.",
+      steps: [
+        "Stop the scanner terminal if it appears hung.",
+        "From repo root, run: node scanner_gmgn_trending.js --watch"
+      ],
+      verify: ["Confirm scanner_health.json lastScanAt refreshes and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    MISSING: {
+      severity: "Low",
+      diagnosis: "No scanner_health.json — the scanner has not started this session.",
+      steps: [
+        "From repo root, run: node scanner_gmgn_trending.js --watch",
+        "Or start the full set: .\\start_fomo.ps1"
+      ],
+      verify: ["Confirm scanner_health.json is created and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    "NO DATA": {
+      severity: "Medium",
+      diagnosis: "scanner_health.json exists but is unreadable (partial/corrupt write or schema mismatch).",
+      steps: [
+        "Inspect scanner_health.json (it is a snapshot; the ledger paper_trades.json is append-only and safe).",
+        "If unreadable, restart: node scanner_gmgn_trending.js --watch"
+      ],
+      verify: ["Confirm scanner_health.json parses and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    DEGRADED: {
+      severity: "Medium",
+      diagnosis: "Scanner is alive but impaired (M4 DEGRADED/STALLED, GMGN errors, or repeated 0-result scans). This is usually upstream, not the process.",
+      steps: [
+        "Do not blind-restart.",
+        "Verify GMGN CLI/key: confirm gmgn-cli works and GMGN_API_KEY is set.",
+        "Restart the scanner only after the GMGN issue is corrected."
+      ],
+      verify: ["Confirm M4 scanner health returns HEALTHY and result counts recover."],
+      doc: RUNBOOK_RESTART
+    },
+    FAILED: {
+      severity: "High",
+      diagnosis: "Scanner has crashed/exited or is throwing repeated fatal errors.",
+      steps: [
+        "Review the scanner terminal output for the error.",
+        "Human-confirmed restart: node scanner_gmgn_trending.js --watch (append-only ledger; safe)."
+      ],
+      verify: ["Confirm scanner_health.json refreshes and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    }
+  },
+  executor: {
+    STALE: {
+      severity: "High",
+      diagnosis: "Executor cycle (execution_audit.jsonl CYCLE_END) is older than threshold. The executor owns positions/dedup state — do not auto-restart.",
+      steps: [
+        "Do not auto-restart.",
+        "Run: node live_executor.js --status",
+        "If posture is unsafe, run: .\\panic.ps1  and stop.",
+        "If posture is safe, a human may restart: node live_executor.js --loop"
+      ],
+      verify: ["Confirm --status shows PIPELINE_DRY_RUN and liveArmed false; new CYCLE_END appears in execution_audit.jsonl."],
+      doc: `${RUNBOOK_RESTART}; ${RUNBOOK_MODE}`
+    },
+    MISSING: {
+      severity: "Medium",
+      diagnosis: "No recent executor cycles — the observation loop is not running (only --status may have been used).",
+      steps: [
+        "Run: node live_executor.js --status (confirm posture first).",
+        "If safe, a human may start the loop: node live_executor.js --loop"
+      ],
+      verify: ["Confirm --status shows PIPELINE_DRY_RUN / liveArmed false; cycles begin appearing."],
+      doc: RUNBOOK_RESTART
+    },
+    "NO DATA": {
+      severity: "High",
+      diagnosis: "execution_audit.jsonl tail is unreadable (corrupt/partial append). Restart is not repair.",
+      steps: [
+        "Do not auto-restart.",
+        "Inspect execution_audit.jsonl manually.",
+        "Run: node live_executor.js --status to confirm posture.",
+        "Escalate to human investigation before restarting."
+      ],
+      verify: ["Confirm the audit file parses and --status shows PIPELINE_DRY_RUN / liveArmed false."],
+      doc: RUNBOOK_RESTART
+    },
+    DEGRADED: {
+      severity: "Medium",
+      diagnosis: "Executor is alive but impaired (repeated SIMULATION_FAILED / PRIORITY_FEE_UNAVAILABLE, or no dedicated RPC for trust-critical paths). This is infrastructure, not a process fault.",
+      steps: [
+        "Do not restart to mask it.",
+        "Check the Dedicated RPC Readiness (A4) panel.",
+        "Correct RPC/env, then a human may restart if warranted."
+      ],
+      verify: ["Confirm A4 readiness and that error rates in live_errors.jsonl subside."],
+      doc: RUNBOOK_A4
+    },
+    FAILED: {
+      severity: "Critical",
+      diagnosis: "Executor crashed/exited or is throwing repeated fatal cycle errors.",
+      steps: [
+        "Run: node live_executor.js --status",
+        "If posture is unsafe or config/state looks corrupted, run: .\\panic.ps1 and stop.",
+        "Only after confirming safety, a human may restart: node live_executor.js --loop"
+      ],
+      verify: ["Confirm --status shows PIPELINE_DRY_RUN / liveArmed false before and after restart."],
+      doc: `${RUNBOOK_RESTART}; ${RUNBOOK_MODE}`
+    }
+  },
+  wallet_monitor: {
+    STALE: {
+      severity: "Low",
+      diagnosis: "wallet_status.json updatedAt is older than threshold — the wallet monitor may be stopped or its RPC is stalling.",
+      steps: [
+        "Stop the wallet monitor terminal if hung.",
+        "From repo root, run: node wallet_monitor.js"
+      ],
+      verify: ["Confirm wallet_status.json updatedAt refreshes and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    MISSING: {
+      severity: "Low",
+      diagnosis: "No wallet_status.json — the wallet monitor has not started.",
+      steps: ["From repo root, run: node wallet_monitor.js (or .\\start_fomo.ps1)"],
+      verify: ["Confirm wallet_status.json is created and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    "NO DATA": {
+      severity: "Low",
+      diagnosis: "wallet_status.json exists but is unreadable (partial write). The snapshot is rebuildable.",
+      steps: ["Restart: node wallet_monitor.js (the snapshot regenerates)."],
+      verify: ["Confirm wallet_status.json parses and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    DEGRADED: {
+      severity: "Medium",
+      diagnosis: "Wallet monitor is alive but using the public Solana RPC fallback (rate limits can cause false DISCONNECTED). Infrastructure, not the process.",
+      steps: [
+        "Check the Dedicated RPC Readiness (A4) panel.",
+        "Configure a dedicated RPC (env/.env) if needed.",
+        "Restart the wallet monitor manually only after config/env correction: node wallet_monitor.js"
+      ],
+      verify: ["Confirm the A4 panel shows a dedicated endpoint and wallet status stabilizes."],
+      doc: RUNBOOK_A4
+    },
+    FAILED: {
+      severity: "Medium",
+      diagnosis: "Wallet monitor crashed/exited.",
+      steps: [
+        "Review the wallet monitor terminal output.",
+        "Human-confirmed restart: node wallet_monitor.js (safe; snapshot rebuildable)."
+      ],
+      verify: ["Confirm wallet_status.json refreshes and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    }
+  },
+  paper_monitor: {
+    STALE: {
+      severity: "Low",
+      diagnosis: "paper_positions.json mtime is older than threshold (proxy). The monitor may be stopped — or simply quiet (no open trades to update).",
+      steps: [
+        "Verify the monitor terminal — STALE may mean quiet, not dead.",
+        "If actually stopped, restart: node monitor.js (re-seeds idempotently from the ledger)."
+      ],
+      verify: ["Confirm paper_positions.json mtime updates on the next close and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    MISSING: {
+      severity: "Low",
+      diagnosis: "No paper_positions.json — the monitor has not started, or the store is not yet seeded.",
+      steps: ["From repo root, run: node monitor.js (it re-seeds idempotently from paper_trades.json)."],
+      verify: ["Confirm paper_positions.json is created and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    "NO DATA": {
+      severity: "Low",
+      diagnosis: "paper_positions.json exists but is unreadable (partial write).",
+      steps: [
+        "Inspect paper_positions.json.",
+        "Restart: node monitor.js (re-seed), or repair the file manually if needed."
+      ],
+      verify: ["Confirm paper_positions.json parses and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    },
+    DEGRADED: {
+      severity: "Low",
+      diagnosis: "Monitor is alive but impaired (repeated DexScreener price-fetch failures or NEEDS_REVIEW spikes).",
+      steps: [
+        "Review the pricing/anomaly cause before acting.",
+        "Do not blind-restart; restart only if the process itself is faulty."
+      ],
+      verify: ["Confirm price fetches recover and NEEDS_REVIEW rate normalizes."],
+      doc: RUNBOOK_RESTART
+    },
+    FAILED: {
+      severity: "Medium",
+      diagnosis: "Paper monitor crashed/exited.",
+      steps: [
+        "Review the monitor terminal output.",
+        "Human-confirmed restart: node monitor.js (safe; idempotent re-seed)."
+      ],
+      verify: ["Confirm paper_positions.json updates resume and this panel returns HEALTHY."],
+      doc: RUNBOOK_RESTART
+    }
+  },
+  dashboard: {
+    STALE: {
+      severity: "Low",
+      diagnosis: "Dashboard appears unresponsive (port 3000 not serving). It is a pure reader; restart is safe.",
+      steps: [
+        "Stop the dashboard terminal if hung.",
+        "From repo root, run: node dashboard_server.js",
+        "Check for a port 3000 conflict."
+      ],
+      verify: ["Confirm http://localhost:3000 loads."],
+      doc: RUNBOOK_RESTART
+    },
+    MISSING: {
+      severity: "Low",
+      diagnosis: "Dashboard is not running.",
+      steps: ["From repo root, run: node dashboard_server.js (or .\\start_fomo.ps1)."],
+      verify: ["Confirm http://localhost:3000 loads."],
+      doc: RUNBOOK_RESTART
+    },
+    "NO DATA": {
+      severity: "Low",
+      diagnosis: "The dashboard renders, but panels show NO DATA/MISSING because OTHER processes are down. The dashboard itself is healthy.",
+      steps: [
+        "Do not restart the dashboard to fill source gaps.",
+        "Fix the upstream source process (see the Process Heartbeats panel)."
+      ],
+      verify: ["Confirm the upstream process recovers and its panel populates."],
+      doc: RUNBOOK_RESTART
+    },
+    DEGRADED: {
+      severity: "Low",
+      diagnosis: "Dashboard renders, but many panels are degraded due to upstream process/infra impairment.",
+      steps: ["Diagnose the upstream cause (heartbeats / A4), not the dashboard."],
+      verify: ["Confirm upstream recovery restores the affected panels."],
+      doc: RUNBOOK_RESTART
+    },
+    FAILED: {
+      severity: "Low",
+      diagnosis: "Dashboard crashed/exited; port 3000 is dead.",
+      steps: [
+        "Review the dashboard terminal output.",
+        "Human-confirmed restart: node dashboard_server.js; resolve any port 3000 conflict."
+      ],
+      verify: ["Confirm http://localhost:3000 loads."],
+      doc: RUNBOOK_RESTART
+    }
+  }
+};
+
+const RECOVERY_SEVERITY_CLS = {
+  Low: "ra-sev-low",
+  Medium: "ra-sev-med",
+  High: "ra-sev-high",
+  Critical: "ra-sev-crit"
+};
+
+function buildRecoveryAdvisorContext() {
+  return buildSupervisorContext()
+    .filter(item => item.state !== "HEALTHY")
+    .map(item => {
+      const byState = RECOVERY_ADVISOR[item.key] || {};
+      const advice = byState[item.state] || null;
+      const escalation = (item.policy && item.policy.escalation) || "L1 Advisory";
+      return { ...item, advice, escalation };
+    })
+    .filter(item => item.advice);
+}
+
+function recoveryAdvisorCard(item) {
+  const a = item.advice;
+  const sevCls = RECOVERY_SEVERITY_CLS[a.severity] || "ra-sev-low";
+  const steps = (a.steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+  const verify = (a.verify || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+  return `
+    <div class="ra-card">
+      <div class="ra-card-head">
+        <span class="ra-proc">${escapeHtml(item.label)} · <span class="ra-state">${escapeHtml(item.state)}</span></span>
+        <span class="ra-sev ${sevCls}">${escapeHtml(a.severity)}</span>
+      </div>
+      <div class="ra-block"><div class="ra-block-label">Diagnosis</div><div class="ra-text">${escapeHtml(a.diagnosis)}</div></div>
+      <div class="ra-block"><div class="ra-block-label">Manual recovery steps</div><ol class="ra-steps">${steps}</ol></div>
+      <div class="ra-block"><div class="ra-block-label">Verification</div><ul class="ra-verify">${verify}</ul></div>
+      <div class="ra-block"><div class="ra-block-label">Escalation</div><div class="ra-text"><strong>${escapeHtml(item.escalation)}</strong></div></div>
+      ${a.doc ? `<div class="ra-doc">Runbook: ${escapeHtml(a.doc)}</div>` : ""}
+      <div class="ra-noauto">⚠ Do not automate. Manual, human-confirmed action only.</div>
+    </div>`;
+}
+
+function recoveryAdvisorSection() {
+  const items = buildRecoveryAdvisorContext();
+  const body = items.length
+    ? `<div class="ra-grid">${items.map(recoveryAdvisorCard).join("")}</div>`
+    : `<div class="ra-allclear">All processes HEALTHY — no recovery actions recommended.</div>`;
+  return `
+    <div class="ra-wrap">
+      <div class="ra-heading-row"><h3 class="ra-heading">RECOVERY ADVISOR</h3></div>
+      <div class="ra-banner">Recovery Advisor is manual guidance only. It does not execute commands, restart processes, stop processes, edit config, or repair files.</div>
+      ${body}
+    </div>`;
+}
+
 function supervisorRecommendationCard(item) {
   const p = item.policy || {};
   const isHealthy = item.state === "HEALTHY";
@@ -783,6 +1105,7 @@ function supervisorRecommendationsPanel() {
     </div>
     <div class="sr-banner">This panel provides recommendations only.<br>It does not restart, stop, or modify any process.</div>
     <div class="sr-grid">${items.map(supervisorRecommendationCard).join("")}</div>
+    ${recoveryAdvisorSection()}
     <div class="sr-footer">
       Advisory (A2 Level 1). Recommendations map observed health to operator options; a human decides and acts (Level 2, manual).
       <strong>FAILED</strong> requires evidence A2a does not collect (no PID checks); it is policy-defined for future phases.
@@ -3356,6 +3679,30 @@ function sharedStyles() {
     .sr-action { font-size:12px; font-weight:600; line-height:1.5; }
     .sr-esc { margin-top:8px; font-size:11px; color:var(--muted); }
     .sr-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:14px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
+    /* ── Recovery Advisor (A2b) ──────────────────────────────────────────── */
+    .ra-wrap { margin-top:16px; padding:12px; border:1px dashed rgba(255,155,11,.45); border-radius:4px; background:rgba(255,155,11,.03); }
+    .ra-heading-row { margin-bottom:8px; }
+    .ra-heading { color:var(--amber); font-size:13px; text-transform:uppercase; letter-spacing:.06em; margin:0; }
+    .ra-banner { background:rgba(245,43,63,.08); border:1px solid rgba(245,43,63,.4); color:#ff9aa8; border-radius:3px; padding:9px 11px; margin-bottom:12px; font-size:11px; font-weight:700; line-height:1.5; }
+    .ra-allclear { color:var(--green); font-size:12px; font-weight:600; padding:6px 2px; }
+    .ra-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
+    .ra-card { border:1px solid var(--line); border-radius:4px; padding:12px; background:rgba(0,0,0,.18); }
+    .ra-card-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+    .ra-proc { font-weight:700; font-size:13px; }
+    .ra-state { color:var(--amber); }
+    .ra-sev { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.06em; padding:3px 9px; border-radius:3px; text-transform:uppercase; white-space:nowrap; }
+    .ra-sev-low { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .ra-sev-med { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.12); }
+    .ra-sev-high { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.14); }
+    .ra-sev-crit { color:#fff; border:1px solid var(--red); background:rgba(245,43,63,.4); }
+    .ra-block { margin-top:8px; }
+    .ra-block-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
+    .ra-text { font-size:12px; line-height:1.5; }
+    .ra-steps, .ra-verify { margin:0; padding-left:18px; font-size:12px; line-height:1.6; }
+    .ra-steps li, .ra-verify li { margin-bottom:2px; }
+    .ra-doc { margin-top:8px; font-size:11px; color:var(--muted); font-style:italic; }
+    .ra-noauto { margin-top:10px; font-size:11px; font-weight:700; color:#ff9aa8; }
+    /* ── End Recovery Advisor ────────────────────────────────────────────── */
     /* ── End Supervisor Recommendations ──────────────────────────────────── */
 
     /* ── Config Change Audit (A3) ────────────────────────────────────────── */
