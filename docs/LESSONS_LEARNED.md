@@ -36,6 +36,14 @@ The −50% implied-loss threshold correctly treats many stop triggers as data pr
 
 Logging high-score rejections to `near_misses.json` and follow-ups at +20m/+60m/+120m supports tuning without conflating rejected names with traded outcomes.
 
+### Single-writer ownership beats coordination (Sprint 4 A1)
+
+The file-race problem was not fixed by adding locks; it was fixed by removing the second writer. Splitting `paper_trades.json` (scanner-owned, append-only ledger) from `paper_positions.json` (monitor-owned, atomically-replaced lifecycle store) eliminated the dual-writer race entirely, while a merged read view kept every reader behavior-compatible. Likewise, routing all JS `live_config.json` writes through one atomic helper (`config_store.writeConfigAtomic`) removed torn-write risk without changing a single config value. The cheapest concurrency fix is to make ownership unambiguous.
+
+### Lock invariants in tests, not just docs (Sprint 4 A1c)
+
+Documenting "single writer / many readers" is necessary but not sufficient — the next contributor edits code, not the manifest. `test_ownership_guards.js` turns the ownership contract into a static regression check that fails CI if the monitor ever writes `paper_trades.json`, the scanner writes `paper_positions.json`, or an unapproved/non-atomic `live_config.json` writer appears. When it was first run it immediately flagged six legacy/backup root scripts, proving the guard has teeth. Architectural guarantees survive only when a test enforces them.
+
 ---
 
 ## Mistakes

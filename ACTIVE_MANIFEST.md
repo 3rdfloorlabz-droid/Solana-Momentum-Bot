@@ -83,7 +83,7 @@ Equivalent manual run:
 node run_safety_tests.js
 ```
 
-Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`.
+Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, and the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, `test_ownership_guards.js`.
 
 **CI:** GitHub Actions workflow **Safety Tests** (`.github/workflows/safety-tests.yml`) runs `npm test` on every push and pull request to `main`.
 
@@ -110,6 +110,25 @@ Additional tests: `test_step9a_signing.js`, `test_step9b_submission.js`, and oth
 | `.env.example` | Template for env vars |
 
 **Do not** switch to `LIVE` or disable dry run without explicit authorization.
+
+---
+
+## State ownership contract (Single Writer / Many Readers)
+
+**Sprint 4 (A1a/A1b/A1c).** Each mutable state file has exactly **one writer**; everyone else is a **reader**. This eliminates the dual-writer races that previously corrupted shared JSON/JSONL. The contract below is enforced by `test_ownership_guards.js` (static source guards, part of `node run_safety_tests.js`).
+
+| File | Single Writer | Many Readers | Write mode |
+|------|---------------|--------------|------------|
+| `paper_trades.json` | **Scanner** (`scanner_gmgn_trending.js`) | monitor, dashboard, analysis scripts | Append-only (JSONL) |
+| `paper_positions.json` | **Monitor** (`monitor.js` via `paper_positions_store.js`) | scanner (cooldowns), dashboard | Atomic replace (temp → rename) |
+| `live_config.json` | **Executor / ops only** (`live_executor.saveConfig`, `emergency_stop.js`, `reset_live_safety.js` via `config_store.writeConfigAtomic`; PowerShell `panic.ps1` / `reset_after_panic.ps1` via their atomic helper) | dashboard, validators, all readers | Atomic replace (temp → fsync → validate → rename) |
+| `live_positions.json` | **Executor** (`live_executor.js`) | dashboard, `reset_live_safety.js` (read) | Full replace (executor-only) |
+| `observation_dedup.json` | **Executor** (`live_executor.js`) | executor only | Full replace (executor-only) |
+
+**Rules:**
+- No file may add a second writer without updating this table **and** `test_ownership_guards.js`.
+- The monitor must never write `paper_trades.json`; the scanner must never write `paper_positions.json`.
+- All JS writes to `live_config.json` must route through `config_store.writeConfigAtomic` — never raw `fs.writeFileSync`.
 
 ---
 

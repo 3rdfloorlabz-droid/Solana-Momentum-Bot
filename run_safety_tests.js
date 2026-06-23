@@ -16,7 +16,12 @@ const TESTS = [
   "test_signer_guard.js",
   "test_pipeline_candidate_handoff.js",
   "test_pipeline_dry_run.js",
-  "test_observation_pool.js"
+  "test_observation_pool.js",
+  // Sprint 4 state-ownership regression guards (A1a/A1b/A1c). Static + temp-dir
+  // only; they protect single-writer ownership and atomic config writes.
+  "test_paper_positions_ownership.js",
+  "test_config_store_atomic.js",
+  "test_ownership_guards.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {
