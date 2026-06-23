@@ -43,6 +43,7 @@ const ERRORS_FILE         = path.join(ROOT, "live_errors.jsonl");
 const EXECUTION_AUDIT_FILE = path.join(ROOT, "execution_audit.jsonl");
 const PENDING_RECONCILIATION_FILE = path.join(ROOT, "pending_reconciliation.jsonl");
 const OBSERVATION_DEDUP_FILE = path.join(ROOT, "observation_dedup.json");
+const CONFIG_AUDIT_FILE   = path.join(ROOT, "config_change_audit.jsonl");
 
 const DEX = "https://api.dexscreener.com";
 const JUPITER_QUOTE_ENDPOINT = "https://quote-api.jup.ag/v6/quote";
@@ -1017,6 +1018,88 @@ function loadConfig() {
 
 function saveConfig(cfg) {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + "\n");
+}
+
+// ─── Config change audit (A3 — append-only, redacted; never mutates config) ─────
+// Records safety-relevant live_config.json field changes. This NEVER changes a
+// config value, blocks a change, or enables anything — it only writes an audit row.
+
+const CONFIG_FIELD_RISK = {
+  // CRITICAL — execution authority & capital safety
+  executionMode: "CRITICAL", dryRunMode: "CRITICAL", emergencyStop: "CRITICAL",
+  automationEnabled: "CRITICAL", requireManualConfirm: "CRITICAL", walletPublicAddress: "CRITICAL",
+  compoundingEnabled: "CRITICAL", averagingDownEnabled: "CRITICAL", averagingEnabled: "CRITICAL",
+  martingaleEnabled: "CRITICAL",
+  // IMPORTANT — risk / strategy / economic parameters
+  positionSizeSol: "IMPORTANT", maxTradeSizeSol: "IMPORTANT", maxOpenTrades: "IMPORTANT",
+  maxSlippageBps: "IMPORTANT", maxEntrySlippagePct: "IMPORTANT", maxExitSlippagePct: "IMPORTANT",
+  maxRoutePriceImpactPct: "IMPORTANT", maxDailyLossSol: "IMPORTANT", maxDailyLossCount: "IMPORTANT",
+  maxDailyLosses: "IMPORTANT", maxDrawdownPercent: "IMPORTANT", stopLossPct: "IMPORTANT",
+  takeProfitPct: "IMPORTANT", thesis: "IMPORTANT", strategyVersion: "IMPORTANT", phase: "IMPORTANT",
+  priorityFeeMode: "IMPORTANT", priorityFeeBudgetLamports: "IMPORTANT", maxPriorityFeeLamports: "IMPORTANT",
+  fallbackPriorityFeeLamports: "IMPORTANT", assumedComputeUnitLimit: "IMPORTANT",
+  confirmationCommitment: "IMPORTANT", confirmationTimeoutMs: "IMPORTANT", maxSubmitRetries: "IMPORTANT",
+  minWalletBalanceSol: "IMPORTANT", startingCapitalUsd: "IMPORTANT"
+};
+
+// Write-side bookkeeping fields: changed as a side effect of every control action
+// and already captured by control events. Excluded from audit to keep it signal-focused.
+const CONFIG_AUDIT_SKIP_FIELDS = new Set([
+  "lastAutomationToggleAt", "lastAutomationToggleReason", "lastError", "emergencyStopActivatedAt", "killSwitchReason"
+]);
+
+function classifyConfigFieldRisk(field) {
+  return CONFIG_FIELD_RISK[field] || "INFORMATIONAL";
+}
+
+function redactConfigValue(field, value) {
+  if (field === "walletPublicAddress" && typeof value === "string" && value.length > 10) {
+    return `${value.slice(0, 4)}…${value.slice(-4)}`;
+  }
+  return value;
+}
+
+function diffConfigFields(oldCfg, newCfg) {
+  const fields = new Set([...Object.keys(oldCfg || {}), ...Object.keys(newCfg || {})]);
+  const changes = [];
+  for (const field of fields) {
+    if (CONFIG_AUDIT_SKIP_FIELDS.has(field)) continue;
+    const a = oldCfg ? oldCfg[field] : undefined;
+    const b = newCfg ? newCfg[field] : undefined;
+    if (JSON.stringify(a) !== JSON.stringify(b)) changes.push({ field, oldValue: a, newValue: b });
+  }
+  return changes;
+}
+
+function auditConfigChange({ oldCfg, newCfg, actor = "system", source = "unknown", reason = null, modeCfg = null } = {}) {
+  try {
+    const changes = diffConfigFields(oldCfg, newCfg);
+    if (!changes.length) return;
+    const ctxCfg = modeCfg || newCfg || oldCfg || {};
+    let modeAtChange = null;
+    try { modeAtChange = resolveExecutionMode(ctxCfg); } catch { modeAtChange = ctxCfg.executionMode || null; }
+    let liveArmedAtChange = null;
+    try { liveArmedAtChange = computeLiveArmedStatus(ctxCfg).liveArmed === true; } catch { liveArmedAtChange = null; }
+    const changeId = crypto.randomUUID();
+    const timestamp = nowIso();
+    for (const c of changes) {
+      const riskLevel = classifyConfigFieldRisk(c.field);
+      appendJsonl(CONFIG_AUDIT_FILE, {
+        timestamp,
+        actor,
+        source,
+        field: c.field,
+        oldValue: redactConfigValue(c.field, c.oldValue),
+        newValue: redactConfigValue(c.field, c.newValue),
+        reason,
+        riskLevel,
+        requiresReview: riskLevel === "CRITICAL" || riskLevel === "IMPORTANT",
+        modeAtChange,
+        liveArmedAtChange,
+        changeId
+      });
+    }
+  } catch { /* audit must never break control flow */ }
 }
 
 // ─── Positions store ──────────────────────────────────────────────────────────
@@ -2792,31 +2875,37 @@ function startAutomation(reason = "Manual START from dashboard") {
     logControl("START_REJECTED", "Readiness failed", { failed });
     return { ok: false, error: `Readiness checks failed: ${failed.join(", ")}`, readiness };
   }
+  const before = JSON.parse(JSON.stringify(cfg));
   cfg.automationEnabled = true;
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
   saveConfig(cfg);
+  auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.startAutomation", reason });
   logControl("START", reason, { dryRunMode: cfg.dryRunMode });
   return { ok: true, dryRunMode: cfg.dryRunMode };
 }
 
 function stopAutomation(reason = "Manual STOP from dashboard") {
   const cfg = loadConfig();
+  const before = JSON.parse(JSON.stringify(cfg));
   cfg.automationEnabled = false; // entries off; exits continue
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
   saveConfig(cfg);
+  auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.stopAutomation", reason });
   logControl("STOP", reason);
   return { ok: true, note: "New entries disabled. Open positions will still be exited by the loop." };
 }
 
 function emergencyStopControl(reason = "Manual EMERGENCY STOP from dashboard") {
   const cfg = loadConfig();
+  const before = JSON.parse(JSON.stringify(cfg));
   cfg.automationEnabled = false;
   cfg.emergencyStop = true;
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
   saveConfig(cfg);
+  auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.emergencyStopControl", reason });
   logControl("EMERGENCY_STOP", reason);
   writeLiveEvent({ eventType: "KILL_SWITCH_ACTIVATED", timestamp: nowIso(), reason, anomalyFlags: ["KILL_SWITCH"] });
   return { ok: true };
@@ -3002,9 +3091,11 @@ module.exports = {
   loadConfig, saveConfig, liveStats, safetyCheck, todayStats, dailyStopHit,
   readLiveTrades, readPositions, openPositions, findOpenLiveTradeByAddress,
   groupLiveTrades, getWalletBalanceSol, writeLiveEvent, logControl, readPipelineCandidates,
+  // config audit (A3)
+  auditConfigChange, classifyConfigFieldRisk,
   // meta
   EXECUTOR_VERSION, PHASE,
-  FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE, OBSERVATION_DEDUP_FILE },
+  FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE, OBSERVATION_DEDUP_FILE, CONFIG_AUDIT_FILE },
   // Test-only logging surface. It exposes no signer, swap, or transaction methods.
   __executionLoggingTest: {
     EXECUTION_ABORT_CODES, EXECUTION_STAGES,

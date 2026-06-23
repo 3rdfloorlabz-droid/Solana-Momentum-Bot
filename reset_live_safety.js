@@ -24,6 +24,8 @@ let cfg;
 try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")); }
 catch (err) { console.error(`${R} config parse error: ${err.message}`); process.exit(1); }
 
+const configBefore = JSON.parse(JSON.stringify(cfg));
+
 console.log("\n── CLEARING EMERGENCY STOP ──────────────────────────────");
 const wasStopped = Boolean(cfg.emergencyStop || cfg.emergencyStopActivatedAt);
 if (wasStopped) console.log(`  ${Y} Emergency stop was active. Clearing...`);
@@ -49,6 +51,18 @@ try {
     timestamp: new Date().toISOString(), action: "RESET", reason: "reset_live_safety.js", source: "reset_live_safety.js"
   }) + "\n");
 } catch { /* best-effort */ }
+
+// A3 config change audit (append-only; never mutates config). Best-effort.
+try {
+  const executor = require("./live_executor");
+  executor.auditConfigChange({
+    oldCfg: configBefore,
+    newCfg: cfg,
+    actor: "operator",
+    source: "reset_live_safety.js",
+    reason: "cleared emergency stop (automation stays OFF, dry run stays ON)"
+  });
+} catch { /* audit is best-effort; never block reset */ }
 
 console.log("\n── VERIFYING SAFETY INVARIANTS ──────────────────────────");
 const results = [];

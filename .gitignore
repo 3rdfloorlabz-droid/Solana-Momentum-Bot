@@ -37,6 +37,7 @@ wallet_status.json
 simulation_results.json
 pending_reconciliation.jsonl
 panic_events.jsonl
+config_change_audit.jsonl
 observation_dedup.json
 scanner_health.json
 near_misses.json

@@ -125,7 +125,8 @@ Serious reliability, false-confidence, or migration blockers — urgent before l
 |-------|--------|
 | **Description** | `dashboard_server.js` on port 3000 toggles `automationEnabled` and related config without auth. |
 | **Impact** | Anyone on host can arm entries or confuse automation state; shared-machine risk. |
-| **Possible solution** | Localhost bind + auth token; confirm dialog for START; audit config diffs to `live_control_events.jsonl`. |
+| **Status** | **Config audit gap partially resolved** (2026-06-22, Sprint 3 A3). Safety-relevant `live_config.json` changes now write an append-only audit row to `config_change_audit.jsonl` (`oldValue`, `newValue`, `actor`, `source`, `reason`, `riskLevel` CRITICAL/IMPORTANT/INFORMATIONAL, `requiresReview`, `modeAtChange`, `liveArmedAtChange`, `changeId`). Covered write surfaces: executor `startAutomation` / `stopAutomation` / `emergencyStopControl`, `reset_live_safety.js`, `panic.ps1`, `reset_after_panic.ps1`. `walletPublicAddress` redacted; no secrets/`.env`/private keys logged. Dashboard shows a read-only **Config Change Audit (A3)** summary card (latest change, field, risk, source, 24h/total counts; no buttons). **Auth and the dashboard mutation risk itself are NOT resolved** — auditing records changes, it does not authenticate or gate them. Direct manual edits to `live_config.json` outside these surfaces remain uncaptured. |
+| **Possible solution** | Localhost bind + auth token; confirm dialog for START; full file-watch / pre-save diff capture for manual edits. |
 | **Dependencies** | TracktaOS UI security model; operator workflow preferences. |
 
 ---

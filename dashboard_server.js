@@ -43,6 +43,7 @@ const EMERGENCY_STOP_FILE = path.join(ROOT, "emergency_stop.js");
 const LIVE_LOGGER_FILE = path.join(ROOT, "live_trade_logger.js");
 const LIVE_EXECUTOR_FILE = path.join(ROOT, "live_executor.js");
 const SIMULATION_RESULTS_FILE = path.join(ROOT, "simulation_results.json");
+const CONFIG_AUDIT_FILE = path.join(ROOT, "config_change_audit.jsonl");
 const STRATEGY_VERSION = "gmgn_v4";
 const MONITOR_VERSION = "monitor_v4";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -2096,6 +2097,54 @@ function promotionGroupTable(title, gates) {
     </table>`;
 }
 
+function configAuditPanel() {
+  let rows = [];
+  let invalid = 0;
+  try {
+    const res = readJsonLines(CONFIG_AUDIT_FILE);
+    rows = Array.isArray(res.rows) ? res.rows : [];
+    invalid = res.invalid || 0;
+  } catch { rows = []; }
+
+  const exists = fs.existsSync(CONFIG_AUDIT_FILE);
+  const total = rows.length;
+  const last = total ? rows[total - 1] : null;
+  const dayAgo = Date.now() - DAY_MS;
+  const recent24h = rows.filter(r => {
+    const t = Date.parse(r && r.timestamp);
+    return Number.isFinite(t) && t >= dayAgo;
+  }).length;
+
+  const riskClassMap = { CRITICAL: "ca-risk-critical", IMPORTANT: "ca-risk-important", INFORMATIONAL: "ca-risk-info" };
+  const latestRisk = last && last.riskLevel ? String(last.riskLevel) : "—";
+  const latestRiskCls = riskClassMap[latestRisk] || "ca-risk-info";
+  const latestTs = last && last.timestamp ? String(last.timestamp) : "—";
+  const latestSource = last && last.source ? String(last.source) : "—";
+  const latestField = last && last.field ? String(last.field) : "—";
+
+  const stateBadge = exists
+    ? `<span class="ca-badge ca-active">RECORDING</span>`
+    : `<span class="ca-badge ca-empty">NO CHANGES YET</span>`;
+
+  return `
+  <section class="panel config-audit-panel">
+    <div class="ca-title-row">
+      <h2 class="ca-heading">⟐ CONFIG CHANGE AUDIT (A3)</h2>
+      ${stateBadge}
+    </div>
+    <div class="ca-banner">Read-only. Records safety-relevant <code>live_config.json</code> changes (old/new value, actor, source, risk). It does not change config or arm anything. Values are redacted; no secrets are logged.</div>
+    <div class="ca-grid">
+      <div class="ca-card"><div class="ca-label">Latest change</div><div class="ca-value">${escapeHtml(latestTs)}</div></div>
+      <div class="ca-card"><div class="ca-label">Latest field</div><div class="ca-value">${escapeHtml(latestField)}</div></div>
+      <div class="ca-card"><div class="ca-label">Latest risk</div><div class="ca-value"><span class="ca-risk ${latestRiskCls}">${escapeHtml(latestRisk)}</span></div></div>
+      <div class="ca-card"><div class="ca-label">Latest source</div><div class="ca-value">${escapeHtml(latestSource)}</div></div>
+      <div class="ca-card"><div class="ca-label">Changes (24h)</div><div class="ca-value">${recent24h}</div></div>
+      <div class="ca-card"><div class="ca-label">Total recorded</div><div class="ca-value">${total}${invalid ? ` <span class="ca-warn">(${invalid} unreadable)</span>` : ""}</div></div>
+    </div>
+    <div class="ca-footer">Audit only. Manual edits to <code>live_config.json</code> outside the executor/ops scripts are not captured here.</div>
+  </section>`;
+}
+
 function promotionChecklistPanel() {
   const ctx = buildPromotionContext();
   const groups = evaluatePromotionGates(ctx);
@@ -2978,6 +3027,26 @@ function sharedStyles() {
     .hb-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
     /* ── End Process Heartbeats ──────────────────────────────────────────── */
 
+    /* ── Config Change Audit (A3) ────────────────────────────────────────── */
+    .config-audit-panel { border:1px solid rgba(255,155,11,.3); }
+    .ca-title-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .ca-heading { color:var(--amber); font-size:17px; text-transform:uppercase; letter-spacing:.04em; margin:0; }
+    .ca-banner { background:rgba(255,155,11,.06); border:1px solid rgba(255,155,11,.3); color:#f3c98a; border-radius:3px; padding:10px 12px; margin-bottom:10px; font-size:12px; font-weight:600; }
+    .ca-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:4px 0 6px; }
+    .ca-card { background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:4px; padding:11px; }
+    .ca-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+    .ca-value { color:var(--text); font-size:13px; font-weight:600; margin-top:5px; word-break:break-word; }
+    .ca-warn { color:var(--amber); font-weight:700; }
+    .ca-badge { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.06em; padding:3px 9px; border-radius:3px; text-transform:uppercase; }
+    .ca-active { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.1); }
+    .ca-empty { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .ca-risk { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; padding:2px 8px; border-radius:3px; text-transform:uppercase; }
+    .ca-risk-critical { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .ca-risk-important { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .ca-risk-info { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .ca-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
+    /* ── End Config Change Audit ─────────────────────────────────────────── */
+
     /* ── Live Execution Dashboard ────────────────────────────────────────── */
     .le-panel { border-color:rgba(5,217,245,.35); box-shadow:0 0 28px rgba(5,217,245,.06),inset 0 0 40px rgba(5,217,245,.025); margin-bottom:18px; }
     .le-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
@@ -3110,6 +3179,8 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
   ${reconciliationPanel()}
 
   ${promotionChecklistPanel()}
+
+  ${configAuditPanel()}
 
   ${walletConnectionPanel()}
 

@@ -9,6 +9,7 @@ $ProjectRoot = $ProjectPath
 $ConfigPath = Join-Path $ProjectRoot "live_config.json"
 $TempConfigPath = Join-Path $ProjectRoot "live_config.json.panic-tmp"
 $EventLogPath = Join-Path $ProjectRoot "panic_events.jsonl"
+$ConfigAuditPath = Join-Path $ProjectRoot "config_change_audit.jsonl"
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
 if (-not (Test-Path -LiteralPath $ProjectRoot)) {
@@ -127,14 +128,64 @@ function Append-JsonLine {
   [System.IO.File]::AppendAllText($EventLogPath, $line + [Environment]::NewLine, $Utf8NoBom)
 }
 
+# A3 config change audit — config-only liveArmed approximation (env flags not visible here).
+function Get-ConfigLiveArmed {
+  param($Cfg)
+  return (($Cfg.executionMode -eq "LIVE") -and ($Cfg.dryRunMode -eq $false) -and ($Cfg.emergencyStop -eq $false) -and ($Cfg.automationEnabled -eq $true))
+}
+
+# A3 config change audit — append-only; never mutates config. Best-effort, skips no-op changes.
+function Append-ConfigAudit {
+  param(
+    [Parameter(Mandatory = $true)] [string] $Field,
+    $OldValue,
+    $NewValue,
+    [Parameter(Mandatory = $true)] [string] $RiskLevel,
+    [Parameter(Mandatory = $true)] [string] $Reason,
+    [Parameter(Mandatory = $true)] [string] $Source,
+    [Parameter(Mandatory = $true)] [string] $ChangeId,
+    [string] $ModeAtChange = $null,
+    [bool] $LiveArmedAtChange = $false
+  )
+  if ([string]$OldValue -eq [string]$NewValue) { return }
+  $requiresReview = ($RiskLevel -eq "CRITICAL" -or $RiskLevel -eq "IMPORTANT")
+  $record = [ordered]@{
+    timestamp = (Get-Date).ToUniversalTime().ToString("o")
+    actor = "operator"
+    source = $Source
+    field = $Field
+    oldValue = $OldValue
+    newValue = $NewValue
+    reason = $Reason
+    riskLevel = $RiskLevel
+    requiresReview = $requiresReview
+    modeAtChange = $ModeAtChange
+    liveArmedAtChange = $LiveArmedAtChange
+    changeId = $ChangeId
+  }
+  $line = $record | ConvertTo-Json -Depth 20 -Compress
+  [System.IO.File]::AppendAllText($ConfigAuditPath, $line + [Environment]::NewLine, $Utf8NoBom)
+}
+
 try {
   Set-Location -LiteralPath $ProjectRoot
   Write-Host "Project path: $ProjectRoot" -ForegroundColor DarkGray
 
   $config = Read-Config
+  $oldEmergencyStop = $config.emergencyStop
+  $oldAutomationEnabled = $config.automationEnabled
   $config.emergencyStop = $true
   $config.automationEnabled = $false
   Write-ConfigAtomically -Config $config
+
+  # A3 config change audit (append-only; best-effort; never blocks panic).
+  try {
+    $auditChangeId = [guid]::NewGuid().ToString()
+    $auditMode = [string]$config.executionMode
+    $auditLiveArmed = Get-ConfigLiveArmed -Cfg $config
+    Append-ConfigAudit -Field "emergencyStop" -OldValue $oldEmergencyStop -NewValue $true -RiskLevel "CRITICAL" -Reason "manual panic.ps1 emergency stop" -Source "panic.ps1" -ChangeId $auditChangeId -ModeAtChange $auditMode -LiveArmedAtChange $auditLiveArmed
+    Append-ConfigAudit -Field "automationEnabled" -OldValue $oldAutomationEnabled -NewValue $false -RiskLevel "CRITICAL" -Reason "manual panic.ps1 emergency stop" -Source "panic.ps1" -ChangeId $auditChangeId -ModeAtChange $auditMode -LiveArmedAtChange $auditLiveArmed
+  } catch { Write-Warning "Config audit append failed (non-fatal): $($_.Exception.Message)" }
 
   $matchedProcesses = @(Get-FomoNodeProcesses)
   $stopped = @()
