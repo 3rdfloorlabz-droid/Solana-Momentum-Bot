@@ -43,6 +43,7 @@ scanner_health.json
 near_misses.json
 near_miss_followups.json
 paper_trades.json
+paper_positions.json
 
 # Legacy runtime JSON + operator backups (repo root)
 live_trades.json

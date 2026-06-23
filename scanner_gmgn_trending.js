@@ -2,6 +2,12 @@ const axios = require("axios");
 const fs = require("fs");
 const { execSync } = require("child_process");
 
+// Sprint 4 A1a — paper trade ownership split. The scanner stays the append-only
+// owner of paper_trades.json; lifecycle status (OPEN/WIN/LOSS/…) is read from the
+// monitor-owned paper_positions.json via a merged view, with fallback to the
+// ledger when the store is missing.
+const paperStore = require("./paper_positions_store");
+
 const DEX = "https://api.dexscreener.com";
 const PAPER_FILE = "paper_trades.json";
 const NEAR_MISS_FILE = "near_misses.json";
@@ -83,13 +89,24 @@ function recentlyLoggedNearMiss(address, hours = NEAR_MISS_COOLDOWN_HOURS) {
   });
 }
 
+// A1a: read CURRENT lifecycle status from the merged view (ledger ⊕ monitor store).
+// Falls back to the raw ledger when the store/module is unavailable — identical to
+// pre-A1a behavior. recentlyTraded() below intentionally still reads the ledger only.
+function currentPaperRows() {
+  try {
+    return paperStore.mergedRows();
+  } catch {
+    return readPaperTrades();
+  }
+}
+
 function alreadyOpen(address) {
-  return readPaperTrades().some(t => t.address === address && t.status === "OPEN");
+  return currentPaperRows().some(t => t.address === address && t.status === "OPEN");
 }
 
 function recentlyLost(address) {
   const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  return readPaperTrades().some(t =>
+  return currentPaperRows().some(t =>
     t.address === address &&
     t.status === "LOSS" &&
     new Date(t.closedAt || t.timestamp).getTime() > oneDayAgo

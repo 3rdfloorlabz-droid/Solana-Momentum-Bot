@@ -5,6 +5,11 @@ const PAPER_FILE = "paper_trades.json";
 const DEX = "https://api.dexscreener.com";
 const MONITOR_VERSION = "monitor_v4";
 
+// Sprint 4 A1a — paper trade ownership split.
+// The monitor no longer rewrites paper_trades.json (scanner-owned, append-only).
+// It owns the mutable lifecycle store paper_positions.json via this shared module.
+const paperStore = require("./paper_positions_store");
+
 // Live execution layer — OPTIONAL. The monitor's paper-trade logic must keep
 // working even if this fails to load. Every live call below is guarded so a
 // live-side error can never interrupt paper monitoring.
@@ -53,20 +58,32 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function loadTrades() {
-  if (!fs.existsSync(PAPER_FILE)) return [];
-
-  return fs.readFileSync(PAPER_FILE, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map(line => JSON.parse(line));
+// A1a: lifecycle state lives in paper_positions.json (monitor-owned). The monitor
+// reads the append-only ledger for entry/research fields and overlays lifecycle
+// from the store. It never writes paper_trades.json.
+function loadMergedTrades(positions) {
+  const ledger = paperStore.readLedger();
+  return ledger.map(row => {
+    const id = paperStore.entryIdOf(row);
+    const overlay = positions[id] || {};
+    const merged = { ...row };
+    for (const f of paperStore.LIFECYCLE_FIELDS) {
+      if (overlay[f] !== undefined) merged[f] = overlay[f];
+    }
+    merged.entryId = id;
+    return merged;
+  });
 }
 
-function saveTrades(trades) {
-  fs.writeFileSync(
-    PAPER_FILE,
-    trades.map(t => JSON.stringify(t)).join("\n") + "\n"
-  );
+function persistLifecycle(positions, trade) {
+  positions[trade.entryId] = {
+    entryId: trade.entryId,
+    address: trade.address,
+    pairAddress: trade.pairAddress,
+    symbol: trade.symbol,
+    ...paperStore.extractLifecycle(trade),
+    updatedAt: new Date().toISOString()
+  };
 }
 
 async function getCurrentPrice(pairAddress) {
@@ -120,8 +137,22 @@ function closeTrade(trade, triggerType, triggerPrice) {
 }
 
 async function monitorTrades() {
-  const trades = loadTrades();
+  // A1a: idempotently seed the lifecycle store from the existing ledger if missing,
+  // then load the current positions map. Discovery: ensure every ledger entry has a
+  // store row so the scanner and dashboard observe current lifecycle status.
+  paperStore.ensureSeeded();
+  const positions = paperStore.readPositions() || {};
   let changed = false;
+
+  for (const row of paperStore.readLedger()) {
+    const id = paperStore.entryIdOf(row);
+    if (!positions[id]) {
+      positions[id] = paperStore.buildPositionRow(row, row.timestamp);
+      changed = true;
+    }
+  }
+
+  const trades = loadMergedTrades(positions);
 
   for (const trade of trades) {
     if (trade.status !== "OPEN") continue;
@@ -153,6 +184,7 @@ async function monitorTrades() {
 
     if (currentPrice >= trade.targetPrice) {
       closeTrade(trade, "TARGET", currentPrice);
+      persistLifecycle(positions, trade);
 
       console.log(`✅ WIN ${trade.symbol}`);
       await mirrorLiveExit(trade);
@@ -163,6 +195,7 @@ async function monitorTrades() {
     if (currentPrice <= trade.stopPrice) {
       if (livePnl < -50) {
         markNeedsReview(trade, currentPrice, observation.pairAddress);
+        persistLifecycle(positions, trade);
 
         console.log(`⚠ NEEDS_REVIEW ${trade.symbol} | ${trade.anomalyReason}`);
         await flagLiveReview(trade);
@@ -171,6 +204,7 @@ async function monitorTrades() {
       }
 
       closeTrade(trade, "STOP", currentPrice);
+      persistLifecycle(positions, trade);
 
       console.log(`❌ LOSS ${trade.symbol}`);
       await mirrorLiveExit(trade);
@@ -180,6 +214,7 @@ async function monitorTrades() {
 
     if (ageMinutes >= 20) {
       closeTrade(trade, "TIMEOUT", currentPrice);
+      persistLifecycle(positions, trade);
 
       console.log(`⏰ TIMEOUT ${trade.symbol}`);
       await mirrorLiveExit(trade);
@@ -189,7 +224,9 @@ async function monitorTrades() {
     await sleep(250);
   }
 
-  if (changed) saveTrades(trades);
+  // A1a: persist lifecycle changes to the monitor-owned store ONLY.
+  // paper_trades.json is never rewritten by the monitor.
+  if (changed) paperStore.writePositions(positions);
 
   const open = trades.filter(t => t.status === "OPEN").length;
   const wins = trades.filter(t => t.status === "WIN").length;

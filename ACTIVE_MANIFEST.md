@@ -121,7 +121,8 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 
 | File | Writer | Purpose |
 |------|--------|---------|
-| `paper_trades.json` | Scanner, monitor | Paper trade ledger (JSONL format) |
+| `paper_trades.json` | **Scanner only (append-only)** | Paper trade entry/research ledger (JSONL). **Sprint 4 A1a:** monitor no longer writes this file |
+| `paper_positions.json` | **Monitor only** | Mutable paper-trade lifecycle store (status/exit/pnl), keyed by `entryId = timestamp_address_pairAddress`. **Sprint 4 A1a** (single-writer split) |
 | `pipeline_candidates.jsonl` | Scanner | Scanner-to-executor handoff queue |
 | `near_misses.json` | Scanner | Rejected high-score candidates (JSONL format) |
 | `near_miss_followups.json` | `near_miss_followup.js` | Follow-up price measurements |

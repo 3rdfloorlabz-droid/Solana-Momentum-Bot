@@ -17,11 +17,22 @@ try {
   // Scanner module optional for dashboard render fallback.
 }
 
+// Sprint 4 A1a — paper trade ownership split. Used to merge the append-only ledger
+// (paper_trades.json) with the monitor-owned lifecycle store (paper_positions.json)
+// so existing paper-trade metrics remain compatible.
+let paperStore = null;
+try {
+  paperStore = require("./paper_positions_store");
+} catch {
+  // If unavailable, dashboard falls back to reading paper_trades.json directly.
+}
+
 const app = express();
 const PORT = 3000;
 const ROOT = __dirname;
 const BANNER_FILE = path.join(ROOT, "3rd-floor-labz-banner.png");
 const PAPER_FILE = path.join(ROOT, "paper_trades.json");
+const PAPER_POSITIONS_FILE = path.join(ROOT, "paper_positions.json");
 const NEAR_MISS_FILE = path.join(ROOT, "near_misses.json");
 const FOLLOWUP_FILE = path.join(ROOT, "near_miss_followups.json");
 const MONITOR_FILE = path.join(ROOT, "monitor.js");
@@ -57,6 +68,18 @@ const HEARTBEAT_THRESHOLDS_SEC = {
   paper_monitor: 150,
   dashboard: 90
 };
+
+// A1a: merged paper-trade view (ledger ⊕ monitor lifecycle store). Returns the same
+// { rows, invalid } shape as readJsonLines so downstream panels are unchanged. Falls
+// back to the raw ledger when the store/module is unavailable (pre-A1a behavior).
+function readPaperMerged() {
+  try {
+    if (paperStore) return { rows: paperStore.mergedRows(), invalid: 0 };
+  } catch {
+    // fall through to raw ledger
+  }
+  return readJsonLines(PAPER_FILE);
+}
 
 function readJsonLines(file) {
   if (!fs.existsSync(file)) return { rows: [], invalid: 0 };
@@ -409,7 +432,11 @@ function buildHeartbeatContext(nowMs = Date.now()) {
   const scanner = readJsonTimestamp(SCANNER_HEALTH_FILE, "lastScanAt");
   const executor = latestExecutorCycleMs();
   const wallet = readJsonTimestamp(WALLET_STATUS_FILE, "updatedAt");
-  const paper = fileMtimeMs(PAPER_FILE);
+  // A1a: the monitor now writes paper_positions.json (not paper_trades.json), so the
+  // paper-monitor liveness proxy tracks the lifecycle store; falls back to the ledger.
+  const paper = fs.existsSync(PAPER_POSITIONS_FILE)
+    ? fileMtimeMs(PAPER_POSITIONS_FILE)
+    : fileMtimeMs(PAPER_FILE);
 
   return [
     {
@@ -436,7 +463,7 @@ function buildHeartbeatContext(nowMs = Date.now()) {
     {
       key: "paper_monitor",
       label: "Paper Monitor",
-      source: "paper_trades.json · mtime (proxy)",
+      source: "paper_positions.json · mtime (proxy)",
       thresholdSec: HEARTBEAT_THRESHOLDS_SEC.paper_monitor,
       ...paper
     },
@@ -1816,7 +1843,7 @@ function reconciliationPanel() {
   } catch { /* */ }
 
   const liveLedger = readJsonLines(LIVE_TRADES_FILE);
-  const paperLedger = readJsonLines(PAPER_FILE);
+  const paperLedger = readPaperMerged();
   const openPaperCount = paperLedger.rows.filter(row => row.status === "OPEN").length;
   const auditStats = countRecentPipelineObservations();
 
@@ -1943,7 +1970,7 @@ function buildPromotionContext() {
   const { health, classified } = getScannerHealthClassification();
 
   const pending = readJsonLines(PENDING_RECONCILIATION_FILE);
-  const paper = readJsonLines(PAPER_FILE);
+  const paper = readPaperMerged();
   const taggedThesisRows = paper.rows.filter(hasPersistedThesisTag).length;
 
   const dedupFile = liveExecutor?.FILES?.OBSERVATION_DEDUP_FILE || path.join(ROOT, "observation_dedup.json");
@@ -3115,7 +3142,7 @@ function sharedStyles() {
 }
 
 function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
-  const paper = readJsonLines(PAPER_FILE);
+  const paper = readPaperMerged();
   const nearMisses = readJsonLines(NEAR_MISS_FILE);
   const followups = readJsonLines(FOLLOWUP_FILE);
   const openTrades = paper.rows.filter(trade => trade.status === "OPEN");
@@ -3266,7 +3293,7 @@ function renderDashboard(settings = { positionSizeSol: 1, feePercent: 1 }) {
 }
 
 function renderWinnersAnalysis() {
-  const paper = readJsonLines(PAPER_FILE);
+  const paper = readPaperMerged();
   const closed = paper.rows.filter(trade =>
     CLOSED_STATUSES.has(trade.status) &&
     Number.isFinite(Number(trade.pnlPercent))
