@@ -19,7 +19,7 @@
 | **Target duration** | **72 hours preferred** (T+72h → 2026-06-26 18:46 local) · **24 hours minimum** |
 | **Minimum end (UTC)** | 2026-06-25T00:46:41Z |
 | **Preferred end (UTC)** | 2026-06-27T00:46:41Z |
-| **Soak status** | **IN PROGRESS** — checkpoint 1 recorded |
+| **Soak status** | **IN PROGRESS** — checkpoints 1–3 recorded |
 | **Dashboard URL** | `http://localhost:3000` |
 
 ### Posture at T0 (from `node live_executor.js --status`)
@@ -319,6 +319,106 @@ None requiring action.
 ### Operator Notes
 
 A2d soak continues. Advisory layer remains visible, conservative, and manual-only.
+
+### Checkpoint Judgment
+
+**PASS**
+
+---
+
+### Checkpoint 4 — A2d Soak
+
+**Timestamp:** 2026-06-23, 7:06 PM (dashboard rendered 6/23/2026, 7:06:32 PM)  
+**Operator:** Taylor / Ori
+
+### Dashboard Availability
+
+PASS — Dashboard loaded at `http://localhost:3000`.
+
+### Process Heartbeats
+
+| Process | State | Notes |
+|---|---|---|
+| Scanner | HEALTHY | Scanner health current |
+| Executor | HEALTHY | No unsafe posture observed |
+| Wallet Monitor | HEALTHY | Wallet monitor reporting |
+| Paper Monitor | STALE | Treated as quiet/non-panic |
+| Dashboard | HEALTHY | Fresh dashboard render |
+
+### Supervisor Recommendations
+
+PASS — Supervisor Recommendations panel visible.
+
+Observed states:
+
+- Scanner: HEALTHY
+- Executor: HEALTHY
+- Wallet Monitor: HEALTHY
+- Paper Monitor: STALE
+- Dashboard: HEALTHY
+
+### Recovery Advisor Behavior
+
+PASS — Recovery Advisor visible and manual-only.
+
+Paper Monitor STALE shown as **Low** severity and non-panic.
+
+Confirmed:
+
+- No automation
+- No buttons
+- No forms
+- No go-live wording
+- No recovery execution
+
+### Scanner Health
+
+PASS — Scanner Health panel visible and **HEALTHY**.
+
+### Promotion Checklist
+
+PASS — **NOT READY FOR LIVE PROMOTION** (informational only; not live-authorized).
+
+### Safety Test Result
+
+```text
+node run_safety_tests.js
+Result: 7/7 PASS
+```
+
+### Live Executor Status
+
+```text
+node live_executor.js --status
+Result:
+PIPELINE_DRY_RUN
+dryRunMode: true
+liveArmed: false
+emergencyStop: false
+operationalPosture: PIPELINE_OBSERVING
+```
+
+### Temp File Check
+
+```powershell
+Get-ChildItem -Filter "*.tmp"
+Result: none observed
+```
+
+### Recovery Actions Check
+
+```powershell
+Test-Path recovery_actions.jsonl
+Result: False
+```
+
+### Issues Observed
+
+None requiring action.
+
+### Operator Notes
+
+Periodic checkpoint recorded after verification commands. Advisory layer remains visible, conservative, and manual-only. Paper Monitor STALE consistent with quiet-period proxy (V8).
 
 ### Checkpoint Judgment
 
