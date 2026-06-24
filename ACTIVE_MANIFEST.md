@@ -83,7 +83,9 @@ Equivalent manual run:
 node run_safety_tests.js
 ```
 
-Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, and the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, `test_ownership_guards.js`.
+Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, `test_ownership_guards.js`, and the Sprint 4 A2c guard `test_recovery_preview_guards.js`.
+
+A2c Preview-Only UI (dashboard **Recovery Action Preview**) is guarded by `test_recovery_preview_guards.js` — a static source guard that fails if the preview ever gains buttons, forms, POST routes, `spawn`/`exec`/`child_process`/`process.kill`, or `recovery_actions.jsonl` writes. The preview shows command text only; it executes no recovery.
 
 **CI:** GitHub Actions workflow **Safety Tests** (`.github/workflows/safety-tests.yml`) runs `npm test` on every push and pull request to `main`.
 

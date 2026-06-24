@@ -21,7 +21,10 @@ const TESTS = [
   // only; they protect single-writer ownership and atomic config writes.
   "test_paper_positions_ownership.js",
   "test_config_store_atomic.js",
-  "test_ownership_guards.js"
+  "test_ownership_guards.js",
+  // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
+  // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
+  "test_recovery_preview_guards.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {
