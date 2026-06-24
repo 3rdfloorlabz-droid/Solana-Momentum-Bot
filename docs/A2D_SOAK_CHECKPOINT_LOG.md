@@ -132,13 +132,197 @@ Test-Path recovery_actions.jsonl
 
 ---
 
-### Checkpoint 2 — _(pending — target ~3–4h after CP1)_
+### Checkpoint 2 — A2d Soak
 
-_(Copy template above.)_
+**Timestamp:** 2026-06-23, 7:15 PM  
+**Operator:** Taylor / Ori
+
+### Dashboard Availability
+
+PASS — Dashboard loaded at `http://localhost:3000`.
+
+### Process Heartbeats
+
+| Process | State | Notes |
+|---|---|---|
+| Scanner | HEALTHY | Scanner health current |
+| Executor | HEALTHY | No unsafe posture observed |
+| Wallet Monitor | HEALTHY | Wallet monitor reporting |
+| Paper Monitor | STALE | Treated as quiet/non-panic |
+| Dashboard | HEALTHY | Fresh dashboard render |
+
+### Supervisor Recommendations
+
+PASS — Supervisor Recommendations panel visible.
+
+Observed states:
+
+- Scanner: HEALTHY
+- Executor: HEALTHY
+- Wallet Monitor: HEALTHY
+- Paper Monitor: STALE
+- Dashboard: HEALTHY
+
+### Recovery Advisor Behavior
+
+PASS — Recovery Advisor visible and manual-only.
+
+Paper Monitor STALE was shown as LOW severity and non-panic.
+
+Confirmed:
+
+- No automation
+- No buttons
+- No forms
+- No go-live wording
+- No recovery execution
+
+### Scanner Health
+
+PASS — Scanner Health panel visible and healthy.
+
+### Promotion Checklist
+
+PASS — Promotion remains blocked / not live-authorized.
+
+### Safety Test Result
+
+```text
+node run_safety_tests.js
+Result: 7/7 PASS
+```
+
+### Live Executor Status
+
+```text
+node live_executor.js --status
+executionMode: PIPELINE_DRY_RUN
+dryRunMode: true
+liveArmed: false
+emergencyStop: false
+operationalPosture: PIPELINE_OBSERVING
+```
+
+### Temp File Check
+
+PASS — No `*.json.*.tmp` in repo root.
+
+### recovery_actions.jsonl Check
+
+PASS — Absent (expected — A2c execution not implemented).
+
+### Issues Observed
+
+None — Paper Monitor STALE consistent with quiet-period proxy (V8).
+
+### Operator Notes
+
+Second periodic checkpoint (~30m after CP1). Advisory layer remains read-only and conservative. No FAILED badges. Wallet HEALTHY with A4 MISSING DEDICATED RPC shown separately in RPC panel (V7 watch item unchanged).
+
+### Checkpoint Judgment
+
+**PASS**
 
 ---
 
-### Checkpoint 3 — _(pending)_
+### Checkpoint 3 — A2d Soak
+
+**Timestamp:** 2026-06-23, ____ PM  
+**Operator:** Taylor / Ori
+
+### Dashboard Availability
+
+PASS — Dashboard loaded at `http://localhost:3000`.
+
+### Process Heartbeats
+
+| Process | State | Notes |
+|---|---|---|
+| Scanner | HEALTHY | Scanner health current |
+| Executor | HEALTHY | No unsafe posture observed |
+| Wallet Monitor | HEALTHY | Wallet monitor reporting |
+| Paper Monitor | STALE | Treated as quiet/non-panic |
+| Dashboard | HEALTHY | Fresh dashboard render |
+
+### Supervisor Recommendations
+
+PASS — Supervisor Recommendations panel visible.
+
+Observed states:
+
+- Scanner: HEALTHY
+- Executor: HEALTHY
+- Wallet Monitor: HEALTHY
+- Paper Monitor: STALE
+- Dashboard: HEALTHY
+
+### Recovery Advisor Behavior
+
+PASS — Recovery Advisor visible and manual-only.
+
+Paper Monitor STALE was shown as LOW severity and non-panic.
+
+Confirmed:
+
+- No automation
+- No buttons
+- No forms
+- No go-live wording
+- No recovery execution
+
+### Scanner Health
+
+PASS — Scanner Health panel visible and healthy.
+
+### Promotion Checklist
+
+PASS — Promotion remains blocked / not live-authorized.
+
+### Safety Test Result
+
+```text
+node run_safety_tests.js
+Result: 7/7 PASS
+```
+
+### Live Executor Status
+
+```text
+node live_executor.js --status
+Result:
+PIPELINE_DRY_RUN
+dryRunMode: true
+liveArmed: false
+emergencyStop: false
+operationalPosture: PIPELINE_OBSERVING
+```
+
+### Temp File Check
+
+```powershell
+Get-ChildItem -Filter "*.tmp"
+Get-ChildItem -Recurse -Filter "live_config.json.*.tmp"
+Result: none observed
+```
+
+### Recovery Actions Check
+
+```powershell
+Test-Path recovery_actions.jsonl
+Result: False
+```
+
+### Issues Observed
+
+None requiring action.
+
+### Operator Notes
+
+A2d soak continues. Advisory layer remains visible, conservative, and manual-only.
+
+### Checkpoint Judgment
+
+**PASS**
 
 ---
 
