@@ -238,6 +238,22 @@ Running **two copies** of scanner, monitor, executor, or wallet monitor (e.g. fr
 
 Before continuing the soak, confirm a **single canonical process set** via `.\fomo_status.ps1` or task manager. Stop duplicates; record the cleanup in the checkpoint log. Prefer one clean `start_fomo.ps1` launch over overlapping manual windows.
 
+### A2c Recovery Action Preview (preview-only UI)
+
+The dashboard includes a read-only **A2c Recovery Action Preview** panel (nested under Supervisor Recommendations). It shows:
+
+- Future low-risk / high-risk recovery commands as **plain text only**
+- Dynamic eligibility (Blocked / Eligible for future human-confirmed UI / Forbidden)
+- Required prechecks, postchecks, and future confirmation phrases
+
+**It does not execute anything.** Operators must run commands **manually in a terminal**.
+
+- **Do not** treat preview eligibility as permission to recover, promote modes, or enable live trading.
+- **Do not** confuse A2c preview with the existing config-control POST routes (`/control/start`, `/control/stop`, `/control/emergency`) — those mutate `live_config.json` and are a separate, pre-existing gap.
+- Any future **execution-capable** recovery UI requires authentication, audit logging (`recovery_actions.jsonl`), stronger validation, and explicit approval — not this preview alone.
+
+See [A2C_HUMAN_CONFIRMED_RECOVERY_PLAN.md](./A2C_HUMAN_CONFIRMED_RECOVERY_PLAN.md) · [A2D_SOAK_REVIEW.md](./A2D_SOAK_REVIEW.md).
+
 ## Commands To Avoid Without Approval
 
 Do not enable live trading during normal migration or paper operations.

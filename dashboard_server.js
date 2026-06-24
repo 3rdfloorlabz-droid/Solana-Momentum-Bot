@@ -1076,6 +1076,263 @@ function recoveryAdvisorSection() {
     </div>`;
 }
 
+// ─── A2c Recovery Action Preview (preview-only UI) ───────────────────────────
+// PREVIEW ONLY. Shows future human-confirmed recovery commands as plain text.
+// Executes nothing: no buttons, forms, POST routes, spawn/kill, shell, writes.
+
+const A2C_ELIG_CLS = {
+  "Eligible for future human-confirmed UI": "a2c-elig-future",
+  Blocked: "a2c-elig-blocked",
+  Forbidden: "a2c-elig-forbidden",
+  "Preview only": "a2c-elig-preview"
+};
+
+const A2C_STATUS_CLS = {
+  "Preview only": "a2c-status-preview",
+  "Blocked / High Risk Preview": "a2c-status-high",
+  Forbidden: "a2c-status-forbidden"
+};
+
+const A2C_RISK_CLS = {
+  Low: "a2c-risk-low",
+  Medium: "a2c-risk-med",
+  High: "a2c-risk-high",
+  Critical: "a2c-risk-crit"
+};
+
+const A2C_FORBIDDEN_ACTIONS = [
+  { name: "Enable live trading", why: "Never offered through recovery UI — requires separate human authorization." },
+  { name: "Change executionMode to LIVE", why: "Mode transition is manual-only per MODE_TRANSITION.md." },
+  { name: "Set dryRunMode false", why: "Safety latch — manual config change only." },
+  { name: "Add signer secret", why: "Trust material — never through dashboard recovery." },
+  { name: "Auto-clear emergencyStop", why: "Safety latch — requires explicit human review (reset_after_panic.ps1)." },
+  { name: "Kill processes automatically", why: "Forbidden in all phases — human confirms each incident." },
+  { name: "Repair state files automatically", why: "Ownership violation — manual repair only." },
+  { name: "Autonomous restart loop", why: "A2e — not authorized." }
+];
+
+function buildA2cPostureContext() {
+  const cfg = readLiveConfig();
+  let armed = null;
+  let executionMode = "UNKNOWN";
+  try {
+    if (liveExecutor && cfg) {
+      armed = liveExecutor.computeLiveArmedStatus(cfg);
+      executionMode = liveExecutor.resolveExecutionMode(cfg);
+    } else if (cfg) {
+      executionMode = cfg.executionMode || (cfg.dryRunMode === false ? "LIVE" : "DRY_RUN");
+    }
+  } catch { /* read-only */ }
+  const dryRunMode = cfg ? cfg.dryRunMode !== false : false;
+  const emergencyStop = cfg ? !!cfg.emergencyStop : false;
+  const liveArmed = armed ? !!armed.liveArmed : true;
+  const postureSafe = executionMode === "PIPELINE_DRY_RUN"
+    && dryRunMode
+    && !liveArmed
+    && !emergencyStop;
+  return { cfg, armed, executionMode, dryRunMode, emergencyStop, liveArmed, postureSafe };
+}
+
+function buildA2cBeatMap() {
+  return Object.fromEntries(buildSupervisorContext().map(i => [i.key, i.state]));
+}
+
+function a2cPostureBlockReason(ctx) {
+  const parts = [];
+  if (ctx.executionMode !== "PIPELINE_DRY_RUN") parts.push(`executionMode=${ctx.executionMode}`);
+  if (!ctx.dryRunMode) parts.push("dryRunMode=false");
+  if (ctx.liveArmed) parts.push("liveArmed=true");
+  if (ctx.emergencyStop) parts.push("emergencyStop=true");
+  return parts.length ? parts.join("; ") : "posture safe";
+}
+
+function a2cEvalLowRiskRestart(processKey, allowedStates, ctx, beats, extraWhy) {
+  const state = beats[processKey] || "NO DATA";
+  if (!ctx.postureSafe) {
+    return {
+      eligibility: "Blocked",
+      why: `Posture not safe (${a2cPostureBlockReason(ctx)}).`,
+      statusLabel: "Preview only"
+    };
+  }
+  if (state === "HEALTHY") {
+    return {
+      eligibility: "Blocked",
+      why: "Process is HEALTHY — restart not indicated.",
+      statusLabel: "Preview only"
+    };
+  }
+  if (!allowedStates.includes(state)) {
+    return {
+      eligibility: "Blocked",
+      why: `State ${state} — preview eligibility requires ${allowedStates.join(" / ")}.`,
+      statusLabel: "Preview only"
+    };
+  }
+  const staleNote = (processKey === "paper_monitor" && state === "STALE")
+    ? " Verify monitor terminal manually — STALE may mean quiet, not dead."
+    : "";
+  return {
+    eligibility: "Eligible for future human-confirmed UI",
+    why: `Process ${state}; ${a2cPostureBlockReason(ctx)}.${staleNote}${extraWhy ? " " + extraWhy : ""}`,
+    statusLabel: "Preview only"
+  };
+}
+
+function buildA2cPreviewActions() {
+  const ctx = buildA2cPostureContext();
+  const beats = buildA2cBeatMap();
+
+  const low = [
+    {
+      name: "Restart Scanner",
+      target: "scanner_gmgn_trending.js",
+      commands: ["node scanner_gmgn_trending.js --watch"],
+      riskLevel: "Low",
+      futureConfirmation: "Typed phrase not required (future: simple confirm)",
+      prechecks: ["Confirm scanner terminal state", "Confirm posture: PIPELINE_DRY_RUN / liveArmed false"],
+      postchecks: ["scanner_health.json lastScanAt refreshes", "Supervisor returns HEALTHY"],
+      ...a2cEvalLowRiskRestart("scanner", ["STALE", "MISSING", "NO DATA", "DEGRADED", "FAILED"], ctx, beats)
+    },
+    {
+      name: "Restart Paper Monitor",
+      target: "monitor.js",
+      commands: ["node monitor.js"],
+      riskLevel: "Low",
+      futureConfirmation: "Simple confirm (future UI)",
+      prechecks: ["Manually verify monitor terminal — STALE may mean quiet", "Confirm posture safe"],
+      postchecks: ["paper_positions.json updates on next lifecycle event", "Supervisor returns HEALTHY"],
+      ...a2cEvalLowRiskRestart("paper_monitor", ["STALE", "MISSING", "NO DATA"], ctx, beats)
+    },
+    {
+      name: "Restart Wallet Monitor",
+      target: "wallet_monitor.js",
+      commands: ["node wallet_monitor.js"],
+      riskLevel: "Low",
+      futureConfirmation: "Simple confirm (future UI)",
+      prechecks: ["Check RPC/env if DEGRADED", "Confirm posture safe"],
+      postchecks: ["wallet_status.json updatedAt refreshes", "Supervisor returns HEALTHY"],
+      ...a2cEvalLowRiskRestart("wallet_monitor", ["STALE", "MISSING", "NO DATA"], ctx, beats,
+        beats.wallet_monitor === "DEGRADED" ? "DEGRADED: fix RPC/env before restart." : "")
+    },
+    {
+      name: "Restart Dashboard",
+      target: "dashboard_server.js",
+      commands: ["node dashboard_server.js"],
+      riskLevel: "Low",
+      futureConfirmation: "Simple confirm (future UI)",
+      prechecks: ["Use only when dashboard HTML is stale after dashboard_server.js edit or port conflict"],
+      postchecks: ["http://localhost:3000 loads with current panels"],
+      ...a2cEvalLowRiskRestart("dashboard", ["STALE", "MISSING", "FAILED"], ctx, beats)
+    }
+  ];
+
+  const execState = beats.executor || "NO DATA";
+  const execPostureOk = ctx.executionMode === "PIPELINE_DRY_RUN"
+    && ctx.dryRunMode && !ctx.liveArmed && !ctx.emergencyStop;
+  const execWhy = !execPostureOk
+    ? `Requires PIPELINE_DRY_RUN, dryRunMode true, liveArmed false, emergencyStop false (current: ${a2cPostureBlockReason(ctx)}).`
+    : execState === "HEALTHY"
+      ? "Executor HEALTHY — restart not indicated."
+      : `High-risk — executor ${execState}. Human must verify no state corruption before any future UI action.`;
+
+  const high = [
+    {
+      name: "Restart Executor",
+      target: "live_executor.js",
+      commands: ["node live_executor.js --status", "node live_executor.js --loop"],
+      riskLevel: "High",
+      futureConfirmation: "RESTART EXECUTOR IN DRY RUN ONLY",
+      prechecks: [
+        "node live_executor.js --status — confirm PIPELINE_DRY_RUN",
+        "Human verifies no state corruption (live_positions.json, observation_dedup.json)",
+        "If unsafe: .\\panic.ps1 first"
+      ],
+      postchecks: ["--status shows liveArmed false", "execution_audit.jsonl CYCLE_END resumes"],
+      eligibility: "Blocked",
+      why: execWhy,
+      statusLabel: "Blocked / High Risk Preview"
+    },
+    {
+      name: "Reset After Panic",
+      target: "reset_after_panic.ps1",
+      commands: ["powershell -ExecutionPolicy Bypass -File .\\reset_after_panic.ps1"],
+      riskLevel: "High",
+      futureConfirmation: "RESET AFTER PANIC MANUALLY REVIEWED",
+      prechecks: ["Root-cause review complete", "Review panic_events.jsonl and live_control_events.jsonl"],
+      postchecks: ["node live_executor.js --status — emergencyStop false, posture unchanged"],
+      eligibility: "Blocked",
+      why: ctx.emergencyStop
+        ? "High-risk — emergencyStop active. Root-cause review required; run manually in terminal only."
+        : "High-risk — only after panic with documented review. emergencyStop is not currently active.",
+      statusLabel: "Blocked / High Risk Preview"
+    }
+  ];
+
+  const forbidden = A2C_FORBIDDEN_ACTIONS.map(a => ({
+    ...a,
+    eligibility: "Forbidden",
+    statusLabel: "Forbidden",
+    riskLevel: "Critical"
+  }));
+
+  return { ctx, low, high, forbidden };
+}
+
+function a2cPreviewActionCard(action) {
+  const eligCls = A2C_ELIG_CLS[action.eligibility] || "a2c-elig-blocked";
+  const statusCls = A2C_STATUS_CLS[action.statusLabel] || "a2c-status-preview";
+  const riskCls = A2C_RISK_CLS[action.riskLevel] || "a2c-risk-med";
+  const cmds = (action.commands || []).map(c => escapeHtml(c)).join("\n");
+  const pre = (action.prechecks || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+  const post = (action.postchecks || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+  return `
+    <div class="a2c-card">
+      <div class="a2c-card-head">
+        <span class="a2c-name">${escapeHtml(action.name)}</span>
+        <span class="a2c-risk ${riskCls}">${escapeHtml(action.riskLevel || "—")}</span>
+      </div>
+      <div class="a2c-meta"><span class="a2c-meta-label">Target</span> <code>${escapeHtml(action.target || "—")}</code></div>
+      <div class="a2c-meta"><span class="a2c-meta-label">Status</span> <span class="a2c-status ${statusCls}">${escapeHtml(action.statusLabel)}</span></div>
+      <div class="a2c-meta"><span class="a2c-meta-label">Eligibility</span> <span class="a2c-elig ${eligCls}">${escapeHtml(action.eligibility)}</span></div>
+      <div class="a2c-block"><div class="a2c-block-label">Why</div><div class="a2c-text">${escapeHtml(action.why || "—")}</div></div>
+      ${cmds ? `<div class="a2c-block"><div class="a2c-block-label">Command preview (plain text)</div><pre class="a2c-cmd">${cmds}</pre></div>` : ""}
+      ${action.futureConfirmation ? `<div class="a2c-block"><div class="a2c-block-label">Future confirmation</div><div class="a2c-text"><code>${escapeHtml(action.futureConfirmation)}</code></div></div>` : ""}
+      ${pre ? `<div class="a2c-block"><div class="a2c-block-label">Required prechecks</div><ul class="a2c-list">${pre}</ul></div>` : ""}
+      ${post ? `<div class="a2c-block"><div class="a2c-block-label">Required postchecks</div><ul class="a2c-list">${post}</ul></div>` : ""}
+    </div>`;
+}
+
+function a2cForbiddenCard(action) {
+  return `
+    <div class="a2c-card a2c-card-forbidden">
+      <div class="a2c-card-head">
+        <span class="a2c-name">${escapeHtml(action.name)}</span>
+        <span class="a2c-elig a2c-elig-forbidden">Forbidden</span>
+      </div>
+      <div class="a2c-text">${escapeHtml(action.why)}</div>
+    </div>`;
+}
+
+function recoveryActionPreviewSection() {
+  const { low, high, forbidden } = buildA2cPreviewActions();
+  return `
+    <div class="a2c-wrap">
+      <div class="a2c-heading-row"><h3 class="a2c-heading">A2C RECOVERY ACTION PREVIEW</h3></div>
+      <div class="a2c-banner">This panel is preview-only. It does not execute commands, restart processes, stop processes, edit config, write recovery logs, or perform recovery.</div>
+      <div class="a2c-note">Preview only. Operator must run commands manually in a terminal.</div>
+      <div class="a2c-note">Blocked actions are shown for planning visibility only.</div>
+      <div class="a2c-note">Nothing in this panel authorizes live trading.</div>
+      <h4 class="a2c-tier">Low-risk preview actions</h4>
+      <div class="a2c-grid">${low.map(a2cPreviewActionCard).join("")}</div>
+      <h4 class="a2c-tier">High-risk preview actions</h4>
+      <div class="a2c-grid">${high.map(a2cPreviewActionCard).join("")}</div>
+      <h4 class="a2c-tier">Forbidden actions</h4>
+      <div class="a2c-grid a2c-grid-forbidden">${forbidden.map(a2cForbiddenCard).join("")}</div>
+      <div class="a2c-footer">A2c Level 2 design preview only — no execution, no audit write, no POST route. Recovery must never outrun ownership. Humans authorize. Ori advises. Gates enforce.</div>
+    </div>`;
+}
+
 function supervisorRecommendationCard(item) {
   const p = item.policy || {};
   const isHealthy = item.state === "HEALTHY";
@@ -1106,6 +1363,7 @@ function supervisorRecommendationsPanel() {
     <div class="sr-banner">This panel provides recommendations only.<br>It does not restart, stop, or modify any process.</div>
     <div class="sr-grid">${items.map(supervisorRecommendationCard).join("")}</div>
     ${recoveryAdvisorSection()}
+    ${recoveryActionPreviewSection()}
     <div class="sr-footer">
       Advisory (A2 Level 1). Recommendations map observed health to operator options; a human decides and acts (Level 2, manual).
       <strong>FAILED</strong> requires evidence A2a does not collect (no PID checks); it is policy-defined for future phases.
@@ -3703,6 +3961,41 @@ function sharedStyles() {
     .ra-doc { margin-top:8px; font-size:11px; color:var(--muted); font-style:italic; }
     .ra-noauto { margin-top:10px; font-size:11px; font-weight:700; color:#ff9aa8; }
     /* ── End Recovery Advisor ────────────────────────────────────────────── */
+    /* ── A2c Recovery Action Preview (preview-only) ──────────────────────── */
+    .a2c-wrap { margin-top:16px; padding:12px; border:1px dashed rgba(5,217,245,.45); border-radius:4px; background:rgba(5,217,245,.03); }
+    .a2c-heading-row { margin-bottom:8px; }
+    .a2c-heading { color:var(--cyan); font-size:13px; text-transform:uppercase; letter-spacing:.06em; margin:0; }
+    .a2c-banner { background:rgba(5,217,245,.08); border:1px solid rgba(5,217,245,.45); color:#a8f0ff; border-radius:3px; padding:9px 11px; margin-bottom:8px; font-size:11px; font-weight:700; line-height:1.5; }
+    .a2c-note { color:var(--muted); font-size:11px; font-weight:600; margin-bottom:4px; line-height:1.45; }
+    .a2c-tier { color:var(--cyan); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin:14px 0 8px; }
+    .a2c-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
+    .a2c-grid-forbidden { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+    .a2c-card { border:1px solid var(--line); border-radius:4px; padding:12px; background:rgba(0,0,0,.18); }
+    .a2c-card-forbidden { border-color:rgba(245,43,63,.35); background:rgba(245,43,63,.04); }
+    .a2c-card-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+    .a2c-name { font-weight:700; font-size:13px; }
+    .a2c-meta { font-size:11px; margin-bottom:4px; color:var(--muted); }
+    .a2c-meta-label { text-transform:uppercase; letter-spacing:.05em; font-size:10px; margin-right:6px; }
+    .a2c-meta code { background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:2px; padding:1px 5px; color:var(--cyan); font-size:10px; }
+    .a2c-block { margin-top:8px; }
+    .a2c-block-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
+    .a2c-text { font-size:12px; line-height:1.5; }
+    .a2c-list { margin:0; padding-left:18px; font-size:11px; line-height:1.55; }
+    .a2c-cmd { margin:0; padding:8px 10px; background:rgba(0,0,0,.35); border:1px solid var(--line); border-radius:3px; font-size:11px; line-height:1.5; color:#d9ffe8; white-space:pre-wrap; word-break:break-word; }
+    .a2c-elig, .a2c-status, .a2c-risk { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.05em; padding:3px 9px; border-radius:3px; text-transform:uppercase; }
+    .a2c-elig-future { color:var(--green); border:1px solid var(--green); background:rgba(25,214,161,.1); }
+    .a2c-elig-blocked { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .a2c-elig-forbidden { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .a2c-elig-preview { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .a2c-status-preview { color:var(--cyan); border:1px solid rgba(5,217,245,.5); background:rgba(5,217,245,.08); }
+    .a2c-status-high { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .a2c-status-forbidden { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.2); }
+    .a2c-risk-low { color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.04); }
+    .a2c-risk-med { color:var(--amber); border:1px solid var(--amber); background:rgba(255,155,11,.1); }
+    .a2c-risk-high { color:#ff9aa8; border:1px solid var(--red); background:rgba(245,43,63,.12); }
+    .a2c-risk-crit { color:#fff; border:1px solid var(--red); background:rgba(245,43,63,.35); }
+    .a2c-footer { color:var(--muted); font-size:11px; line-height:1.55; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-weight:600; }
+    /* ── End A2c Recovery Action Preview ─────────────────────────────────── */
     /* ── End Supervisor Recommendations ──────────────────────────────────── */
 
     /* ── Config Change Audit (A3) ────────────────────────────────────────── */
