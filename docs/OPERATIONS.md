@@ -122,6 +122,122 @@ node dashboard_server.js
 
 5. If an emergency stop or panic event occurred, review `panic_events.jsonl`, `live_control_events.jsonl`, and `live_errors.jsonl` before resetting safety state.
 
+## A2d Soak Operation
+
+Long-duration validation of the read-only **Supervisor Recommendations (A2a)** and **Recovery Advisor (A2b)** panels. This is **observation and documentation only** — it does not authorize recovery execution, live trading, config changes, or autonomy.
+
+**Primary docs:**
+
+- [A2D_SOAK_VALIDATION_PLAN.md](./A2D_SOAK_VALIDATION_PLAN.md) — pass/fail criteria (V1–V11)
+- [A2D_SOAK_CHECKPOINT_LOG.md](./A2D_SOAK_CHECKPOINT_LOG.md) — living operator log (record checkpoints here)
+- [A2D_SOAK_REVIEW_TEMPLATE.md](./A2D_SOAK_REVIEW_TEMPLATE.md) — complete after soak ends
+
+**Posture throughout soak:** `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false`. Verify at every checkpoint:
+
+```powershell
+node live_executor.js --status
+```
+
+### When the dashboard looks stale (missing panels)
+
+The dashboard **does not hot-reload** after `dashboard_server.js` edits. A process started before A2a/A2b code was deployed will keep serving old HTML until restarted.
+
+1. Confirm panels are missing in the browser (Supervisor Recommendations / Recovery Advisor not between Process Heartbeats and Scanner Health).
+2. Find the listener on port 3000:
+
+```powershell
+Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object OwningProcess
+```
+
+3. Stop **only** the stale dashboard process (replace `<PID>`):
+
+```powershell
+Stop-Process -Id <PID> -Force
+```
+
+4. Start a fresh dashboard from repo root:
+
+```powershell
+node dashboard_server.js
+```
+
+5. Hard-refresh `http://localhost:3000` and confirm Supervisor Recommendations + Recovery Advisor are visible.
+
+**Record a dashboard restart in the checkpoint log** (operator notes). A restart for stale HTML is acceptable; it is not recovery execution.
+
+### Restart dashboard only after `dashboard_server.js` changes
+
+- **Do restart** the dashboard when `dashboard_server.js` changed and panels/HTML are stale.
+- **Do not restart** scanner, executor, monitor, or wallet monitor during an active soak unless a real crash occurred — restarts mid-soak can muddy heartbeat evidence.
+- **Never** use the Recovery Advisor text as a trigger to automate restarts during A2d.
+
+### How to record checkpoints
+
+Every **~3–4 hours**, append a checkpoint to [A2D_SOAK_CHECKPOINT_LOG.md](./A2D_SOAK_CHECKPOINT_LOG.md):
+
+1. Open the log and copy the checkpoint template (or follow the Checkpoint 2/3 format).
+2. Fill in timestamp, operator, dashboard heartbeats, supervisor states, recovery advisor behavior, scanner health, promotion checklist, safety result, executor status, temp-file check, and `recovery_actions.jsonl` check.
+3. Run read-only commands:
+
+```powershell
+node live_executor.js --status
+node run_safety_tests.js
+Get-ChildItem -Filter "*.tmp"
+Get-ChildItem -Recurse -Filter "live_config.json.*.tmp"
+Test-Path recovery_actions.jsonl   # expect False until A2c exists
+```
+
+4. Judge **PASS** / **FAIL** / **INVESTIGATE** against [A2D_SOAK_VALIDATION_PLAN.md §3](./A2D_SOAK_VALIDATION_PLAN.md).
+5. Save the log; commit **documentation only** when appropriate (no runtime JSON/JSONL).
+
+### Check frequency
+
+| When | Action |
+|------|--------|
+| **T0 (start)** | Pre-run checklist + first checkpoint; safety 7/7; confirm read-only panels |
+| **Every ~3–4h** | Periodic checkpoint while soak is IN PROGRESS |
+| **T+24h minimum** | Minimum soak duration met — continue toward 72h if possible |
+| **T+72h preferred** | End-of-soak checks; complete review template |
+
+### Stop conditions (end or pause the soak)
+
+**Stop immediately** (do not treat as passing evidence) if any of:
+
+- `liveArmed` becomes `true`, or `executionMode` / `dryRunMode` drift from T0
+- Any **FAILED** badge appears on the supervisor panel (A2a should never auto-derive FAILED)
+- Recovery execution, dashboard POST actions, or config edits occur during the soak
+- Safety suite drops below **7/7** at end-of-soak
+
+**Pause and document** (investigate before continuing):
+
+- Duplicate process sets running (see below)
+- False DEGRADED with no verifiable M4/A4 cause
+- Paper Monitor STALE with monitor actually dead (not quiet) — verify terminal before acting
+
+**Normal, non-panic during soak:**
+
+- Paper Monitor **STALE** during quiet markets (no open paper trades) — Recovery Advisor should show **Low** severity and "may be quiet, not dead" (V8)
+
+### Do not use recovery execution
+
+A2d validates that **advice is accurate**, not that **actions work**. During the soak:
+
+- **Do not** execute recovery steps from the dashboard (no buttons exist — keep it that way)
+- **Do not** spawn/kill processes to "test" recovery except optional, documented, manual fault-injection of a **low-risk** process (e.g. wallet monitor) with operator notes
+- **Do not** treat passing checkpoints as authorization for A2c execution or live promotion
+
+> Recovery must never outrun ownership. Humans authorize. Ori advises. Gates enforce.
+
+### Duplicate process sets invalidate observation
+
+Running **two copies** of scanner, monitor, executor, or wallet monitor (e.g. from an old `start_fomo.ps1` session plus a new one) can:
+
+- Reintroduce file-race risk despite A1 fixes
+- Make heartbeat ground truth ambiguous (which process owns the artifact?)
+- Muddy A2d evidence
+
+Before continuing the soak, confirm a **single canonical process set** via `.\fomo_status.ps1` or task manager. Stop duplicates; record the cleanup in the checkpoint log. Prefer one clean `start_fomo.ps1` launch over overlapping manual windows.
+
 ## Commands To Avoid Without Approval
 
 Do not enable live trading during normal migration or paper operations.

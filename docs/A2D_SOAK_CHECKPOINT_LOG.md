@@ -2,7 +2,7 @@
 
 **Module:** TracktaOS Module 1 — Solana Momentum Bot  
 **Sprint:** 4 (Phase 1 — Structure and Recovery)  
-**Runbook:** [A2D_SOAK_VALIDATION_PLAN.md](./A2D_SOAK_VALIDATION_PLAN.md)  
+**Runbook:** [A2D_SOAK_VALIDATION_PLAN.md](./A2D_SOAK_VALIDATION_PLAN.md) · [OPERATIONS.md](./OPERATIONS.md) → A2d Soak Operation  
 **Review template (complete after soak):** [A2D_SOAK_REVIEW_TEMPLATE.md](./A2D_SOAK_REVIEW_TEMPLATE.md)  
 **Operator:** _(record name or initials)_  
 **Repository:** `C:\TracktaOS\Projects\Active\Solana-Momentum-Bot`  
