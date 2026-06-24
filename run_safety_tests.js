@@ -29,7 +29,9 @@ const TESTS = [
   // surfaces, A2j fail-closed auth wrapper on config-control POST routes).
   "test_dashboard_auth_guards.js",
   // Sprint 4 A2k: isolated HTTP behavioral auth tests (temp fixtures only; never port 3000).
-  "test_dashboard_auth_behavior.js"
+  "test_dashboard_auth_behavior.js",
+  // Sprint 4 A2m: recovery audit writer unit tests (temp fixtures via TRACKTA_RUNTIME_ROOT).
+  "test_recovery_audit.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {

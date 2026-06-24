@@ -277,6 +277,7 @@ Invoke-WebRequest -Uri "http://127.0.0.1:3000/control/stop" -Method POST -Header
 
 - **A2j does not add recovery execution.** Recovery execution remains blocked pending recovery audit, stronger validation, and explicit approval.
 - **A2k behavioral auth tests** (`test_dashboard_auth_behavior.js`) exercise HTTP fail-closed behavior against an isolated temp fixture harness — not the operator's live dashboard on port 3000.
+- **A2m recovery audit writer** (`recovery_audit.js`) exists for append-only `recovery_actions.jsonl` rows when explicitly called; it is **not wired** to dashboard recovery execution. Do **not** manually create or edit `recovery_actions.jsonl` at repo root; recovery execution remains unavailable.
 - After changing `dashboard_server.js`, restart the dashboard process (no hot reload).
 
 ## Commands To Avoid Without Approval

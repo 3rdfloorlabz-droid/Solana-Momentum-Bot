@@ -83,11 +83,11 @@ Equivalent manual run:
 node run_safety_tests.js
 ```
 
-Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, `test_ownership_guards.js`, the Sprint 4 A2c guard `test_recovery_preview_guards.js`, the Sprint 4 A2i/A2j static guard `test_dashboard_auth_guards.js`, and the Sprint 4 A2k behavioral guard `test_dashboard_auth_behavior.js`.
+Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, `test_ownership_guards.js`, the Sprint 4 A2c guard `test_recovery_preview_guards.js`, the Sprint 4 A2i/A2j static guard `test_dashboard_auth_guards.js`, the Sprint 4 A2k behavioral guard `test_dashboard_auth_behavior.js`, and the Sprint 4 A2m guard `test_recovery_audit.js`.
 
 A2c Preview-Only UI (dashboard **Recovery Action Preview**) is guarded by `test_recovery_preview_guards.js` — a static source guard that fails if the preview ever gains buttons, forms, POST routes, `spawn`/`exec`/`child_process`/`process.kill`, or `recovery_actions.jsonl` writes. The preview shows command text only; it executes no recovery.
 
-A2i/A2j dashboard auth guard (`test_dashboard_auth_guards.js`) is **active in `run_safety_tests.js` (10/10)** for static checks (POST route inventory, forbidden recovery routes/primitives, A2c preview boundary, **A2j fail-closed auth wrapper** on `/control/start`, `/control/stop`, `/control/emergency`). **A2k** (`test_dashboard_auth_behavior.js`) adds isolated HTTP behavioral tests using temp fixtures via `TRACKTA_RUNTIME_ROOT`; it never POSTs to port 3000 or mutates real runtime files.
+A2i/A2j dashboard auth guard (`test_dashboard_auth_guards.js`) is **active in `run_safety_tests.js` (11/11)** for static checks (POST route inventory, forbidden recovery routes/primitives, A2c preview boundary, **A2j fail-closed auth wrapper** on `/control/start`, `/control/stop`, `/control/emergency`). **A2k** (`test_dashboard_auth_behavior.js`) adds isolated HTTP behavioral auth tests using temp fixtures via `TRACKTA_RUNTIME_ROOT`; it never POSTs to port 3000 or mutates real runtime files. **A2m** (`recovery_audit.js` + `test_recovery_audit.js`) implements the append-only recovery audit writer (temp-fixture tests only); **not wired to recovery execution**.
 
 **CI:** GitHub Actions workflow **Safety Tests** (`.github/workflows/safety-tests.yml`) runs `npm test` on every push and pull request to `main`.
 
@@ -162,6 +162,10 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | `wallet_history.jsonl` | Periodic wallet snapshots |
 | `pending_reconciliation.jsonl` | Ambiguous on-chain outcomes (human review) |
 | `panic_events.jsonl` | Panic / reset incidents |
+| `config_change_audit.jsonl` | A3 config field change audit (executor/ops writers) |
+| `recovery_actions.jsonl` | **A2m:** future recovery action audit (`recovery_audit.js` append-only writer). **Not auto-created; not wired to dashboard recovery execution** |
+
+**Support module (A2m):** `recovery_audit.js` — validated append-only writer for `recovery_actions.jsonl`. Tests: `test_recovery_audit.js` (temp fixtures via `TRACKTA_RUNTIME_ROOT` only).
 
 ### Snapshots (overwrite JSON)
 
