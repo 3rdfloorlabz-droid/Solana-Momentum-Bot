@@ -276,6 +276,7 @@ Invoke-WebRequest -Uri "http://127.0.0.1:3000/control/stop" -Method POST -Header
 ```
 
 - **A2j does not add recovery execution.** Recovery execution remains blocked pending recovery audit, stronger validation, and explicit approval.
+- **A2k behavioral auth tests** (`test_dashboard_auth_behavior.js`) exercise HTTP fail-closed behavior against an isolated temp fixture harness — not the operator's live dashboard on port 3000.
 - After changing `dashboard_server.js`, restart the dashboard process (no hot reload).
 
 ## Commands To Avoid Without Approval

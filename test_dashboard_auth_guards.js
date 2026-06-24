@@ -7,10 +7,8 @@
 // route inventory drifts, auth wrapper is missing, forbidden recovery surfaces
 // appear, or tokens leak into HTML/query-string acceptance.
 //
-// Behavioral route tests (POST without token → 403, no config mutation) require
-// an isolated test harness — see docs/A2H_AUTH_GUARD_TEST_DESIGN.md §11.
-// TODO(A2j+): add isolated Express harness when a safe fixture path exists.
-// Do not POST to the live dashboard or mutate real live_config.json.
+// Behavioral route tests live in test_dashboard_auth_behavior.js (A2k isolated harness).
+// Do not POST to the live dashboard or mutate real live_config.json from this file.
 //
 // Does not execute the bot, POST to the live dashboard, start/stop processes,
 // touch real live_config.json, or create recovery_actions.jsonl.
@@ -197,9 +195,6 @@ if (failures.length) {
 }
 
 console.log("\nDASHBOARD AUTH GUARD TEST PASSED (static checks — A2j auth wrapper enforced)");
-console.log(
-  "NOTE: behavioral auth route tests deferred — no isolated harness yet; " +
-  "see docs/A2H_AUTH_GUARD_TEST_DESIGN.md §11."
-);
+console.log("Behavioral HTTP coverage: test_dashboard_auth_behavior.js (A2k).");
 
 module.exports = {};

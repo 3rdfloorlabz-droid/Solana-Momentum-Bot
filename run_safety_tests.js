@@ -27,7 +27,9 @@ const TESTS = [
   "test_recovery_preview_guards.js",
   // Sprint 4 A2i/A2j: static dashboard auth guard (route inventory, forbidden recovery
   // surfaces, A2j fail-closed auth wrapper on config-control POST routes).
-  "test_dashboard_auth_guards.js"
+  "test_dashboard_auth_guards.js",
+  // Sprint 4 A2k: isolated HTTP behavioral auth tests (temp fixtures only; never port 3000).
+  "test_dashboard_auth_behavior.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {

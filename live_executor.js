@@ -32,8 +32,12 @@ let axios = null;
 try { axios = require("axios"); } catch { /* price polling will degrade gracefully */ }
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
+// TRACKTA_RUNTIME_ROOT: optional isolated fixture root for test harnesses only.
+// When unset, all paths resolve under __dirname (production/default behavior).
 
-const ROOT                = __dirname;
+const ROOT                = process.env.TRACKTA_RUNTIME_ROOT
+  ? path.resolve(process.env.TRACKTA_RUNTIME_ROOT)
+  : __dirname;
 const CONFIG_FILE         = path.join(ROOT, "live_config.json");
 const PAPER_FILE          = path.join(ROOT, "paper_trades.json");
 const PIPELINE_CANDIDATES_FILE = path.join(ROOT, "pipeline_candidates.jsonl");

@@ -4415,6 +4415,14 @@ app.post("/control/emergency", (req, res) => {
   handleControl(() => liveExecutor.emergencyStopControl("EMERGENCY STOP button (dashboard)"), res, "emergency");
 });
 
-app.listen(PORT, "127.0.0.1", () => {
-  console.log(`Dashboard running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, "127.0.0.1", () => {
+    console.log(`Dashboard running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = {
+  app,
+  validateDashboardControlToken,
+  requireDashboardControlAuth
+};
