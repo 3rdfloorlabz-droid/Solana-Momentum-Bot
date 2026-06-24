@@ -31,7 +31,9 @@ const TESTS = [
   // Sprint 4 A2k: isolated HTTP behavioral auth tests (temp fixtures only; never port 3000).
   "test_dashboard_auth_behavior.js",
   // Sprint 4 A2m: recovery audit writer unit tests (temp fixtures via TRACKTA_RUNTIME_ROOT).
-  "test_recovery_audit.js"
+  "test_recovery_audit.js",
+  // Sprint 4 A2p: static recovery route boundary guards (no routes implemented yet).
+  "test_recovery_route_guards.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {
