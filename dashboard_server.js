@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
@@ -4324,6 +4325,62 @@ app.get("/winners", (req, res) => {
   }
 });
 
+// ─── A2j Dashboard control auth (fail-closed) ────────────────────────────────
+// Env: DASHBOARD_CONTROL_TOKEN. Header: X-Trackta-Control-Token.
+// Denied requests do not mutate config, write audit rows, or log control events.
+
+function getConfiguredDashboardControlToken() {
+  const raw = process.env.DASHBOARD_CONTROL_TOKEN;
+  if (raw === undefined || raw === null) return null;
+  const token = String(raw).trim();
+  return token === "" ? null : token;
+}
+
+function requestUsesQueryStringToken(req) {
+  const q = req.query;
+  if (!q || typeof q !== "object") return false;
+  for (const key of Object.keys(q)) {
+    const lower = key.toLowerCase();
+    if (
+      lower === "token" ||
+      lower === "controltoken" ||
+      lower === "dashboard_control_token" ||
+      (lower.includes("trackta") && lower.includes("token"))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function validateDashboardControlToken(req) {
+  const expected = getConfiguredDashboardControlToken();
+  if (!expected) return false;
+  if (requestUsesQueryStringToken(req)) return false;
+
+  const provided = req.get("X-Trackta-Control-Token");
+  if (typeof provided !== "string") return false;
+  const trimmed = provided.trim();
+  if (trimmed === "") return false;
+
+  try {
+    const a = Buffer.from(trimmed, "utf8");
+    const b = Buffer.from(expected, "utf8");
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+function requireDashboardControlAuth(req, res) {
+  if (!validateDashboardControlToken(req)) {
+    res.status(403).type("text").send("Unauthorized dashboard control request.");
+    return false;
+  }
+  return true;
+}
+
 // ─── Live automation control endpoints ────────────────────────────────────────
 // Each writes live_config.json and logs to live_control_events.jsonl via the
 // executor's control functions. All redirect back to the dashboard.
@@ -4344,14 +4401,17 @@ function handleControl(fn, res, successQuery) {
 }
 
 app.post("/control/start", (req, res) => {
+  if (!requireDashboardControlAuth(req, res)) return;
   handleControl(() => liveExecutor.startAutomation("START button (dashboard)"), res, "started");
 });
 
 app.post("/control/stop", (req, res) => {
+  if (!requireDashboardControlAuth(req, res)) return;
   handleControl(() => liveExecutor.stopAutomation("STOP button (dashboard)"), res, "stopped");
 });
 
 app.post("/control/emergency", (req, res) => {
+  if (!requireDashboardControlAuth(req, res)) return;
   handleControl(() => liveExecutor.emergencyStopControl("EMERGENCY STOP button (dashboard)"), res, "emergency");
 });
 

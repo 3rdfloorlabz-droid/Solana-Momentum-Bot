@@ -249,10 +249,34 @@ The dashboard includes a read-only **A2c Recovery Action Preview** panel (nested
 **It does not execute anything.** Operators must run commands **manually in a terminal**.
 
 - **Do not** treat preview eligibility as permission to recover, promote modes, or enable live trading.
-- **Do not** confuse A2c preview with the existing config-control POST routes (`/control/start`, `/control/stop`, `/control/emergency`) — those mutate `live_config.json` and are a separate, pre-existing gap.
+- **Do not** confuse A2c preview with the existing config-control POST routes (`/control/start`, `/control/stop`, `/control/emergency`) — those mutate `live_config.json` when authorized; see **Dashboard Control Auth** below.
 - Any future **execution-capable** recovery UI requires authentication, audit logging (`recovery_actions.jsonl`), stronger validation, and explicit approval — not this preview alone.
 
 See [A2C_HUMAN_CONFIRMED_RECOVERY_PLAN.md](./A2C_HUMAN_CONFIRMED_RECOVERY_PLAN.md) · [A2D_SOAK_REVIEW.md](./A2D_SOAK_REVIEW.md).
+
+### Dashboard Control Auth (A2j)
+
+The three config-control POST routes (`/control/start`, `/control/stop`, `/control/emergency`) require authentication before any config mutation:
+
+| Requirement | Detail |
+|-------------|--------|
+| **Env var** | `DASHBOARD_CONTROL_TOKEN` must be set to a non-empty secret before dashboard control POST routes can succeed. If unset or empty, all three routes **fail closed** (403). |
+| **Header** | `X-Trackta-Control-Token: <token>` on each POST request. |
+| **Read-only viewing** | GET `/`, `/winners`, and static assets do **not** require the token. |
+| **A2c preview** | Remains preview-only and non-executing — separate from config-control auth. |
+
+**Operator rules:**
+
+- Do **not** commit the token, put it in URLs/query strings, paste it into screenshots, or log it.
+- Plain browser form buttons on the dashboard do **not** send the header; use a header-capable client, for example:
+
+```powershell
+$headers = @{ "X-Trackta-Control-Token" = $env:DASHBOARD_CONTROL_TOKEN }
+Invoke-WebRequest -Uri "http://127.0.0.1:3000/control/stop" -Method POST -Headers $headers -UseBasicParsing
+```
+
+- **A2j does not add recovery execution.** Recovery execution remains blocked pending recovery audit, stronger validation, and explicit approval.
+- After changing `dashboard_server.js`, restart the dashboard process (no hot reload).
 
 ## Commands To Avoid Without Approval
 

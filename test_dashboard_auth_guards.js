@@ -1,15 +1,16 @@
 "use strict";
 
-// test_dashboard_auth_guards.js — Sprint 4 A2i (Auth Guard Tests First)
+// test_dashboard_auth_guards.js — Sprint 4 A2i + A2j (Dashboard Auth Guard Tests)
 //
 // Regression guards for dashboard mutation-route auth expectations.
-// STATIC source assertions only in the default path: reads dashboard_server.js
-// as text and fails if route inventory drifts or forbidden recovery surfaces appear.
+// STATIC source assertions only: reads dashboard_server.js as text and fails if
+// route inventory drifts, auth wrapper is missing, forbidden recovery surfaces
+// appear, or tokens leak into HTML/query-string acceptance.
 //
-// Auth enforcement is NOT implemented yet. The main test path passes today and
-// is registered in run_safety_tests.js (9/9). Pending A2j auth-enforcement
-// checks live in runPendingA2jAuthChecks() and are NOT run by the safety suite
-// until A2j implements the auth wrapper and activates them.
+// Behavioral route tests (POST without token → 403, no config mutation) require
+// an isolated test harness — see docs/A2H_AUTH_GUARD_TEST_DESIGN.md §11.
+// TODO(A2j+): add isolated Express harness when a safe fixture path exists.
+// Do not POST to the live dashboard or mutate real live_config.json.
 //
 // Does not execute the bot, POST to the live dashboard, start/stop processes,
 // touch real live_config.json, or create recovery_actions.jsonl.
@@ -27,6 +28,14 @@ const SRC = fs.readFileSync(path.join(ROOT, "dashboard_server.js"), "utf8");
 const A2C_START = SRC.indexOf("// ─── A2c Recovery Action Preview");
 const A2C_END = SRC.indexOf("function supervisorRecommendationCard(item) {", A2C_START);
 const A2C = (A2C_START !== -1 && A2C_END !== -1) ? SRC.slice(A2C_START, A2C_END) : "";
+
+const AUTH_START = SRC.indexOf("// ─── A2j Dashboard control auth");
+const AUTH_END = SRC.indexOf("// ─── Live automation control endpoints", AUTH_START);
+const AUTH_BLOCK = (AUTH_START !== -1 && AUTH_END !== -1) ? SRC.slice(AUTH_START, AUTH_END) : "";
+
+const RENDER_START = SRC.indexOf("function renderDashboard(");
+const RENDER_END = AUTH_START > RENDER_START ? AUTH_START : SRC.length;
+const HTML_RENDER_BLOCK = RENDER_START !== -1 ? SRC.slice(RENDER_START, RENDER_END) : "";
 
 const failures = [];
 function check(label, cond) {
@@ -106,72 +115,91 @@ check("A2c contains 'Nothing in this panel authorizes live trading.'",
 check("dashboard listens on 127.0.0.1 only",
   /app\.listen\s*\(\s*PORT\s*,\s*["']127\.0\.0\.1["']/.test(SRC));
 
+// ── 7. A2j auth wrapper (active enforcement checks) ────────────────────────────
+
+const hasAuthHelper =
+  /\brequireDashboardControlAuth\b/.test(SRC) &&
+  /\bvalidateDashboardControlToken\b/.test(SRC);
+check(
+  "dashboard POST routes are protected by auth helpers (requireDashboardControlAuth and validateDashboardControlToken)",
+  hasAuthHelper
+);
+
+check(
+  "DASHBOARD_CONTROL_TOKEN env var is referenced for fail-closed auth",
+  /DASHBOARD_CONTROL_TOKEN/.test(AUTH_BLOCK)
+);
+
+for (const route of KNOWN_POST_ROUTES) {
+  const routeBlock = new RegExp(
+    `app\\.post\\s*\\(\\s*["'\`]${route.replace("/", "\\/")}["'\`][\\s\\S]{0,400}`,
+    "m"
+  );
+  const block = SRC.match(routeBlock);
+  const usesAuthInHandler = block
+    ? /\brequireDashboardControlAuth\b/.test(block[0]) &&
+      block[0].indexOf("requireDashboardControlAuth") < block[0].indexOf("handleControl")
+    : false;
+  check(`POST ${route} handler invokes auth guard before mutation`, usesAuthInHandler);
+}
+
+check(
+  "auth uses generic unauthorized message only",
+  /Unauthorized dashboard control request\./.test(AUTH_BLOCK)
+);
+
+check(
+  "auth rejects query-string token candidates (requestUsesQueryStringToken)",
+  /\brequestUsesQueryStringToken\b/.test(AUTH_BLOCK)
+);
+
+check(
+  "no query-string token acceptance via req.query token fields",
+  !/req\.query\s*\[\s*["'`]?DASHBOARD_CONTROL_TOKEN/.test(SRC) &&
+  !/req\.query\.(?:token|controlToken)/i.test(SRC)
+);
+
+check(
+  "DASHBOARD_CONTROL_TOKEN is not rendered into dashboard HTML",
+  !/DASHBOARD_CONTROL_TOKEN/.test(HTML_RENDER_BLOCK) &&
+  !/process\.env\.DASHBOARD_CONTROL_TOKEN/.test(HTML_RENDER_BLOCK)
+);
+
+check(
+  "X-Trackta-Control-Token is not embedded in dashboard HTML templates",
+  !/X-Trackta-Control-Token/.test(HTML_RENDER_BLOCK)
+);
+
+check(
+  "auth uses constant-time comparison (crypto.timingSafeEqual)",
+  /crypto\.timingSafeEqual/.test(AUTH_BLOCK)
+);
+
+if (process.argv.includes("--pending-a2j")) {
+  if (failures.length) {
+    console.error(
+      `\nA2j pending mode: ${failures.length} auth check${failures.length === 1 ? "" : "s"} still failing.`
+    );
+    for (const f of failures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
+  console.log(
+    "\nA2j auth enforcement checks are active in the main test path. " +
+    "--pending-a2j is no longer required."
+  );
+  process.exit(0);
+}
+
 if (failures.length) {
   console.error(`\nDASHBOARD AUTH GUARD TEST FAILED (${failures.length} violation${failures.length === 1 ? "" : "s"})`);
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log("\nDASHBOARD AUTH GUARD TEST PASSED (static checks — auth not enforced yet)");
 
-// ── A2j PENDING: Auth enforcement (NOT in safety suite until A2j) ─────────────
-//
-// Behavioral tests (POST without token → 401/403, no config mutation) require
-// an isolated test harness — see docs/A2H_AUTH_GUARD_TEST_DESIGN.md §11.
-// Do not POST to the live dashboard or mutate real live_config.json.
-//
-// Run manually to see expected A2j failure:
-//   node test_dashboard_auth_guards.js --pending-a2j
+console.log("\nDASHBOARD AUTH GUARD TEST PASSED (static checks — A2j auth wrapper enforced)");
+console.log(
+  "NOTE: behavioral auth route tests deferred — no isolated harness yet; " +
+  "see docs/A2H_AUTH_GUARD_TEST_DESIGN.md §11."
+);
 
-function runPendingA2jAuthChecks() {
-  const pendingFailures = [];
-  const pending = (label, cond) => {
-    if (cond) console.log(`${G} ${label}`);
-    else {
-      pendingFailures.push(label);
-      console.log(`${X} FAIL: ${label}`);
-    }
-  };
-
-  console.log("\n--- A2j pending auth enforcement checks (expected to fail until A2j) ---\n");
-
-  const hasAuthHelper =
-    /\brequireDashboardControlAuth\b/.test(SRC) ||
-    /\bvalidateDashboardControlToken\b/.test(SRC);
-  pending(
-    "dashboard POST routes are protected by auth helper (requireDashboardControlAuth or validateDashboardControlToken)",
-    hasAuthHelper
-  );
-
-  pending(
-    "DASHBOARD_CONTROL_TOKEN env var is referenced for fail-closed auth",
-    /DASHBOARD_CONTROL_TOKEN/.test(SRC)
-  );
-
-  for (const route of KNOWN_POST_ROUTES) {
-    const routeBlock = new RegExp(
-      `app\\.post\\s*\\(\\s*["'\`]${route.replace("/", "\\/")}["'\`][\\s\\S]{0,400}`,
-      "m"
-    );
-    const block = SRC.match(routeBlock);
-    const usesAuthInHandler = block
-      ? /\b(requireDashboardControlAuth|validateDashboardControlToken)\b/.test(block[0])
-      : false;
-    pending(`POST ${route} handler invokes auth guard before mutation`, usesAuthInHandler);
-  }
-
-  if (pendingFailures.length) {
-    console.error(
-      `\nA2j expected failure: dashboard POST routes are not yet protected by auth guard. ` +
-      `Implement A2j auth wrapper next. (${pendingFailures.length} pending check${pendingFailures.length === 1 ? "" : "s"})`
-    );
-    for (const f of pendingFailures) console.error(`  - ${f}`);
-    process.exit(1);
-  }
-  console.log("\nA2J AUTH ENFORCEMENT CHECKS PASSED");
-}
-
-if (process.argv.includes("--pending-a2j")) {
-  runPendingA2jAuthChecks();
-}
-
-module.exports = { runPendingA2jAuthChecks };
+module.exports = {};

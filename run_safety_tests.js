@@ -25,8 +25,8 @@ const TESTS = [
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
   "test_recovery_preview_guards.js",
-  // Sprint 4 A2i: static dashboard auth guard (route inventory, forbidden recovery
-  // surfaces). Auth enforcement checks are pending A2j (--pending-a2j); not in suite.
+  // Sprint 4 A2i/A2j: static dashboard auth guard (route inventory, forbidden recovery
+  // surfaces, A2j fail-closed auth wrapper on config-control POST routes).
   "test_dashboard_auth_guards.js"
 ];
 

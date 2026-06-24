@@ -87,7 +87,7 @@ Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handof
 
 A2c Preview-Only UI (dashboard **Recovery Action Preview**) is guarded by `test_recovery_preview_guards.js` — a static source guard that fails if the preview ever gains buttons, forms, POST routes, `spawn`/`exec`/`child_process`/`process.kill`, or `recovery_actions.jsonl` writes. The preview shows command text only; it executes no recovery.
 
-A2i dashboard auth guard (`test_dashboard_auth_guards.js`) is **active in `run_safety_tests.js` (9/9)** for passing static checks only (POST route inventory, forbidden recovery routes/primitives, A2c preview boundary). **Auth is not enforced yet** — mutation routes remain unauthenticated until **A2j**. Pending auth-enforcement checks run manually via `node test_dashboard_auth_guards.js --pending-a2j` (expected to fail until A2j implements the auth wrapper).
+A2i dashboard auth guard (`test_dashboard_auth_guards.js`) is **active in `run_safety_tests.js` (9/9)** for static checks (POST route inventory, forbidden recovery routes/primitives, A2c preview boundary, **A2j fail-closed auth wrapper** on `/control/start`, `/control/stop`, `/control/emergency`). Behavioral auth route tests remain deferred until an isolated harness exists (see `docs/A2H_AUTH_GUARD_TEST_DESIGN.md`).
 
 **CI:** GitHub Actions workflow **Safety Tests** (`.github/workflows/safety-tests.yml`) runs `npm test` on every push and pull request to `main`.
 
