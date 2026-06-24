@@ -279,6 +279,7 @@ Invoke-WebRequest -Uri "http://127.0.0.1:3000/control/stop" -Method POST -Header
 - **A2k behavioral auth tests** (`test_dashboard_auth_behavior.js`) exercise HTTP fail-closed behavior against an isolated temp fixture harness — not the operator's live dashboard on port 3000.
 - **A2m recovery audit writer** (`recovery_audit.js`) exists for append-only `recovery_actions.jsonl` rows when explicitly called; it is **not wired** to dashboard recovery execution. Do **not** manually create or edit `recovery_actions.jsonl` at repo root; recovery execution remains unavailable.
 - **A2p recovery route guards** (`test_recovery_route_guards.js`) are tests-only — **no recovery POST routes exist** on the dashboard yet. Allowed future routes (if ever approved): `POST /recovery/plan/:actionId` and `POST /recovery/confirm/:actionId` per [A2O_HUMAN_CONFIRMED_RECOVERY_DESIGN_PLAN.md](./A2O_HUMAN_CONFIRMED_RECOVERY_DESIGN_PLAN.md).
+- **A2q fake process harness** (`fake_recovery_harness.js`, `test_fake_recovery_harness.js`) is **for automated tests only** — simulates scanner/paper-monitor/wallet-monitor/dashboard states under `TRACKTA_RUNTIME_ROOT` temp dirs. **Operators must not use it for real recovery.** Recovery execution remains unimplemented.
 - After changing `dashboard_server.js`, restart the dashboard process (no hot reload).
 
 ## Commands To Avoid Without Approval

@@ -33,7 +33,9 @@ const TESTS = [
   // Sprint 4 A2m: recovery audit writer unit tests (temp fixtures via TRACKTA_RUNTIME_ROOT).
   "test_recovery_audit.js",
   // Sprint 4 A2p: static recovery route boundary guards (no routes implemented yet).
-  "test_recovery_route_guards.js"
+  "test_recovery_route_guards.js",
+  // Sprint 4 A2q: fake process harness unit tests (temp fixtures only; no real processes).
+  "test_fake_recovery_harness.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {
