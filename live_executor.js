@@ -29,6 +29,7 @@ const crypto = require("crypto");
 const configStore = require("./config_store"); // A1b: shared atomic config writer
 const observationDedupStore = require("./observation_dedup_store"); // R3: atomic dedup snapshot writer
 const livePositionsStore = require("./live_positions_store"); // R4: atomic live positions writer
+const executorSingletonGuard = require("./executor_singleton_guard"); // R5: duplicate loop guard
 
 let axios = null;
 try { axios = require("axios"); } catch { /* price polling will degrade gracefully */ }
@@ -51,6 +52,7 @@ const EXECUTION_AUDIT_FILE = path.join(ROOT, "execution_audit.jsonl");
 const PENDING_RECONCILIATION_FILE = path.join(ROOT, "pending_reconciliation.jsonl");
 const OBSERVATION_DEDUP_FILE = path.join(ROOT, "observation_dedup.json");
 const CONFIG_AUDIT_FILE   = path.join(ROOT, "config_change_audit.jsonl");
+const EXECUTOR_LOCK_FILE  = executorSingletonGuard.getExecutorLockPath();
 
 const DEX = "https://api.dexscreener.com";
 const JUPITER_QUOTE_ENDPOINT = "https://quote-api.jup.ag/v6/quote";
@@ -2989,14 +2991,40 @@ const groupLiveTrades = readLiveTrades;
 
 // ─── Autonomous loop ──────────────────────────────────────────────────────────
 
-async function autonomousLoop(intervalMs = 60000) {
+async function autonomousLoop(intervalMs = 60000, singleton = null) {
   console.log(`[executor] Autonomous loop starting. Cycle every ${intervalMs / 1000}s.`);
   console.log("[executor] Reminder: this respects automationEnabled, emergencyStop, dailyStop, and dryRunMode every cycle.");
   // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
+      if (singleton?.instanceId) {
+        const refresh = executorSingletonGuard.refreshExecutorSingletonGuard(
+          singleton.instanceId,
+          singleton.lockFile
+        );
+        if (!refresh.ok) {
+          console.error(`[executor] Singleton lock ownership lost (${refresh.reason}); stopping loop.`);
+          process.exit(1);
+        }
+      }
       const cfg = loadConfig();
       const result = await runCycle({ loopMode: true });
+      if (singleton?.instanceId) {
+        const armed = computeLiveArmedStatus(cfg);
+        const refresh = executorSingletonGuard.refreshExecutorSingletonGuard(
+          singleton.instanceId,
+          singleton.lockFile,
+          {
+            mode: resolveExecutionMode(cfg),
+            dryRunMode: isAnyDryRun(cfg),
+            liveArmed: armed.liveArmed === true
+          }
+        );
+        if (!refresh.ok) {
+          console.error(`[executor] Singleton lock ownership lost (${refresh.reason}); stopping loop.`);
+          process.exit(1);
+        }
+      }
       const banner = resolveExecutionMode(cfg).replaceAll("_", " ");
       console.log(`[executor] [${banner}] cycle: ${result.action}${result.reasons ? " — " + result.reasons.join("; ") : ""}`);
     } catch (err) {
@@ -3023,11 +3051,32 @@ if (require.main === module) {
         console.error("First live execution-validation trade requires --cycle only.");
         process.exit(1);
       }
+      const armed = computeLiveArmedStatus(cfg);
+      const acquire = executorSingletonGuard.acquireExecutorSingletonGuard({
+        file: EXECUTOR_LOCK_FILE,
+        command: "live_executor.js --loop",
+        posture: {
+          mode: resolveExecutionMode(cfg),
+          dryRunMode: isAnyDryRun(cfg),
+          liveArmed: armed.liveArmed === true
+        }
+      });
+      if (!acquire.ok || acquire.blocked) {
+        console.error(acquire.reason || "Executor singleton lock active; refusing to start duplicate loop.");
+        if (acquire.lock?.instanceId) {
+          console.error("  lockOwnerInstanceId:", acquire.lock.instanceId);
+        }
+        if (acquire.lock?.updatedAt) {
+          console.error("  lockUpdatedAt:", acquire.lock.updatedAt);
+        }
+        process.exit(1);
+      }
+      executorSingletonGuard.registerExecutorSingletonRelease(acquire.instanceId, EXECUTOR_LOCK_FILE);
+      autonomousLoop(60000, { instanceId: acquire.instanceId, lockFile: EXECUTOR_LOCK_FILE });
     } catch (err) {
       console.error("[executor] error:", err.message);
       process.exit(1);
     }
-    autonomousLoop();
   } else if (arg === "--cycle") {
     runCycle({ cycleMode: true }).then(r => { console.log(JSON.stringify(r, null, 2)); process.exit(0); });
   } else {
@@ -3055,6 +3104,14 @@ if (require.main === module) {
       if (!armed.liveArmed && gate.allowed) {
         console.log("  Note: Entries allowed and Readiness ALL PASS do not mean liveArmed — pipeline observation may still run.");
       }
+      const lockStatus = executorSingletonGuard.describeExecutorLockStatus(EXECUTOR_LOCK_FILE);
+      console.log("  executorSingletonLock:", lockStatus.executorSingletonLock);
+      if (lockStatus.lockOwnerInstanceId) {
+        console.log("  lockOwnerInstanceId:", lockStatus.lockOwnerInstanceId);
+      }
+      if (lockStatus.lockUpdatedAt) {
+        console.log("  lockUpdatedAt:", lockStatus.lockUpdatedAt);
+      }
       console.log("\nUsage: node live_executor.js [--loop | --cycle]");
     } catch (err) {
       console.error("[executor] error:", err.message);
@@ -3081,7 +3138,7 @@ module.exports = {
   auditConfigChange, classifyConfigFieldRisk,
   // meta
   EXECUTOR_VERSION, PHASE,
-  FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE, OBSERVATION_DEDUP_FILE, CONFIG_AUDIT_FILE },
+  FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE, OBSERVATION_DEDUP_FILE, CONFIG_AUDIT_FILE, EXECUTOR_LOCK_FILE },
   // Test-only logging surface. It exposes no signer, swap, or transaction methods.
   __executionLoggingTest: {
     EXECUTION_ABORT_CODES, EXECUTION_STAGES,

@@ -25,6 +25,8 @@ const TESTS = [
   "test_observation_dedup_atomic.js",
   // Sprint 4 R4: live positions atomic store (temp runtime root only).
   "test_live_positions_atomic.js",
+  // Sprint 4 R5: executor singleton guard (temp runtime root only).
+  "test_executor_singleton_guard.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

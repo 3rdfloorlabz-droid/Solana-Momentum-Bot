@@ -32,6 +32,8 @@ Also check `live_config.json` manually if needed. Do not change it to `LIVE` dur
 
 **Live positions snapshot (`live_positions.json`):** managed by `live_positions_store.js` with atomic writes. Executor is the sole writer; dashboard and ops scripts read only. Do not hand-edit while the executor loop is running. Corrupt files are not auto-deleted on load — fix or remove only when the executor is stopped.
 
+**Executor singleton lock (`executor_singleton.lock.json`):** `live_executor.js --loop` acquires a JSON singleton lock via `executor_singleton_guard.js` and refuses to start if a fresh lock is already held. If duplicate start is refused, check for an existing executor loop window before deleting the lock. **Do not delete the lock** unless you have confirmed no executor loop is running. R5 performs **no automatic process killing**. Malformed locks block startup and require manual operator review. `node live_executor.js --status` reports lock state read-only and does not acquire the lock.
+
 ## Mode transitions
 
 Execution mode controls whether the executor **observes** the swap pipeline, runs **legacy dry-run entries**, or **submits live trades**. The most important operational fact: **`PIPELINE_DRY_RUN` does not call `manageOpenPositions`** — open live positions are not exited while you stay in pipeline mode.
