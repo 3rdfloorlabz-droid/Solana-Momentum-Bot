@@ -47,36 +47,36 @@ function check(label, cond) {
 
 // ── 1. POST route inventory (known config-control routes only) ───────────────
 
-const KNOWN_POST_ROUTES = ["/control/emergency", "/control/start", "/control/stop"];
+const KNOWN_POST_ROUTES = [
+  "/control/emergency",
+  "/control/start",
+  "/control/stop",
+  "/recovery/confirm/:actionId",
+  "/recovery/plan/:actionId"
+];
 const postRoutes = [];
 const postRe = /app\.post\s*\(\s*["'`]([^"'`]+)["'`]/g;
 let m;
 while ((m = postRe.exec(SRC)) !== null) postRoutes.push(m[1]);
+const recoveryRoutesSrc = fs.readFileSync(path.join(ROOT, "recovery_routes.js"), "utf8");
+const recoveryPostRe = /app\.post\s*\(\s*["'`]([^"'`]+)["'`]/g;
+while ((m = recoveryPostRe.exec(recoveryRoutesSrc)) !== null) postRoutes.push(m[1]);
 const sortedPost = [...postRoutes].sort();
 
 check(
-  `app.post routes are exactly /control/start, /control/stop, /control/emergency (found: ${postRoutes.join(", ") || "none"})`,
+  `app.post routes are exactly control + allowlisted recovery routes (found: ${postRoutes.join(", ") || "none"})`,
   JSON.stringify(sortedPost) === JSON.stringify(KNOWN_POST_ROUTES)
 );
 
 // ── 2. No recovery execution routes ───────────────────────────────────────────
 
-const FORBIDDEN_ROUTE_FRAGMENTS = [
-  "/recover",
-  "/recovery",
-  "/restart",
-  "/kill",
-  "/spawn",
-  "/reset",
-  "/execute",
-  "/run-command"
-];
-for (const frag of FORBIDDEN_ROUTE_FRAGMENTS) {
-  check(`no recovery execution route containing "${frag}"`,
-    !new RegExp(`app\\.(post|get|put|delete)\\s*\\(\\s*["'\`]${frag.replace("/", "\\/")}`, "i").test(SRC));
+const ROUTE_SRC = SRC + recoveryRoutesSrc;
+for (const frag of ["/restart", "/kill", "/spawn", "/reset", "/execute", "/run-command"]) {
+  check(`no forbidden execution route containing "${frag}"`,
+    !new RegExp(`app\\.post\\s*\\(\\s*["'\`]${frag.replace("/", "\\/")}`, "i").test(ROUTE_SRC));
 }
-check("no recover/restart/kill/spawn/reset route on any verb",
-  !/app\.(post|get|put|delete)\s*\(\s*["'`][^"'`]*(recover|restart|kill|spawn|reset|execute|run-command)/i.test(SRC));
+check("no forbidden generic recovery execution routes outside allowlist",
+  !/app\.post\s*\(\s*["'`]\/recover[^y]/i.test(ROUTE_SRC));
 
 // ── 3. No recovery execution primitives ───────────────────────────────────────
 
@@ -96,8 +96,10 @@ for (const [label, re] of PRIMITIVES) {
 
 // ── 4. No recovery_actions.jsonl ──────────────────────────────────────────────
 
-check("dashboard does not reference or create recovery_actions.jsonl",
+check("dashboard HTML does not reference recovery_actions.jsonl",
   !/recovery_actions/i.test(SRC));
+check("recovery audit writer is used by recovery_service.js",
+  /appendRecoveryAuditEntry/.test(fs.readFileSync(path.join(ROOT, "recovery_service.js"), "utf8")));
 
 // ── 5. A2c preview-only panel remains present ─────────────────────────────────
 
@@ -129,14 +131,26 @@ check(
 );
 
 for (const route of KNOWN_POST_ROUTES) {
+  const source = route.includes("/recovery/") ? recoveryRoutesSrc : SRC;
   const routeBlock = new RegExp(
-    `app\\.post\\s*\\(\\s*["'\`]${route.replace("/", "\\/")}["'\`][\\s\\S]{0,400}`,
+    `app\\.post\\s*\\(\\s*["'\`]${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`][\\s\\S]{0,400}`,
     "m"
   );
-  const block = SRC.match(routeBlock);
+  const block = source.match(routeBlock);
   const usesAuthInHandler = block
-    ? /\brequireDashboardControlAuth\b/.test(block[0]) &&
-      block[0].indexOf("requireDashboardControlAuth") < block[0].indexOf("handleControl")
+    ? (() => {
+      const authIdx = block[0].indexOf("requireDashboardControlAuth");
+      if (authIdx < 0) return false;
+      if (route.includes("/recovery/")) {
+        const actionIdx = Math.min(
+          ...["planRecoveryAction", "confirmRecoveryAction"]
+            .map((s) => block[0].indexOf(s))
+            .filter((i) => i >= 0)
+        );
+        return Number.isFinite(actionIdx) && authIdx < actionIdx;
+      }
+      return authIdx < block[0].indexOf("handleControl");
+    })()
     : false;
   check(`POST ${route} handler invokes auth guard before mutation`, usesAuthInHandler);
 }

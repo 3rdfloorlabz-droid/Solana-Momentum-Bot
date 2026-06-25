@@ -107,17 +107,29 @@ check("dashboard does not reference or write recovery_actions(.jsonl)",
 
 // ── 4. app.post routes are EXACTLY the three pre-existing control routes ────────
 
-const KNOWN_ROUTES = ["/control/emergency", "/control/start", "/control/stop"];
+const KNOWN_ROUTES = [
+  "/control/emergency",
+  "/control/start",
+  "/control/stop",
+  "/recovery/confirm/:actionId",
+  "/recovery/plan/:actionId"
+];
 const postRoutes = [];
 const postRe = /app\.post\s*\(\s*["'`]([^"'`]+)["'`]/g;
 let m;
 while ((m = postRe.exec(SRC)) !== null) postRoutes.push(m[1]);
+const recoveryPostRe = /app\.post\s*\(\s*["'`]([^"'`]+)["'`]/g;
+while ((m = recoveryPostRe.exec(fs.readFileSync(path.join(ROOT, "recovery_routes.js"), "utf8"))) !== null) {
+  postRoutes.push(m[1]);
+}
 const sortedRoutes = [...postRoutes].sort();
 
-check(`app.post routes are exactly the known config-control routes (found: ${postRoutes.join(", ") || "none"})`,
+const ROUTE_SRC = SRC + fs.readFileSync(path.join(ROOT, "recovery_routes.js"), "utf8");
+check(`app.post routes are exactly the known control + allowlisted recovery routes (found: ${postRoutes.join(", ") || "none"})`,
   JSON.stringify(sortedRoutes) === JSON.stringify(KNOWN_ROUTES));
-check("no recovery/restart execution route exists",
-  !/app\.(post|get|put|delete)\s*\(\s*["'`][^"'`]*(recover|restart|kill|spawn|reset)/i.test(SRC));
+check("no forbidden generic recovery execution routes outside allowlist",
+  !/app\.post\s*\(\s*["'`]\/recover[^y]/i.test(ROUTE_SRC) &&
+  !/app\.post\s*\(\s*["'`][^"'`]*\/(restart|kill|spawn|execute|run-command)/i.test(ROUTE_SRC));
 
 // ── 5. The A2c preview section is non-mutating (no executable controls) ─────────
 

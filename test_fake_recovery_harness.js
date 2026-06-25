@@ -135,13 +135,21 @@ try {
   check("fake_recovery_harness.js does not write live_config.json",
     !/writeFileSync\s*\(\s*[^,]*live_config|writeConfigAtomic/.test(HARNESS_SRC));
 
+  const recoveryRoutesSrc = fs.readFileSync(path.join(ROOT, "recovery_routes.js"), "utf8");
   const postRoutes = [];
   const postRe = /app\.post\s*\(\s*["'`]([^"'`]+)["'`]/g;
   let m;
   while ((m = postRe.exec(DASHBOARD_SRC)) !== null) postRoutes.push(m[1]);
-  check("no recovery POST routes added to dashboard",
+  while ((m = postRe.exec(recoveryRoutesSrc)) !== null) postRoutes.push(m[1]);
+  check("recovery POST routes are allowlisted only",
     JSON.stringify([...postRoutes].sort()) ===
-    JSON.stringify(["/control/emergency", "/control/start", "/control/stop"]));
+    JSON.stringify([
+      "/control/emergency",
+      "/control/start",
+      "/control/stop",
+      "/recovery/confirm/:actionId",
+      "/recovery/plan/:actionId"
+    ]));
 
   const routeGuard = spawnSync(process.execPath, [path.join(ROOT, "test_recovery_route_guards.js")], {
     cwd: ROOT,

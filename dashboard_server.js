@@ -29,11 +29,15 @@ try {
 }
 
 const app = express();
+app.use(express.json({ limit: "8192" }));
 const PORT = 3000;
 const ROOT = __dirname;
+const DATA_ROOT = process.env.TRACKTA_RUNTIME_ROOT
+  ? path.resolve(process.env.TRACKTA_RUNTIME_ROOT)
+  : ROOT;
 const BANNER_FILE = path.join(ROOT, "3rd-floor-labz-banner.png");
-const PAPER_FILE = path.join(ROOT, "paper_trades.json");
-const PAPER_POSITIONS_FILE = path.join(ROOT, "paper_positions.json");
+const PAPER_FILE = path.join(DATA_ROOT, "paper_trades.json");
+const PAPER_POSITIONS_FILE = path.join(DATA_ROOT, "paper_positions.json");
 const NEAR_MISS_FILE = path.join(ROOT, "near_misses.json");
 const FOLLOWUP_FILE = path.join(ROOT, "near_miss_followups.json");
 const MONITOR_FILE = path.join(ROOT, "monitor.js");
@@ -47,10 +51,10 @@ const EXECUTION_AUDIT_FILE =
 const RECON_RUNBOOK_FILE = path.join(ROOT, "RECONCILIATION_RUNBOOK.md");
 const RECON_PANEL_MAX_ROWS = 25;
 const AUDIT_TAIL_MAX_LINES = 500;
-const WALLET_STATUS_FILE = path.join(ROOT, "wallet_status.json");
+const WALLET_STATUS_FILE = path.join(DATA_ROOT, "wallet_status.json");
 const WALLET_HISTORY_FILE = path.join(ROOT, "wallet_history.jsonl");
 const RPC_HEALTH_FILE = path.join(ROOT, "rpc_health.json");
-const SCANNER_HEALTH_FILE = path.join(ROOT, "scanner_health.json");
+const SCANNER_HEALTH_FILE = path.join(DATA_ROOT, "scanner_health.json");
 const EMERGENCY_STOP_FILE = path.join(ROOT, "emergency_stop.js");
 const LIVE_LOGGER_FILE = path.join(ROOT, "live_trade_logger.js");
 const LIVE_EXECUTOR_FILE = path.join(ROOT, "live_executor.js");
@@ -4380,6 +4384,39 @@ function requireDashboardControlAuth(req, res) {
   }
   return true;
 }
+
+function getRecoveryPostureSnapshot() {
+  if (!liveExecutor) {
+    return {
+      executionMode: "PIPELINE_DRY_RUN",
+      dryRunMode: true,
+      liveArmed: false,
+      emergencyStop: false
+    };
+  }
+  const cfg = liveExecutor.loadConfig();
+  const armed = liveExecutor.computeLiveArmedStatus(cfg);
+  return {
+    executionMode: liveExecutor.resolveExecutionMode(cfg),
+    dryRunMode: cfg.dryRunMode === true,
+    liveArmed: armed.liveArmed === true,
+    emergencyStop: cfg.emergencyStop === true
+  };
+}
+
+function getRecoveryTargetState(heartbeatKey) {
+  const ctx = buildSupervisorContext();
+  const item = ctx.find((row) => row.key === heartbeatKey);
+  return item ? item.state : "NO DATA";
+}
+
+// ─── Sprint 4 A2s — Low-risk human-confirmed recovery routes (simulated execution) ─
+const { registerRecoveryRoutes } = require("./recovery_routes");
+registerRecoveryRoutes(app, {
+  requireDashboardControlAuth,
+  getPosture: getRecoveryPostureSnapshot,
+  getTargetState: getRecoveryTargetState
+});
 
 // ─── Live automation control endpoints ────────────────────────────────────────
 // Each writes live_config.json and logs to live_control_events.jsonl via the

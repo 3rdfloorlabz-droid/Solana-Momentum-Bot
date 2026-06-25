@@ -37,7 +37,9 @@ const TESTS = [
   // Sprint 4 A2q: fake process harness unit tests (temp fixtures only; no real processes).
   "test_fake_recovery_harness.js",
   // Sprint 4 A2r: low-risk recovery behavioral tests (fake harness + temp audit only).
-  "test_low_risk_recovery_behavior.js"
+  "test_low_risk_recovery_behavior.js",
+  // Sprint 4 A2s: low-risk recovery route HTTP tests (simulated execution; temp fixtures only).
+  "test_low_risk_recovery_routes.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {

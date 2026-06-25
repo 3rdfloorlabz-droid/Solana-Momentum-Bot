@@ -244,18 +244,26 @@ try {
 
   check("recovery_audit.js does not write live_config.json",
     !/writeConfigAtomic|writeFileSync\s*\(\s*[^,]*live_config/.test(AUDIT_SRC));
-  check("dashboard_server.js does not call appendRecoveryAuditEntry yet",
+  check("dashboard_server.js does not call appendRecoveryAuditEntry directly",
     !/\bappendRecoveryAuditEntry\b/.test(DASHBOARD_SRC));
-  check("dashboard_server.js does not require recovery_audit yet",
-    !/require\s*\(\s*["'`]\.\/recovery_audit/.test(DASHBOARD_SRC));
+  check("recovery_service.js uses recovery audit writer",
+    /\bappendRecoveryAuditEntry\b/.test(fs.readFileSync(path.join(ROOT, "recovery_service.js"), "utf8")));
 
   const postRoutes = [];
   const postRe = /app\.post\s*\(\s*["'`]([^"'`]+)["'`]/g;
   let m;
   while ((m = postRe.exec(DASHBOARD_SRC)) !== null) postRoutes.push(m[1]);
-  check("no recovery POST routes added to dashboard",
+  const recoveryRoutesSrc = fs.readFileSync(path.join(ROOT, "recovery_routes.js"), "utf8");
+  while ((m = postRe.exec(recoveryRoutesSrc)) !== null) postRoutes.push(m[1]);
+  check("recovery POST routes are allowlisted only",
     JSON.stringify([...postRoutes].sort()) ===
-    JSON.stringify(["/control/emergency", "/control/start", "/control/stop"]));
+    JSON.stringify([
+      "/control/emergency",
+      "/control/start",
+      "/control/stop",
+      "/recovery/confirm/:actionId",
+      "/recovery/plan/:actionId"
+    ]));
 
 } finally {
   if (savedRuntimeRoot === undefined) delete process.env.TRACKTA_RUNTIME_ROOT;

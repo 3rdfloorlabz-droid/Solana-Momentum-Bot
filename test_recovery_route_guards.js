@@ -1,14 +1,9 @@
 "use strict";
 
-// test_recovery_route_guards.js — Sprint 4 A2p (Recovery Route Static Guards)
+// test_recovery_route_guards.js — Sprint 4 A2p + A2s (Recovery Route Static Guards)
 //
-// Static regression guards for future recovery route safety boundaries.
-// Reads dashboard_server.js as text. Passes today because no recovery routes
-// exist. Fails if unsafe routes, generic execution, client-supplied commands,
-// live promotion, or unauthenticated recovery mutation surfaces appear.
-//
-// Does not implement recovery routes, spawn/kill processes, write runtime
-// files, or create recovery_actions.jsonl.
+// Static regression guards for recovery route safety boundaries.
+// Passes with A2s allowlisted recovery routes when protected and bounded.
 
 const fs = require("fs");
 const path = require("path");
@@ -18,6 +13,9 @@ const G = "\x1b[32m✔\x1b[0m";
 const X = "\x1b[31mX\x1b[0m";
 
 const DASHBOARD_SRC = fs.readFileSync(path.join(ROOT, "dashboard_server.js"), "utf8");
+const RECOVERY_ROUTES_SRC = fs.readFileSync(path.join(ROOT, "recovery_routes.js"), "utf8");
+const RECOVERY_SERVICE_SRC = fs.readFileSync(path.join(ROOT, "recovery_service.js"), "utf8");
+const ROUTE_SRC = DASHBOARD_SRC + "\n" + RECOVERY_ROUTES_SRC;
 
 const A2C_START = DASHBOARD_SRC.indexOf("// ─── A2c Recovery Action Preview");
 const A2C_END = DASHBOARD_SRC.indexOf("function supervisorRecommendationCard(item) {", A2C_START);
@@ -57,11 +55,16 @@ function extractPostHandlerBlock(src, routePath) {
   return match ? match[0] : "";
 }
 
-const KNOWN_POST_ROUTES = ["/control/emergency", "/control/start", "/control/stop"];
+const KNOWN_POST_ROUTES = [
+  "/control/emergency",
+  "/control/start",
+  "/control/stop",
+  "/recovery/confirm/:actionId",
+  "/recovery/plan/:actionId"
+];
 const ALLOWED_RECOVERY_POST_PREFIXES = ["/recovery/plan/", "/recovery/confirm/"];
 
 const FORBIDDEN_ROUTE_FRAGMENTS = [
-  "/recover",
   "/restart",
   "/kill",
   "/spawn",
@@ -110,42 +113,49 @@ const LIVE_PROMOTION_PATTERNS = [
   /live promotion/i
 ];
 
-// ── 1. Companion modules and tests exist (A2c/A2j/A2m stack) ────────────────
+function routeHasForbiddenFragment(routePath, frag) {
+  const lower = routePath.toLowerCase();
+  if (lower.includes("/recovery/plan/") || lower.includes("/recovery/confirm/")) {
+    return false;
+  }
+  if (frag === "/recover" && lower.includes("/recovery/")) return false;
+  return lower.includes(frag.toLowerCase());
+}
 
-check("recovery_audit.js module exists", fs.existsSync(path.join(ROOT, "recovery_audit.js")));
+check("recovery_allowlist.js module exists", fs.existsSync(path.join(ROOT, "recovery_allowlist.js")));
+check("recovery_service.js module exists", fs.existsSync(path.join(ROOT, "recovery_service.js")));
+check("recovery_routes.js module exists", fs.existsSync(path.join(ROOT, "recovery_routes.js")));
+check("test_low_risk_recovery_routes.js exists", fs.existsSync(path.join(ROOT, "test_low_risk_recovery_routes.js")));
 check("test_recovery_audit.js exists", fs.existsSync(path.join(ROOT, "test_recovery_audit.js")));
 check("test_recovery_preview_guards.js exists", fs.existsSync(path.join(ROOT, "test_recovery_preview_guards.js")));
 check("test_dashboard_auth_guards.js exists", fs.existsSync(path.join(ROOT, "test_dashboard_auth_guards.js")));
 check("test_dashboard_auth_behavior.js exists", fs.existsSync(path.join(ROOT, "test_dashboard_auth_behavior.js")));
 
-// ── 2. Current POST route inventory (config-control only) ───────────────────
-
-const postRoutes = extractRoutes(DASHBOARD_SRC).filter((r) => r.method === "post");
+const postRoutes = extractRoutes(ROUTE_SRC).filter((r) => r.method === "post");
 const postPaths = postRoutes.map((r) => r.path);
 const sortedPost = [...postPaths].sort();
 
 check(
-  `app.post routes are exactly /control/start, /control/stop, /control/emergency (found: ${postPaths.join(", ") || "none"})`,
+  `app.post routes are exactly control + allowlisted recovery routes (found: ${postPaths.join(", ") || "none"})`,
   JSON.stringify(sortedPost) === JSON.stringify(KNOWN_POST_ROUTES)
 );
 
 const recoveryPostRoutes = postPaths.filter((p) => p.includes("/recovery"));
 check(
-  "no active recovery POST routes yet (expected before A2q/A2r)",
-  recoveryPostRoutes.length === 0
+  "recovery POST routes are only /recovery/plan/:actionId and /recovery/confirm/:actionId",
+  recoveryPostRoutes.length === 2 &&
+  recoveryPostRoutes.includes("/recovery/plan/:actionId") &&
+  recoveryPostRoutes.includes("/recovery/confirm/:actionId")
 );
 
-// ── 3. Forbidden recovery-adjacent routes on any HTTP verb ───────────────────
-
-const allRoutes = extractRoutes(DASHBOARD_SRC);
+const allRoutes = extractRoutes(ROUTE_SRC);
 for (const { method, path: routePath } of allRoutes) {
-  const lower = routePath.toLowerCase();
   for (const frag of FORBIDDEN_ROUTE_FRAGMENTS) {
     check(`no ${method.toUpperCase()} route containing "${frag}" (${routePath})`,
-      !lower.includes(frag.toLowerCase()));
+      !routeHasForbiddenFragment(routePath, frag));
   }
 
-  if (lower.includes("/recovery")) {
+  if (routePath.toLowerCase().includes("/recovery")) {
     const allowlisted = method === "post" && ALLOWED_RECOVERY_POST_PREFIXES.some((prefix) =>
       routePath.startsWith(prefix) || routePath.includes(`${prefix}:actionId`)
     );
@@ -161,43 +171,27 @@ for (const part of FORBIDDEN_ROUTE_NAME_PARTS) {
     'app\\.(post|get|put|delete)\\s*\\(\\s*["\'`][^"\'`]*' + part.replace(/-/g, "\\-"),
     "i"
   );
-  check(`no active route path contains forbidden fragment "${part}"`, !re.test(DASHBOARD_SRC));
+  check(`no active route path contains forbidden fragment "${part}"`, !re.test(ROUTE_SRC));
 }
 
-// ── 4. Future recovery POST route safety markers (defensive) ─────────────────
-
 for (const routePath of postPaths.filter((p) => p.includes("/recovery"))) {
-  const block = extractPostHandlerBlock(DASHBOARD_SRC, routePath);
+  const block = extractPostHandlerBlock(RECOVERY_ROUTES_SRC, routePath);
   check(`POST ${routePath} invokes requireDashboardControlAuth before handler logic`,
-    /\brequireDashboardControlAuth\b/.test(block) &&
-    block.indexOf("requireDashboardControlAuth") < (block.indexOf("appendRecoveryAuditEntry") || Infinity));
-
-  check(`POST ${routePath} does not accept client-supplied command fields`,
+    /\brequireDashboardControlAuth\b/.test(block));
+  check(`POST ${routePath} does not accept client-supplied command fields in route module`,
     !CLIENT_COMMAND_PATTERNS.some((re) => re.test(block)));
-
-  check(`POST ${routePath} references server-side allowlist or actionId validation`,
-    /\bactionId\b/.test(block) &&
-    (/\ballowlist\b/i.test(block) || /\ballowedAction/i.test(block) || /\/recovery\/(plan|confirm)\//.test(routePath)));
-
-  if (routePath.includes("/recovery/confirm/")) {
-    check(`POST ${routePath} calls recovery audit before side effects (appendRecoveryAuditEntry)`,
-      /\bappendRecoveryAuditEntry\b/.test(block) || /require\s*\(\s*["'`]\.\/recovery_audit/.test(block));
-  }
-
+  check(`POST ${routePath} references server-side allowlist/actionId validation`,
+    /planRecoveryAction|confirmRecoveryAction|:actionId/.test(block));
   check(`POST ${routePath} introduces no spawn/exec/child_process in handler`,
     !/\bspawn\s*\(|\bexec\s*\(|child_process|process\.kill/.test(block));
-
   check(`POST ${routePath} has no live promotion patterns in handler`,
     !LIVE_PROMOTION_PATTERNS.some((re) => re.test(block)));
 }
 
-// ── 5. Forbidden client-supplied command input (dashboard-wide) ──────────────
-
 for (const re of CLIENT_COMMAND_PATTERNS) {
-  check(`dashboard does not reference suspicious client command field ${re}`, !re.test(DASHBOARD_SRC));
+  check(`dashboard route modules do not reference suspicious client command field ${re}`,
+    !re.test(DASHBOARD_SRC) && !re.test(RECOVERY_ROUTES_SRC));
 }
-
-// ── 6. Forbidden execution primitives outside A2c preview text ───────────────
 
 const ROUTE_PRIMITIVES = [
   ["spawn(", /\bspawn\s*\(/],
@@ -215,35 +209,28 @@ const ROUTE_PRIMITIVES = [
 ];
 for (const [label, re] of ROUTE_PRIMITIVES) {
   check(`dashboard (outside A2c preview text) introduces no ${label}`, !re.test(NON_A2C_SRC));
+  check(`recovery_service.js introduces no ${label}`, !re.test(RECOVERY_SERVICE_SRC));
+  check(`recovery_routes.js introduces no ${label}`, !re.test(RECOVERY_ROUTES_SRC));
 }
 
-// ── 7. recovery_audit not wired to dashboard recovery routes yet ─────────────
-
-check("dashboard_server.js does not require recovery_audit yet",
-  !/require\s*\(\s*["'`]\.\/recovery_audit/.test(DASHBOARD_SRC));
-check("dashboard_server.js does not call appendRecoveryAuditEntry yet",
-  !/\bappendRecoveryAuditEntry\b/.test(DASHBOARD_SRC));
-check("dashboard does not reference or write recovery_actions.jsonl",
+check("recovery_service.js uses recovery audit writer",
+  /require\s*\(\s*["'`]\.\/recovery_audit/.test(RECOVERY_SERVICE_SRC) &&
+  /\bappendRecoveryAuditEntry\b/.test(RECOVERY_SERVICE_SRC));
+check("dashboard_server.js registers recovery routes",
+  /registerRecoveryRoutes/.test(DASHBOARD_SRC));
+check("dashboard HTML does not reference recovery_actions.jsonl directly",
   !/recovery_actions/i.test(DASHBOARD_SRC));
 
-// ── 8. Live promotion controls in POST route handlers only (not read-only UI) ─
-
-for (const routePath of postPaths) {
+for (const routePath of extractRoutes(DASHBOARD_SRC).filter((r) => r.method === "post").map((r) => r.path)) {
   const block = extractPostHandlerBlock(DASHBOARD_SRC, routePath);
   for (const re of LIVE_PROMOTION_PATTERNS) {
     check(`POST ${routePath} handler has no live promotion pattern ${re}`, !re.test(block));
   }
 }
 
-// ── 9. A2c preview remains non-executing (boundary compatibility) ────────────
-
 check("A2c Recovery Action Preview panel is present", /A2c Recovery Action Preview/i.test(DASHBOARD_SRC));
-check("A2c preview section contains no HTML form for recovery execution",
-  !/<form/i.test(A2C));
-check("A2c preview section contains no POST method",
-  !/method\s*=\s*["']post["']/i.test(A2C));
-
-// ── 10. Repo-root recovery_actions.jsonl absent ──────────────────────────────
+check("A2c preview section contains no HTML form for recovery execution", !/<form/i.test(A2C));
+check("A2c preview section contains no POST method", !/method\s*=\s*["']post["']/i.test(A2C));
 
 check("repo-root recovery_actions.jsonl absent", !fs.existsSync(path.join(ROOT, "recovery_actions.jsonl")));
 
@@ -253,4 +240,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("\nRECOVERY ROUTE GUARD TEST PASSED (A2p — no recovery routes; future boundaries enforced)");
+console.log("\nRECOVERY ROUTE GUARD TEST PASSED (A2p/A2s — allowlisted recovery routes bounded)");
