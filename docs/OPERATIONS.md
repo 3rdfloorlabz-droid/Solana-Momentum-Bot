@@ -28,6 +28,10 @@ Safe state should show:
 
 Also check `live_config.json` manually if needed. Do not change it to `LIVE` during migration.
 
+**Observation dedup state (`observation_dedup.json`):** managed by `observation_dedup_store.js` with atomic writes. Do not hand-edit this file while the executor loop is running; stop the executor first or accept that manual edits may be overwritten on the next dedup mutation. Corrupt files are not auto-deleted — fix or remove only when the executor is stopped.
+
+**Live positions snapshot (`live_positions.json`):** managed by `live_positions_store.js` with atomic writes. Executor is the sole writer; dashboard and ops scripts read only. Do not hand-edit while the executor loop is running. Corrupt files are not auto-deleted on load — fix or remove only when the executor is stopped.
+
 ## Mode transitions
 
 Execution mode controls whether the executor **observes** the swap pipeline, runs **legacy dry-run entries**, or **submits live trades**. The most important operational fact: **`PIPELINE_DRY_RUN` does not call `manageOpenPositions`** — open live positions are not exited while you stay in pipeline mode.

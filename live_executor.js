@@ -27,6 +27,8 @@ const fs   = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const configStore = require("./config_store"); // A1b: shared atomic config writer
+const observationDedupStore = require("./observation_dedup_store"); // R3: atomic dedup snapshot writer
+const livePositionsStore = require("./live_positions_store"); // R4: atomic live positions writer
 
 let axios = null;
 try { axios = require("axios"); } catch { /* price polling will degrade gracefully */ }
@@ -1112,18 +1114,13 @@ function auditConfigChange({ oldCfg, newCfg, actor = "system", source = "unknown
 // ─── Positions store ──────────────────────────────────────────────────────────
 
 function readPositions() {
-  if (!fs.existsSync(LIVE_POSITIONS_FILE)) return [];
-  try {
-    const data = JSON.parse(fs.readFileSync(LIVE_POSITIONS_FILE, "utf8"));
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    logError("readPositions", err.message);
-    return [];
-  }
+  return livePositionsStore.loadLivePositionsState(LIVE_POSITIONS_FILE, {
+    onWarn: msg => logError("readPositions", msg)
+  });
 }
 
 function writePositions(positions) {
-  fs.writeFileSync(LIVE_POSITIONS_FILE, JSON.stringify(positions, null, 2) + "\n");
+  livePositionsStore.writeLivePositionsStateAtomic(positions, LIVE_POSITIONS_FILE);
 }
 
 function openPositions() {
@@ -1306,27 +1303,9 @@ function observationDedupFilePath() {
 }
 
 function loadObservationDedupSnapshot() {
-  const file = observationDedupFilePath();
-  if (!fs.existsSync(file)) {
-    return { observedKeys: [], pairLastObservedMs: {} };
-  }
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (parsed?.schemaVersion !== 1) {
-      return { observedKeys: [], pairLastObservedMs: {} };
-    }
-    return {
-      observedKeys: Array.isArray(parsed.observedKeys)
-        ? parsed.observedKeys.filter(key => typeof key === "string" && key)
-        : [],
-      pairLastObservedMs: parsed.pairLastObservedMs && typeof parsed.pairLastObservedMs === "object"
-        ? parsed.pairLastObservedMs
-        : {}
-    };
-  } catch (err) {
-    logError("observation_dedup_load", safeErrorMessage(err));
-    return { observedKeys: [], pairLastObservedMs: {} };
-  }
+  return observationDedupStore.loadObservationDedupState(observationDedupFilePath(), {
+    onWarn: msg => logError("observation_dedup_load", msg)
+  });
 }
 
 function mergeObservationDedupSnapshot(snapshot) {
@@ -1352,7 +1331,7 @@ function persistObservationDedupSnapshot() {
       observedKeys: [...observedPipelineCandidates],
       pairLastObservedMs: Object.fromEntries(observedPipelinePairTimestamps)
     };
-    fs.writeFileSync(observationDedupFilePath(), `${JSON.stringify(payload, null, 2)}\n`);
+    observationDedupStore.writeObservationDedupStateAtomic(payload, observationDedupFilePath());
   } catch (err) {
     logError("observation_dedup_persist", safeErrorMessage(err));
   }

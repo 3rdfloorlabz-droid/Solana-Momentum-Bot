@@ -21,6 +21,10 @@ const TESTS = [
   // only; they protect single-writer ownership and atomic config writes.
   "test_paper_positions_ownership.js",
   "test_config_store_atomic.js",
+  // Sprint 4 R3: observation dedup atomic store (temp runtime root only).
+  "test_observation_dedup_atomic.js",
+  // Sprint 4 R4: live positions atomic store (temp runtime root only).
+  "test_live_positions_atomic.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

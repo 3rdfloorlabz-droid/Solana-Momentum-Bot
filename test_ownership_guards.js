@@ -66,7 +66,15 @@ const RE = {
   // atomic config write (the approved path)
   configAtomicWrite: /writeConfigAtomic\s*\(/,
   // legacy non-atomic config write (forbidden going forward)
-  configLegacyWrite: /(?:fs\.)?writeFileSync\s*\(\s*CONFIG_FILE/
+  configLegacyWrite: /(?:fs\.)?writeFileSync\s*\(\s*CONFIG_FILE/,
+  // atomic observation dedup write (the approved path)
+  observationDedupAtomicWrite: /writeObservationDedupStateAtomic\s*\(/,
+  // legacy non-atomic observation dedup write (forbidden going forward)
+  observationDedupLegacyWrite: /(?:fs\.)?writeFileSync\s*\(\s*observationDedupFilePath\(\)/,
+  // atomic live positions write (the approved path)
+  livePositionsAtomicWrite: /writeLivePositionsStateAtomic\s*\(/,
+  // legacy non-atomic live positions write (forbidden going forward)
+  livePositionsLegacyWrite: /(?:fs\.)?writeFileSync\s*\(\s*LIVE_POSITIONS_FILE/
 };
 
 const failures = [];
@@ -149,6 +157,50 @@ for (const f of APPROVED_CONFIG_WRITERS) {
   check(`live_config.json: ${f} contains no legacy non-atomic write`,
     !RE.configLegacyWrite.test(src));
 }
+
+// ── 5. observation_dedup.json — atomic writer only (R3) ──────────────────────
+
+const executor = readRoot("live_executor.js");
+
+check("observation_dedup.json: live_executor routes through observationDedupStore.writeObservationDedupStateAtomic",
+  RE.observationDedupAtomicWrite.test(executor));
+check("observation_dedup.json: live_executor contains no legacy non-atomic write",
+  !RE.observationDedupLegacyWrite.test(executor));
+
+const observationDedupDirectWriters = rootJsFiles().filter(f => {
+  if (f === "observation_dedup_store.js") return false;
+  if (f.startsWith("test_")) return false;
+  const src = readRoot(f);
+  return RE.observationDedupLegacyWrite.test(src) ||
+    (/(?:fs\.)?writeFileSync\s*\(\s*[^)]*OBSERVATION_DEDUP_FILE/.test(src));
+});
+check(`observation_dedup.json: no direct non-atomic writers outside the store (found: ${observationDedupDirectWriters.join(", ") || "none"})`,
+  observationDedupDirectWriters.length === 0);
+
+// ── 6. live_positions.json — atomic writer only (R4) ─────────────────────────
+
+check("live_positions.json: live_executor routes through livePositionsStore.writeLivePositionsStateAtomic",
+  RE.livePositionsAtomicWrite.test(executor));
+check("live_positions.json: live_executor contains no legacy non-atomic write",
+  !RE.livePositionsLegacyWrite.test(executor));
+
+check("live_positions.json: dashboard does NOT write live_positions.json",
+  !/(?:fs\.)?writeFileSync\s*\(\s*[^)]*live_positions/.test(dashboard));
+check("live_positions.json: scanner does NOT write live_positions.json",
+  !/(?:fs\.)?writeFileSync\s*\(\s*[^)]*live_positions/.test(scanner));
+check("live_positions.json: monitor does NOT write live_positions.json",
+  !/(?:fs\.)?writeFileSync\s*\(\s*[^)]*live_positions/.test(monitor));
+
+const livePositionsDirectWriters = rootJsFiles().filter(f => {
+  if (f === "live_positions_store.js") return false;
+  if (f.startsWith("test_")) return false;
+  if (f === "run_safety_tests.js") return false;
+  const src = readRoot(f);
+  return RE.livePositionsLegacyWrite.test(src) ||
+    /(?:fs\.)?writeFileSync\s*\(\s*[^)]*live_positions\.json/.test(src);
+});
+check(`live_positions.json: no direct non-atomic writers outside the store (found: ${livePositionsDirectWriters.join(", ") || "none"})`,
+  livePositionsDirectWriters.length === 0);
 
 // ── 4. PowerShell config writers remain atomic (temp + rename) ─────────────────
 
