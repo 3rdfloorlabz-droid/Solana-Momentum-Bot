@@ -35,7 +35,9 @@ const TESTS = [
   // Sprint 4 A2p: static recovery route boundary guards (no routes implemented yet).
   "test_recovery_route_guards.js",
   // Sprint 4 A2q: fake process harness unit tests (temp fixtures only; no real processes).
-  "test_fake_recovery_harness.js"
+  "test_fake_recovery_harness.js",
+  // Sprint 4 A2r: low-risk recovery behavioral tests (fake harness + temp audit only).
+  "test_low_risk_recovery_behavior.js"
 ];
 
 if (!fs.existsSync(AUDIT_FILE)) {
