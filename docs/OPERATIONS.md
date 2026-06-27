@@ -244,6 +244,45 @@ Running **two copies** of scanner, monitor, executor, or wallet monitor (e.g. fr
 
 Before continuing the soak, confirm a **single canonical process set** via `.\fomo_status.ps1` or task manager. Stop duplicates; record the cleanup in the checkpoint log. Prefer one clean `start_fomo.ps1` launch over overlapping manual windows.
 
+## R6a 24-hour Dry-run Soak Checkpoints
+
+Post-A2/R3/R4/R5 **minimum accepted** dry-run soak with automated evidence collection. **Observation only** — does not start/stop/kill processes, change config, execute recovery, or approve live trading.
+
+**Primary docs:**
+
+- [R6_72_HOUR_DRY_RUN_SOAK_PLAN.md](./R6_72_HOUR_DRY_RUN_SOAK_PLAN.md) — §16 R6a tooling; operator selected **24h minimum** (explicit risk acceptance; not equivalent to preferred **72h**)
+- Evidence files under `soak_runs/` (gitignored)
+
+**Posture throughout soak:** `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false`.
+
+### Start 24-hour checkpoint runner
+
+TracktaOS processes must already be running (`start_fomo.ps1` or equivalent). The runner only collects checkpoints; it does **not** launch the bot.
+
+```powershell
+node run_24h_soak_checkpoints.js
+```
+
+Checkpoints run at: **start**, **+1h**, **+4h**, **+12h**, **+24h**. The runner prints the next checkpoint time, exits after the +24h checkpoint, and writes `soak_runs/r6a_24h_soak_summary.json`.
+
+Optional: run full safety suite at every checkpoint with `R6A_RUN_SAFETY_ALL=1` (default: safety at start and +24h only).
+
+### Manual checkpoint
+
+```powershell
+node soak_checkpoint.js
+node soak_checkpoint.js --run-safety
+node soak_checkpoint.js --label=cp_manual
+```
+
+Writes append-only rows to `soak_runs/r6a_24h_soak_checkpoints.jsonl` and updates `soak_runs/r6a_24h_soak_latest.json`.
+
+### Stop criteria
+
+If any checkpoint reports **FAIL**, **stop the soak clock** and review before continuing. Do not treat failed checkpoints as passing evidence. Typical fail causes: posture drift, duplicate executor loops, singleton lock PID mismatch, unexpected `recovery_actions.jsonl`, corrupt JSON state, or safety suite failure.
+
+Passing the 24-hour soak supports progression to **R7 Strategy Performance / Edge Review** — **not** live trading.
+
 ### A2c Recovery Action Preview (preview-only UI)
 
 The dashboard includes a read-only **A2c Recovery Action Preview** panel (nested under Supervisor Recommendations). It shows:

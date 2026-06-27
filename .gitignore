@@ -40,6 +40,7 @@ panic_events.jsonl
 config_change_audit.jsonl
 observation_dedup.json
 executor_singleton.lock.json
+soak_runs/
 scanner_health.json
 near_misses.json
 near_miss_followups.json

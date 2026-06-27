@@ -317,7 +317,7 @@ Record **every** manual restart, duplicate cleanup, lock inspection, or dashboar
 |-------|-------|
 | End time (UTC) | |
 | Total elapsed | |
-| Safety suite (end) | 18/18 PASS |
+| Safety suite (end) | 19/19 PASS |
 | Final status | |
 | Final process list | |
 | Final singleton lock | |
@@ -361,7 +361,7 @@ R5 performs **no automatic process killing**. Duplicate executor refusal is expe
 
 ```powershell
 git status --short          # commit/push all work first
-node run_safety_tests.js    # confirm 18/18 green
+node run_safety_tests.js    # confirm 19/19 green
 powershell -ExecutionPolicy Bypass -File .\stop_fomo.ps1
 ```
 
@@ -443,11 +443,59 @@ R7 is analytical — not live enablement.
 | **R6 72-hour Dry-run Soak Plan** | **COMPLETE** |
 | **Soak status** | **NOT STARTED** |
 | **Live trading** | **NOT APPROVED** |
-| **Recommended next step** | Begin R6 soak only after clean git state, **18/18** safety suite, dry-run posture, and operator confirmation |
+| **Recommended next step** | Begin R6 soak only after clean git state, **19/19** safety suite, dry-run posture, and operator confirmation |
 
 ---
 
-## 16. Footer
+## 16. R6a — 24-Hour Dry-run Soak Checkpoint Tooling
+
+**Status:** **TOOLING COMPLETE** (evidence collection only; soak **NOT STARTED** unless operator begins)
+
+### Operator decision — explicit risk acceptance
+
+The operator has selected a **24-hour minimum dry-run soak** instead of the preferred **72-hour** soak. This is **explicit risk acceptance**:
+
+| Duration | Confidence |
+|----------|------------|
+| **72 hours (preferred)** | Full overnight / quiet-period / long-duration state-durability observation |
+| **24 hours (minimum accepted)** | Reduced confidence — does **not** provide the same assurance as 72 hours |
+
+**Passing a 24-hour soak does not approve live trading.** After a successful 24-hour soak, proceed to **R7 Strategy Performance / Edge Review** — not live trading.
+
+### Checkpoint tooling (read-only evidence)
+
+R6a adds automated checkpoint collection so the operator does not manually gather every evidence field. Tooling is **observation only**:
+
+| Script | Purpose |
+|--------|---------|
+| `node run_24h_soak_checkpoints.js` | Scheduled checkpoints at start, +1h, +4h, +12h, +24h |
+| `node soak_checkpoint.js` | Manual single checkpoint (optional `--run-safety`, `--label=...`) |
+
+**Evidence output** (gitignored under `soak_runs/`):
+
+| File | Contents |
+|------|----------|
+| `soak_runs/r6a_24h_soak_checkpoints.jsonl` | Append-only JSONL checkpoint rows |
+| `soak_runs/r6a_24h_soak_latest.json` | Latest checkpoint summary |
+| `soak_runs/r6a_24h_soak_summary.json` | Final runner summary (after +24h checkpoint) |
+
+**Tooling does not:** start/stop/kill/restart processes, change config/strategy/executionMode/dryRunMode/liveArmed, expand or execute recovery, write `recovery_actions.jsonl`, mutate `live_config.json`, or approve live trading.
+
+### Checkpoint pass/fail (automated)
+
+Each checkpoint **PASS** when: `PIPELINE_DRY_RUN`, `dryRunMode: true`, `liveArmed: false`, exactly one `live_executor.js --loop`, singleton lock present with matching PID, no unexpected `recovery_actions.jsonl`, core JSON state files parse if present, and safety suite passes when run (`--run-safety` or runner start/+24h).
+
+Each checkpoint **FAIL** when: LIVE mode, `dryRunMode: false`, `liveArmed: true`, zero or duplicate executor loops, lock missing/malformed/PID mismatch, unexpected `recovery_actions.jsonl`, safety suite failure, corrupt JSON state, or any detected live/recovery mutation.
+
+**Stop criteria:** If any checkpoint **FAIL**s, stop the soak clock and review before continuing. See [OPERATIONS.md](./OPERATIONS.md) → **R6a 24-hour Dry-run Soak Checkpoints**.
+
+### Test mode (development only)
+
+Set `R6A_TEST_INTERVALS=1` for 1-second schedule intervals (does not replace production 24-hour timing). Set `R6A_TEST_SIMULATE=healthy` only in automated tests — not for production soak evidence.
+
+---
+
+## 17. Footer
 
 Soak before live readiness.  
 Observation before approval.  
