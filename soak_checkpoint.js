@@ -153,6 +153,15 @@ function listProcessesWindows() {
   };
 }
 
+function isActualNodeExecutorLoop(commandLine) {
+  const cmd = commandLine || "";
+  if (!/\blive_executor\.js\b/.test(cmd)) return false;
+  if (!/\s--loop(?:\s|$)/.test(cmd)) return false;
+  if (/\bpowershell(?:\.exe)?\b/i.test(cmd)) return false;
+  if (/(?:^|[\s"'])cmd(?:\.exe)?\b/i.test(cmd)) return false;
+  return /\bnode(?:\.exe)?\b/i.test(cmd);
+}
+
 function classifyProcesses(processRows) {
   const buckets = {
     scanner: [],
@@ -170,7 +179,7 @@ function classifyProcesses(processRows) {
     if (PROCESS_PATTERNS.dashboard.test(cmd)) buckets.dashboard.push(row);
     if (PROCESS_PATTERNS.executor.test(cmd)) {
       buckets.executorAll.push(row);
-      if (/\s--loop(?:\s|$)/.test(cmd)) buckets.executorLoop.push(row);
+      if (isActualNodeExecutorLoop(cmd)) buckets.executorLoop.push(row);
     }
   }
   return {
@@ -444,6 +453,7 @@ module.exports = {
   printCheckpointSummary,
   readJsonFileStatus,
   classifyProcesses,
+  isActualNodeExecutorLoop,
   assertAllowlistedSpawnCommands,
   FORBIDDEN_SPAWN,
   healthySimulateFixture

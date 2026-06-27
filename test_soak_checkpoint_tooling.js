@@ -35,6 +35,33 @@ function evaluate(simulate) {
   return snap;
 }
 
+const PS_EXECUTOR_WRAPPER = {
+  pid: 11080,
+  commandLine:
+    '"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoExit -NoProfile -Command & { ' +
+    "$Host.UI.RawUI.WindowTitle = 'FOMO Live Executor'; Set-Location -LiteralPath " +
+    "'C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot'; Write-Host 'FOMO Live Executor' -ForegroundColor " +
+    "Cyan; node live_executor.js --loop } "
+};
+
+const NODE_EXECUTOR_LOOP = {
+  pid: 7988,
+  commandLine: '"C:\\Program Files\\nodejs\\node.exe" live_executor.js --loop'
+};
+
+function evaluateFromProcessInventory(processRows, lockPid = 7988) {
+  const base = healthySimulate();
+  const { processes, lockPidMatch, ...rest } = base;
+  return evaluate({
+    ...rest,
+    executorLock: {
+      ...base.executorLock,
+      pid: lockPid
+    },
+    processInventory: { available: true, processes: processRows }
+  });
+}
+
 try {
   const result = checkpoint.collectAndWriteCheckpoint({
     runtimeRoot: tmpRoot,
@@ -117,6 +144,40 @@ try {
   );
   console.log(`${G} corrupt JSON state file fails`);
 
+  const wrapperClassified = checkpoint.classifyProcesses([PS_EXECUTOR_WRAPPER, NODE_EXECUTOR_LOOP]);
+  assert.strictEqual(wrapperClassified.executorLoopCount, 1);
+  assert.strictEqual(wrapperClassified.executorLoop[0].pid, 7988);
+  console.log(`${G} PowerShell wrapper does not count as executor loop`);
+
+  const wrapperPass = evaluateFromProcessInventory([PS_EXECUTOR_WRAPPER, NODE_EXECUTOR_LOOP]);
+  assert.strictEqual(wrapperPass.processes.executorLoopCount, 1);
+  assert.strictEqual(wrapperPass.lockPidMatch.matches, true);
+  assert.strictEqual(wrapperPass.verdict, "PASS");
+  console.log(`${G} wrapper + actual node executor passes with lockPidMatch true`);
+
+  const twoNodeLoops = [
+    NODE_EXECUTOR_LOOP,
+    { pid: 7999, commandLine: '"C:\\Program Files\\nodejs\\node.exe" live_executor.js --loop' }
+  ];
+  assert.strictEqual(evaluateFromProcessInventory(twoNodeLoops).verdict, "FAIL");
+  assert.strictEqual(checkpoint.classifyProcesses(twoNodeLoops).executorLoopCount, 2);
+  console.log(`${G} two actual node.exe executor loops still fail`);
+
+  assert.strictEqual(
+    evaluateFromProcessInventory([PS_EXECUTOR_WRAPPER, ...twoNodeLoops]).verdict,
+    "FAIL"
+  );
+  console.log(`${G} wrapper + two actual node loops still fail`);
+
+  assert.strictEqual(evaluateFromProcessInventory([PS_EXECUTOR_WRAPPER]).verdict, "FAIL");
+  assert.strictEqual(checkpoint.classifyProcesses([PS_EXECUTOR_WRAPPER]).executorLoopCount, 0);
+  console.log(`${G} wrapper only and no actual node loop still fails`);
+
+  const lockMatchesWrapperOnly = evaluateFromProcessInventory([PS_EXECUTOR_WRAPPER, NODE_EXECUTOR_LOOP], 11080);
+  assert.strictEqual(lockMatchesWrapperOnly.lockPidMatch.matches, false);
+  assert.strictEqual(lockMatchesWrapperOnly.verdict, "FAIL");
+  console.log(`${G} lock pid matching wrapper but not actual node process fails`);
+
   const runnerResult = spawnSync(process.execPath, ["run_24h_soak_checkpoints.js"], {
     cwd: ROOT,
     env: {
@@ -154,7 +215,7 @@ try {
   assert.ok(!/child_process/.test(runnerSrc));
   console.log(`${G} no process killing/restart commands in checkpoint tooling`);
 
-  console.log("\nSOAK CHECKPOINT TOOLING TEST PASSED (14/14)");
+  console.log("\nSOAK CHECKPOINT TOOLING TEST PASSED (19/19)");
 } finally {
   try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* ignore */ }
   try { fs.rmSync(soakRunsDir, { recursive: true, force: true }); } catch { /* ignore */ }
