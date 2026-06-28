@@ -110,6 +110,8 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | `micro_live_rpc_config.js` | R41D dedicated RPC operator setup loader (`analysis/r41d_rpc_operator_setup.json`) |
 | `r43a_pre_approval_readiness.js` | R43A final pre-approval readiness review (`analysis/r43a_pre_approval_readiness.json`) |
 | `r43b_operator_caps_approval_check.js` | R43B operator caps approval check (`analysis/r43b_operator_caps_approval_check.json`) |
+| `r43c_local_signer_readiness.js` | R43C guarded real local signer readiness (`analysis/r43c_local_signer_readiness.json`) |
+| `r43d_final_proof_preflight.js` | R43D final proof preflight (`analysis/r43d_final_proof_preflight.json`) |
 | `r42_final_micro_live_review.js` | R42 final micro-live approval review (`analysis/r42_final_micro_live_review.json`) |
 
 ---
@@ -132,6 +134,8 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R41D Dedicated RPC Operator Setup** | **BUILT — LOCAL CONFIG ONLY — NOT APPROVED** (2026-06-23) — [docs/R41D_DEDICATED_RPC_OPERATOR_SETUP.md](./docs/R41D_DEDICATED_RPC_OPERATOR_SETUP.md) · `TRACKTA_MICRO_LIVE_RPC_URL` / gitignored local file · **no real RPC committed** |
 | **R43A Final Pre-Approval Readiness Review** | **BUILT — PRE-APPROVAL ONLY — NOT LIVE EXECUTION** (2026-06-23) — [docs/R43A_FINAL_PRE_APPROVAL_READINESS_REVIEW.md](./docs/R43A_FINAL_PRE_APPROVAL_READINESS_REVIEW.md) · **live trading NOT approved** |
 | **R43B Operator Caps Approval Record** | **RECORDED — ENGINEERING PROOF ONLY — NOT LIVE TRADING** (2026-06-28) — [docs/R43B_OPERATOR_CAPS_APPROVAL_RECORD.md](./docs/R43B_OPERATOR_CAPS_APPROVAL_RECORD.md) · **full live trading NOT approved** |
+| **R43C Real Local Signer Under Guardrails** | **BUILT — GUARDED — NOT LIVE TRADING — NO SUBMISSION** (2026-06-23) — [docs/R43C_REAL_LOCAL_SIGNER_GUARDRAILS.md](./docs/R43C_REAL_LOCAL_SIGNER_GUARDRAILS.md) · **no executor integration** |
+| **R43D Final Proof Preflight** | **BUILT — READ-ONLY PREFLIGHT — NOT TRANSACTION** (2026-06-23) — [docs/R43D_FINAL_PROOF_PREFLIGHT.md](./docs/R43D_FINAL_PROOF_PREFLIGHT.md) · **proof readiness only; live trading NOT approved** |
 | **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** (2026-06-23) — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live trading approval** |
 | **Operator caps approval** | **APPROVED — ENGINEERING PROOF ONLY** — `operator_records/micro_live_demo_caps.json` · `approved: true` · Taylor Cheaney · one-transaction scope only |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** (2026-06-28) — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A engineering proof + Track B larger-capital engine |
@@ -168,8 +172,8 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R36 Shadow Execution Harness** | **BUILT — SHADOW EXECUTION HARNESS BUILT — SIMULATION ONLY** (2026-06-23) — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — SHADOW RESULTS REVIEWED — READY FOR WALLET SETUP DESIGN ONLY** (2026-06-23) — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — RESEARCH WALLET SECRET STORAGE DESIGN DEFINED — NO KEY HANDLED** (2026-06-23) — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | Track A: create operator caps file · local signer stubs · R43 · Track B: **B1 FOMO Engine thesis** · **do not arm; no private keys** |
-| **Safety suite** | **60/60** (`node run_safety_tests.js`) |
+| **Recommended next gate** | Track A: R43E one-transaction proof attempt (after R43D `--human-present` READY) · Track B: **B1 FOMO Engine thesis** · **do not arm; no private keys** |
+| **Safety suite** | **62/62** (`node run_safety_tests.js`) |
 | **Posture** | `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false` |
 | **`live_errors.jsonl`** | Rows 1–54 = synthetic `test_execution_logging.js` (tagged `SYNTHETIC_HISTORY_BOUNDARY` line 55) |
 | **`live_trades.json`** | Empty orphan — canonical ledger is `live_trades.jsonl` |
@@ -346,8 +350,10 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | `analysis/r41d_rpc_operator_setup.json` | R41D dedicated RPC operator setup status (gitignored) |
 | `analysis/r43a_pre_approval_readiness.json` | R43A final pre-approval readiness review status (gitignored) |
 | `analysis/r43b_operator_caps_approval_check.json` | R43B operator caps approval check status (gitignored) |
+| `analysis/r43c_local_signer_readiness.json` | R43C guarded real local signer readiness status (gitignored) |
+| `analysis/r43d_final_proof_preflight.json` | R43D final proof preflight status (gitignored) |
 | `examples/micro_live_demo_caps.example.json` | Track A example-only operator caps template (NOT authorization) |
-| `operator_records/micro_live_demo_caps.json` | Track A operator caps **draft** (`approved: false` — NOT execution approval) |
+| `operator_records/micro_live_demo_caps.json` | Track A operator caps approval record (`approved: true` — engineering proof only) |
 
 ### Snapshots (overwrite JSON)
 
