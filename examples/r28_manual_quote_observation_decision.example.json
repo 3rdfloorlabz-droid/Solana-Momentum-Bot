@@ -1,0 +1,31 @@
+{
+  "decisionId": "R28-EXAMPLE-0001",
+  "decisionStatus": "NOT_DECIDED",
+  "operatorDecision": "HOLD",
+  "operatorName": "EXAMPLE_OPERATOR",
+  "decidedAt": null,
+  "quoteObservationApproved": false,
+  "networkPollingAllowed": false,
+  "tradingAllowed": false,
+  "signingAllowed": false,
+  "submissionAllowed": false,
+  "walletRequired": false,
+  "liveTradingApproved": false,
+  "microLiveApproved": false,
+  "acknowledgements": {
+    "quoteObservationNotTradingAcknowledged": false,
+    "noWalletAcknowledged": false,
+    "noSigningAcknowledged": false,
+    "noSubmissionAcknowledged": false,
+    "noPrivateKeysAcknowledged": false,
+    "providerCostAcknowledged": false,
+    "rateLimitsAcknowledged": false,
+    "quoteDataLimitationsAcknowledged": false,
+    "slippageMevUnprovenAcknowledged": false,
+    "liveTradingNotApprovedAcknowledged": false,
+    "microLiveNotApprovedAcknowledged": false
+  },
+  "operatorSignature": "",
+  "exampleOnly": true,
+  "_note": "EXAMPLE ONLY — NOT_DECIDED / HOLD. Does not activate quote polling or trading."
+}

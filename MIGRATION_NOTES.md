@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **39/39** safety tests including Sprint 4 R6a through R26-R27 guards.
+Equivalent: `node run_safety_tests.js` — runs **40/40** safety tests including Sprint 4 R6a through R28 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -108,8 +108,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R25 Activation Approval Record** | **DEFINED — NOT APPROVED** — [docs/R25_REAL_QUOTE_OBSERVATION_ACTIVATION_APPROVAL_RECORD.md](./docs/R25_REAL_QUOTE_OBSERVATION_ACTIVATION_APPROVAL_RECORD.md) |
 | **R26 Activation Review** | **DEFINED — NOT ACTIVATED** — [docs/R26_REAL_QUOTE_OBSERVATION_ACTIVATION_REVIEW.md](./docs/R26_REAL_QUOTE_OBSERVATION_ACTIVATION_REVIEW.md) |
 | **R27 Shadow Execution Design** | **DEFINED — NOT ACTIVE** — [docs/R27_SHADOW_EXECUTION_DESIGN.md](./docs/R27_SHADOW_EXECUTION_DESIGN.md) |
-| **Recommended next gate** | Manual operator quote observation decision; continue R7b; **do not arm** |
-| **Safety suite** | **39/39** |
+| **R28 Manual Quote Observation Decision Session** | **DEFINED — NOT APPROVED** — [docs/R28_MANUAL_QUOTE_OBSERVATION_DECISION_SESSION.md](./docs/R28_MANUAL_QUOTE_OBSERVATION_DECISION_SESSION.md) |
+| **Recommended next gate** | R29 observation activation implementation (if APPROVE_OBSERVATION_ONLY); continue R7b; **do not arm** |
+| **Safety suite** | **40/40** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
