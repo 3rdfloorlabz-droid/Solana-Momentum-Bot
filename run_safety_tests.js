@@ -96,6 +96,8 @@ const TESTS = [
   "test_secret_safety_scan.js",
   // R40: mock signer harness (temp fixtures only).
   "test_mock_signer.js",
+  // R41: local signer plan preflight (temp fixtures only).
+  "test_signer_plan_preflight.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
