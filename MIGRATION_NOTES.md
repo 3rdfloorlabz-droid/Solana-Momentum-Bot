@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **54/54** safety tests including Track A guardrails, R39–R41 signer gates, and R8A preflight.
+Equivalent: `node run_safety_tests.js` — runs **55/55** safety tests including Track A guardrails and R39–R42 signer/micro-live gates.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -92,6 +92,7 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R39 Signer Safety Design** | **DEFINED — SIGNER DESIGN ONLY — NOT READY FOR IMPLEMENTATION** — [docs/R39_SIGNER_SAFETY_DESIGN.md](./docs/R39_SIGNER_SAFETY_DESIGN.md) · **no key handled** |
 | **R40 Mock Signer Test Plan** | **COMPLETE — MOCK HARNESS BUILT — NO EXECUTOR INTEGRATION** — [docs/R40_MOCK_SIGNER_TEST_PLAN.md](./docs/R40_MOCK_SIGNER_TEST_PLAN.md) · **fake signing only** |
 | **R41 Local Signer Implementation Plan** | **DEFINED — PLAN ONLY — NOT READY FOR IMPLEMENTATION** — [docs/R41_LOCAL_SIGNER_IMPLEMENTATION_PLAN.md](./docs/R41_LOCAL_SIGNER_IMPLEMENTATION_PLAN.md) · **no real signer** |
+| **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live approval** |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A + Track B roadmap |
 | **Recommended next gate** | Track A guardrails / R39+ · Track B **B1 thesis** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
@@ -127,8 +128,8 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — READY FOR WALLET SETUP DESIGN ONLY** — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — NO KEY HANDLED** — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | Track A R42 final approval · operator caps · Track B **B1 thesis** |
-| **Safety suite** | **54/54** |
+| **Recommended next gate** | Track A operator caps · signer stubs · R43 · Track B **B1 thesis** |
+| **Safety suite** | **55/55** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

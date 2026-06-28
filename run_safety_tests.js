@@ -98,6 +98,8 @@ const TESTS = [
   "test_mock_signer.js",
   // R41: local signer plan preflight (temp fixtures only).
   "test_signer_plan_preflight.js",
+  // R42: final micro-live approval review (temp fixtures only).
+  "test_r42_final_micro_live_review.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
