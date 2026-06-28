@@ -92,6 +92,10 @@ const TESTS = [
   "test_micro_live_preflight.js",
   // Track A: micro-live hard guardrails (temp fixtures only).
   "test_micro_live_guardrails.js",
+  // R39: secret safety scan (temp fixtures only).
+  "test_secret_safety_scan.js",
+  // R40: mock signer harness (temp fixtures only).
+  "test_mock_signer.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
