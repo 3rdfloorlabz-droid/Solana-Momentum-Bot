@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **28/28** safety tests including Sprint 4 R6a through R14 guards.
+Equivalent: `node run_safety_tests.js` — runs **29/29** safety tests including Sprint 4 R6a through R15 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -95,8 +95,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R12 Micro-Live Readiness Checklist** | **CLOSED — CHECKLIST DEFINED BUT BLOCKED** — [docs/R12_MICRO_LIVE_READINESS_CHECKLIST.md](./docs/R12_MICRO_LIVE_READINESS_CHECKLIST.md) |
 | **R13 Final Micro-Live Approval Gate** | **DEFINED — BLOCKED** — [docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md](./docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md) |
 | **R14 Slippage / MEV Protection Review** | **COMPLETE — NOT IMPLEMENTED** — [docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md](./docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md) |
-| **Recommended next gate** | Continue R7b; R15 Manual Approval Record / Session Runbook; **do not arm; 1 SOL is liquidity not risk** |
-| **Safety suite** | **28/28** |
+| **R15 Manual Approval Record / Session Runbook** | **DEFINED — LIVE STILL BLOCKED** — [docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md](./docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md) |
+| **Recommended next gate** | Continue R7b; R16 Implementation Gap Review; **do not arm; 1 SOL is liquidity not risk** |
+| **Safety suite** | **29/29** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
