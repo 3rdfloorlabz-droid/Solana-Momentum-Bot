@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **20/20** safety tests including Sprint 4 R6a soak checkpoint guards and Sprint 4 R7 strategy review guards.
+Equivalent: `node run_safety_tests.js` — runs **21/21** safety tests including Sprint 4 R6a, R7, and R7b guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -86,9 +86,10 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | Item | Status |
 |------|--------|
 | **R6a 24h soak** | **COMPLETE — PASS** |
-| **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** — see [docs/R7_STRATEGY_PERFORMANCE_EDGE_REVIEW.md](./docs/R7_STRATEGY_PERFORMANCE_EDGE_REVIEW.md) |
-| **Recommended next gate** | Continue dry-run / paper collection (not R8 yet) |
-| **Safety suite** | **20/20** |
+| **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** |
+| **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** — [docs/R7B_STRATEGY_DATA_COLLECTION_PLAN.md](./docs/R7B_STRATEGY_DATA_COLLECTION_PLAN.md) |
+| **Recommended next gate** | Complete R7b thresholds → assess **R8 Risk Controls Review** (not live trading) |
+| **Safety suite** | **21/21** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

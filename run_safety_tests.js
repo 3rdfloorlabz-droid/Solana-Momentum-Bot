@@ -31,6 +31,8 @@ const TESTS = [
   "test_soak_checkpoint_tooling.js",
   // Sprint 4 R7: strategy performance / edge review (temp fixtures only).
   "test_r7_strategy_review.js",
+  // Sprint 4 R7b: strategy data collection daily summary (temp fixtures only).
+  "test_r7b_daily_summary.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
