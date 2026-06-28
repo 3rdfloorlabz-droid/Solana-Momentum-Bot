@@ -41,6 +41,12 @@ const TESTS = [
   "test_signer_simulation_harness.js",
   // Sprint 4 R11: emergency stop validation via fake simulation (temp fixtures only).
   "test_emergency_stop_validation.js",
+  // Sprint 4 R12: micro-live readiness checklist read-only check (temp fixtures only).
+  "test_r12_micro_live_readiness_check.js",
+  // Sprint 4 R13: final micro-live approval gate read-only check (temp fixtures only).
+  "test_r13_micro_live_approval_check.js",
+  // Sprint 4 R14: slippage / MEV protection read-only review (temp fixtures only).
+  "test_r14_slippage_mev_review.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
