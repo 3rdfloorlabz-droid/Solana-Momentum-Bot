@@ -1,7 +1,7 @@
 "use strict";
 
-// signer_provider.js — R41B signer provider selection (stub phase).
-// Does NOT enable real signing or load secrets.
+// signer_provider.js — R41B stub + R43C guarded real local signer provider registry.
+// Does NOT enable live trading or submit transactions.
 
 const mockSigner = require("./mock_signer");
 const localSigner = require("./local_signer");
@@ -13,7 +13,6 @@ const PROVIDERS = Object.freeze({
 });
 
 const BLOCKED_PROVIDERS = Object.freeze([
-  PROVIDERS.LOCAL_REAL,
   "real",
   "hardware",
   "unknown"
@@ -21,6 +20,22 @@ const BLOCKED_PROVIDERS = Object.freeze([
 
 function normalizeProviderType(providerType) {
   return String(providerType || "").trim().toLowerCase();
+}
+
+function buildGuardContext(options = {}) {
+  return {
+    caps: options.caps,
+    posture: options.posture,
+    recoveryPresent: options.recoveryPresent === true,
+    rpcStatus: options.rpcStatus,
+    humanPresent: options.humanPresent === true,
+    repeatedTrading: options.repeatedTrading === true,
+    autonomousTrading: options.autonomousTrading === true,
+    autoCompounding: options.autoCompounding === true,
+    executorSignerIntegrated: options.executorSignerIntegrated === true,
+    liveExecutorIntegration: options.liveExecutorIntegration === true,
+    sessionTradeCount: options.sessionTradeCount
+  };
 }
 
 function validateProviderRequest(options = {}) {
@@ -32,7 +47,7 @@ function validateProviderRequest(options = {}) {
   }
 
   if (BLOCKED_PROVIDERS.includes(providerType) || providerType === "local") {
-    blockers.push(`provider ${providerType || "unknown"} blocked in stub phase`);
+    blockers.push(`provider ${providerType || "unknown"} blocked`);
   }
 
   if (providerType === PROVIDERS.MOCK && options.mockMode !== true) {
@@ -41,6 +56,21 @@ function validateProviderRequest(options = {}) {
 
   if (providerType === PROVIDERS.LOCAL_STUB && options.allowLocalStub !== true) {
     blockers.push("local_stub provider requires allowLocalStub true");
+  }
+
+  if (providerType === PROVIDERS.LOCAL_REAL) {
+    if (options.allowRealLocalSigner !== true) {
+      blockers.push("local_real provider requires allowRealLocalSigner true");
+    } else {
+      try {
+        localSigner.validateSignerGuardContext(buildGuardContext(options), {
+          allowRealLocalSigner: true,
+          checkAllowReal: true
+        });
+      } catch (err) {
+        blockers.push(err && err.message ? err.message : "R43C guard context not satisfied");
+      }
+    }
   }
 
   return {
@@ -82,6 +112,32 @@ function createSignerFromProvider(options = {}) {
     };
   }
 
+  if (validation.providerType === PROVIDERS.LOCAL_REAL) {
+    return {
+      providerType: PROVIDERS.LOCAL_REAL,
+      signer: localSigner.createLocalSigner({
+        providerMode: localSigner.LOCAL_PROVIDER_MODES.REAL,
+        allowRealLocalSigner: true,
+        caps: options.caps,
+        posture: options.posture,
+        recoveryPresent: options.recoveryPresent === true,
+        rpcStatus: options.rpcStatus,
+        humanPresent: options.humanPresent === true,
+        repeatedTrading: options.repeatedTrading === true,
+        autonomousTrading: options.autonomousTrading === true,
+        autoCompounding: options.autoCompounding === true,
+        executorSignerIntegrated: options.executorSignerIntegrated === true,
+        liveExecutorIntegration: options.liveExecutorIntegration === true,
+        sessionTradeCount: options.sessionTradeCount,
+        env: options.env,
+        repoRoot: options.repoRoot,
+        testFixtureSecret: options.testFixtureSecret === true,
+        testSecretBytes: options.testSecretBytes,
+        testKeypair: options.testKeypair
+      })
+    };
+  }
+
   throw Object.assign(new Error(`unsupported provider ${validation.providerType}`), {
     code: "PROVIDER_UNKNOWN"
   });
@@ -91,7 +147,14 @@ function describeProviderAvailability() {
   return {
     mock: { available: true, requiresMockMode: true, realSigning: false },
     local_stub: { available: true, requiresAllowLocalStub: true, realSigning: false },
-    local_real: { available: false, reason: "blocked until R43+ explicit approval" },
+    local_real: {
+      available: true,
+      requiresAllowRealLocalSigner: true,
+      requiresR43cGuardContext: true,
+      realSigning: true,
+      networkSubmit: false,
+      liveExecutorIntegration: false
+    },
     liveTradingApproved: false,
     microLiveApproved: false
   };
@@ -99,7 +162,7 @@ function describeProviderAvailability() {
 
 if (require.main === module) {
   const availability = describeProviderAvailability();
-  console.log("[r41b-signer-provider] Provider availability (stub phase)");
+  console.log("[signer-provider] Provider availability (R43C guarded real local signer)");
   console.log(JSON.stringify(availability, null, 2));
 }
 
@@ -107,6 +170,7 @@ module.exports = {
   PROVIDERS,
   BLOCKED_PROVIDERS,
   normalizeProviderType,
+  buildGuardContext,
   validateProviderRequest,
   createSignerFromProvider,
   describeProviderAvailability

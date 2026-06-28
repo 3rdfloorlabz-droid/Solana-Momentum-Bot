@@ -110,6 +110,8 @@ const TESTS = [
   "test_r43a_pre_approval_readiness.js",
   // R43B: operator caps approval record check (temp fixtures only).
   "test_r43b_operator_caps_approval_check.js",
+  // R43C: guarded real local signer (temp fixtures only).
+  "test_local_signer_real_guardrails.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
