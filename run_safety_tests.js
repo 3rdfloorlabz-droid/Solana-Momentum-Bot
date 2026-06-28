@@ -53,6 +53,8 @@ const TESTS = [
   "test_r16_micro_live_gap_check.js",
   // Sprint 4 R17: simulated micro-live config + approval harness (temp fixtures only).
   "test_r17_simulated_micro_live_harness.js",
+  // Sprint 4 R18: shadow-quote design fixture review (temp fixtures only).
+  "test_r18_shadow_quote_review.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

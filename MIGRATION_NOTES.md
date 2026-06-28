@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **31/31** safety tests including Sprint 4 R6a through R17 guards.
+Equivalent: `node run_safety_tests.js` — runs **32/32** safety tests including Sprint 4 R6a through R18 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -96,9 +96,11 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R13 Final Micro-Live Approval Gate** | **DEFINED — BLOCKED** — [docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md](./docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md) |
 | **R14 Slippage / MEV Protection Review** | **COMPLETE — NOT IMPLEMENTED** — [docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md](./docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md) |
 | **R15 Manual Approval Record / Session Runbook** | **DEFINED — LIVE STILL BLOCKED** — [docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md](./docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md) |
+| **R16 Micro-Live Implementation Gap Review** | **COMPLETE — LIVE BLOCKED** — [docs/R16_MICRO_LIVE_IMPLEMENTATION_GAP_REVIEW.md](./docs/R16_MICRO_LIVE_IMPLEMENTATION_GAP_REVIEW.md) |
 | **R17 Simulated Micro-Live Config + Approval Harness** | **BUILT — LIVE STILL BLOCKED** — [docs/R17_SIMULATED_MICRO_LIVE_CONFIG_AND_APPROVAL_HARNESS.md](./docs/R17_SIMULATED_MICRO_LIVE_CONFIG_AND_APPROVAL_HARNESS.md) |
-| **Recommended next gate** | R18 Shadow-Quote Design Review; continue R7b; **do not arm** |
-| **Safety suite** | **31/31** |
+| **R18 Shadow-Quote Design Review** | **COMPLETE — NOT ACTIVE** — [docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md](./docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md) |
+| **Recommended next gate** | Continue R7b; shadow quote collection via future gate only; **do not arm** |
+| **Safety suite** | **32/32** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
