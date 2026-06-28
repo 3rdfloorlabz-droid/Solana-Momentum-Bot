@@ -122,6 +122,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R40 Mock Signer Test Plan** | **COMPLETE — MOCK SIGNER HARNESS COMPLETE — READY FOR LOCAL SIGNER IMPLEMENTATION PLAN** (2026-06-23) — [docs/R40_MOCK_SIGNER_TEST_PLAN.md](./docs/R40_MOCK_SIGNER_TEST_PLAN.md) · fake signing only · **no executor integration** |
 | **R41 Local Signer Implementation Plan** | **DEFINED — LOCAL SIGNER PLAN ONLY — NOT READY FOR IMPLEMENTATION** (2026-06-23) — [docs/R41_LOCAL_SIGNER_IMPLEMENTATION_PLAN.md](./docs/R41_LOCAL_SIGNER_IMPLEMENTATION_PLAN.md) · plan only · **no real signer** |
 | **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** (2026-06-23) — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live trading approval** |
+| **Operator caps draft** | **PRESENT — NOT APPROVED** — `operator_records/micro_live_demo_caps.json` · `approved: false` · R43 approval required |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** (2026-06-28) — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A engineering proof + Track B larger-capital engine |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** — [docs/R7B_STRATEGY_DATA_COLLECTION_PLAN.md](./docs/R7B_STRATEGY_DATA_COLLECTION_PLAN.md) |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** (2026-06-28) — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) · **live trading NOT approved** |
@@ -331,6 +332,7 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | `analysis/signer_plan_preflight.json` | R41 local signer plan preflight status (gitignored) |
 | `analysis/r42_final_micro_live_review.json` | R42 final micro-live approval review status (gitignored) |
 | `examples/micro_live_demo_caps.example.json` | Track A example-only operator caps template (NOT authorization) |
+| `operator_records/micro_live_demo_caps.json` | Track A operator caps **draft** (`approved: false` — NOT execution approval) |
 
 ### Snapshots (overwrite JSON)
 

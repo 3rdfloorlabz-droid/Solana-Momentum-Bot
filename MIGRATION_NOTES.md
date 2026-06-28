@@ -93,6 +93,7 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R40 Mock Signer Test Plan** | **COMPLETE — MOCK HARNESS BUILT — NO EXECUTOR INTEGRATION** — [docs/R40_MOCK_SIGNER_TEST_PLAN.md](./docs/R40_MOCK_SIGNER_TEST_PLAN.md) · **fake signing only** |
 | **R41 Local Signer Implementation Plan** | **DEFINED — PLAN ONLY — NOT READY FOR IMPLEMENTATION** — [docs/R41_LOCAL_SIGNER_IMPLEMENTATION_PLAN.md](./docs/R41_LOCAL_SIGNER_IMPLEMENTATION_PLAN.md) · **no real signer** |
 | **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live approval** |
+| **Operator caps draft** | **PRESENT — NOT APPROVED** — `operator_records/micro_live_demo_caps.json` · `approved: false` · R43 required |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A + Track B roadmap |
 | **Recommended next gate** | Track A guardrails / R39+ · Track B **B1 thesis** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |

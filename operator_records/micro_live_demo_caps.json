@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "configType": "OPERATOR_DRAFT",
+  "approved": false,
+  "approvedBy": "",
+  "approvedAt": null,
+  "purpose": "micro-live engineering proof only",
+  "maxTradeSizeSol": 0.01,
+  "maxDailyLossSol": 0.05,
+  "maxTradesPerSession": 1,
+  "maxOpenLivePositions": 1,
+  "autoCompoundingAllowed": false,
+  "requireHumanPresent": true,
+  "stopAfterFirstTransaction": true,
+  "notes": "Draft caps only. Not approved for execution. Final approval required at R43."
+}
