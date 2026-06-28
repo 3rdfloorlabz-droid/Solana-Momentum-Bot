@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **50/50** safety tests including Sprint 4 R6a through R38 guards and R8A preflight.
+Equivalent: `node run_safety_tests.js` — runs **51/51** safety tests including Sprint 4 R6a through R38 guards, R8A preflight, and Track A micro-live guardrails.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -88,6 +88,7 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R6a 24h soak** | **COMPLETE — PASS** |
 | **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** |
 | **R8A Micro-live Engineering Proof Plan** | **DEFINED — ENGINEERING PROOF ONLY** — [docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md](./docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md) · operator fast-track; **does NOT bypass R7** |
+| **Track A Micro-Live Hard Guardrails** | **BUILT — GUARDRAIL INFRASTRUCTURE ONLY** — [docs/TRACK_A_MICRO_LIVE_GUARDRAILS.md](./docs/TRACK_A_MICRO_LIVE_GUARDRAILS.md) · **live trading NOT approved** |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A + Track B roadmap |
 | **Recommended next gate** | Track A guardrails / R39+ · Track B **B1 thesis** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
@@ -123,8 +124,8 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — READY FOR WALLET SETUP DESIGN ONLY** — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — NO KEY HANDLED** — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | R39 redaction tests; continue R7b; **do not arm; no private keys** |
-| **Safety suite** | **50/50** |
+| **Recommended next gate** | Track A operator caps approval + R39+ · Track B **B1 thesis** |
+| **Safety suite** | **51/51** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

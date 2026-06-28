@@ -1,16 +1,17 @@
 {
   "schemaVersion": 1,
   "configType": "EXAMPLE_ONLY",
-  "note": "Placeholder demo caps only — NOT authorization. Operator must create and approve real caps before any arming.",
+  "note": "Placeholder demo caps only — NOT authorization. Operator must create and approve real caps in operator_records/ before any arming.",
+  "approved": false,
+  "approvedBy": "",
+  "approvedAt": null,
+  "purpose": "micro-live engineering proof only",
   "maxTradeSizeSol": 0.02,
   "maxDailyLossSol": 0.05,
-  "maxOpenPositions": 1,
-  "maxTradesFirstProof": 1,
+  "maxTradesPerSession": 1,
+  "maxOpenLivePositions": 1,
+  "autoCompoundingAllowed": false,
+  "requireHumanPresent": true,
   "stopAfterFirstTransaction": true,
-  "dedicatedHotWalletOnly": true,
-  "neverUseMainWallet": true,
-  "humanPresentRequired": true,
-  "operatorApproved": false,
-  "liveTradingApproved": false,
-  "microLiveApproved": false
+  "notes": "Example template only — does not approve live trading or micro-live proof."
 }

@@ -90,6 +90,8 @@ const TESTS = [
   "test_r38_research_wallet_secret_design_check.js",
   // Sprint 4 R8A: micro-live engineering proof preflight (temp fixtures only).
   "test_micro_live_preflight.js",
+  // Track A: micro-live hard guardrails (temp fixtures only).
+  "test_micro_live_guardrails.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
