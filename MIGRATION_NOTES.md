@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **22/22** safety tests including Sprint 4 R6a, R7, R7b, and R8 guards.
+Equivalent: `node run_safety_tests.js` — runs **23/23** safety tests including Sprint 4 R6a, R7, R7b, R8, and R9 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -89,8 +89,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) |
-| **Recommended next gate** | Continue R7b → R9 Wallet/Signer Review when ready — **not live trading** |
-| **Safety suite** | **22/22** |
+| **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
+| **Recommended next gate** | Continue R7b → R10 Live Execution Path Review / signer simulation design — **do not connect wallet; not live trading** |
+| **Safety suite** | **23/23** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

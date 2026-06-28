@@ -35,6 +35,8 @@ const TESTS = [
   "test_r7b_daily_summary.js",
   // Sprint 4 R8: risk controls read-only status check (temp fixtures only).
   "test_r8_risk_controls_check.js",
+  // Sprint 4 R9: wallet/signer security read-only status check (temp fixtures only).
+  "test_r9_wallet_security_check.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
