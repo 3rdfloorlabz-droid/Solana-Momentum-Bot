@@ -24,10 +24,11 @@ function goodObservation(overrides = {}) {
     provider: "jupiter_quote_readonly",
     routeSummary: "TEST_POOL",
     slippageBps: 300,
+    requestedSlippageBps: 300,
     priceImpactBps: 0,
     quoteAgeSeconds: 0,
     gateVerdict: r18.DECISION.REJECT,
-    rejectionReasons: ["SLIPPAGE_ABOVE_MANUAL_EXCEPTION"],
+    rejectionReasons: ["REQUESTED_SLIPPAGE_ABOVE_MANUAL_EXCEPTION", "SLIPPAGE_ABOVE_MANUAL_EXCEPTION"],
     approved: false,
     tradingAllowed: false,
     signingAllowed: false,
@@ -95,6 +96,7 @@ async function runTests() {
       observationCount: 1
     }),
     observations: [goodObservation({
+      requestedSlippageBps: 80,
       slippageBps: 80,
       gateVerdict: r18.DECISION.PASS,
       rejectionReasons: []

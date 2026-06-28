@@ -64,19 +64,27 @@ function goodConfig(overrides = {}) {
 }
 
 function mockQuoteProvider(normalizedOverrides = {}) {
-  return async (candidate) => ({
-    inputMint: candidate.inputMint,
-    outputMint: candidate.outputMint,
-    inputAmount: candidate.intendedInputAmountSol,
-    quotedOutputAmount: 1000,
-    minimumOutputAmount: 990,
-    slippageBps: 80,
-    priceImpactBps: 50,
-    routeSummary: "MOCK_POOL_A -> MOCK_POOL_B",
-    quoteAgeSeconds: 1,
-    routeProvider: "jupiter_quote_readonly",
-    ...normalizedOverrides
-  });
+  return async (candidate) => {
+    const requestedSlippageBps = normalizedOverrides.requestedSlippageBps
+      ?? candidate.requestedSlippageBps
+      ?? r29.DEFAULT_REQUESTED_SLIPPAGE_BPS;
+    return {
+      inputMint: candidate.inputMint,
+      outputMint: candidate.outputMint,
+      inputAmount: candidate.intendedInputAmountSol,
+      quotedOutputAmount: 1000,
+      outputAmount: 1000,
+      minimumOutputThreshold: 990,
+      minimumOutputAmount: 990,
+      requestedSlippageBps,
+      slippageBps: requestedSlippageBps,
+      priceImpactBps: normalizedOverrides.priceImpactBps ?? 50,
+      routeSummary: "MOCK_POOL_A -> MOCK_POOL_B",
+      quoteAgeSeconds: 1,
+      routeProvider: "jupiter_quote_readonly",
+      ...normalizedOverrides
+    };
+  };
 }
 
 function baseOptions(overrides = {}) {
@@ -315,7 +323,59 @@ async function runTests() {
   assert.ok(observationsFile.startsWith(tmpOutput));
   console.log(`${G} output only writes to analysis/`);
 
-  console.log("\nR29 REAL QUOTE OBSERVER TEST PASSED (22/22)");
+  const src = fs.readFileSync(path.join(__dirname, "r29_real_quote_observer.js"), "utf8");
+  const srcWithoutPatterns = src
+    .replace(/SECRET_FIELD_PATTERN = .*;/, "")
+    .replace(/SECRET_BODY_PATTERN = .*;/, "");
+  assert.ok(!src.includes("https://quote-api.jup.ag"));
+  assert.ok(!/quote-api\.jup\.ag\/v6\/quote/.test(src));
+  console.log(`${G} old host quote-api.jup.ag is not used`);
+
+  assert.strictEqual(r29.JUPITER_QUOTE_BASE_URL_DEFAULT, "https://lite-api.jup.ag/swap/v1");
+  assert.strictEqual(r29.resolveJupiterQuoteBaseUrl({}), r29.JUPITER_QUOTE_BASE_URL_DEFAULT);
+  console.log(`${G} default base is https://lite-api.jup.ag/swap/v1`);
+
+  assert.strictEqual(r29.JUPITER_QUOTE_PATH, "/quote");
+  const sampleUrl = r29.buildJupiterQuoteRequestUrl(
+    r29.JUPITER_QUOTE_BASE_URL_DEFAULT,
+    new URLSearchParams({ inputMint: "a", outputMint: "b", amount: "1" })
+  );
+  assert.ok(sampleUrl.startsWith("https://lite-api.jup.ag/swap/v1/quote?"));
+  assert.ok(r29.isAllowedQuoteOnlyUrl(sampleUrl).allowed);
+  console.log(`${G} final path is /quote`);
+
+  const blockedPaths = [
+    "https://lite-api.jup.ag/swap/v1/swap-instructions",
+    "https://lite-api.jup.ag/swap/v1/execute",
+    "https://lite-api.jup.ag/swap/v1/submit",
+    "https://lite-api.jup.ag/swap/v1/transaction",
+    "https://quote-api.jup.ag/v6/quote?inputMint=a"
+  ];
+  for (const blocked of blockedPaths) {
+    assert.strictEqual(r29.isAllowedQuoteOnlyUrl(blocked).allowed, false);
+  }
+  console.log(`${G} swap path blocks`);
+  console.log(`${G} submit path blocks`);
+  console.log(`${G} transaction path blocks`);
+
+  assert.ok(!/x-api-key|api[_-]?key|authorization\s*:/i.test(srcWithoutPatterns));
+  console.log(`${G} no API key required`);
+
+  const endpointStatus = await r29.runObservationCycle({
+    ...baseOptions(),
+    observeOnce: true,
+    quoteProvider: mockQuoteProvider()
+  });
+  assert.strictEqual(endpointStatus.providerBaseUrl, r29.JUPITER_QUOTE_BASE_URL_DEFAULT);
+  assert.strictEqual(endpointStatus.providerPath, "/quote");
+  assert.strictEqual(endpointStatus.endpointPolicy, "QUOTE_ONLY");
+  assert.strictEqual(endpointStatus.networkPolling, true);
+  assert.strictEqual(endpointStatus.tradingAllowed, false);
+  assert.strictEqual(endpointStatus.signingAllowed, false);
+  assert.strictEqual(endpointStatus.submissionAllowed, false);
+  assert.strictEqual(endpointStatus.walletRequired, false);
+
+  console.log("\nR29 REAL QUOTE OBSERVER TEST PASSED (32/32)");
 }
 
 runTests()

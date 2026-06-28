@@ -108,7 +108,7 @@ function summarizeRejectionReasons(observations) {
 function detectSlippageAbovePolicy(observations) {
   const cap = POLICY.manualExceptionSlippageCapBps;
   return observations.filter((obs) => {
-    const slippageBps = Number(obs.slippageBps);
+    const slippageBps = Number(obs.requestedSlippageBps ?? obs.slippageBps);
     return Number.isFinite(slippageBps) && slippageBps > cap;
   });
 }

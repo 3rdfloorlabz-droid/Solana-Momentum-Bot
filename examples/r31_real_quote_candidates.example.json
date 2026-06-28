@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "fixtureType": "R31_REAL_MINT_EXAMPLE_ONLY",
+  "networkPolling": false,
+  "note": "Real public mints for manual observation testing only. No wallet, no signing, no submission.",
+  "candidates": [
+    {
+      "candidateId": "R31-SOL-USDC-001",
+      "source": "manual",
+      "tokenSymbol": "SOL-USDC",
+      "tokenMint": "So11111111111111111111111111111111111111112",
+      "pairAddress": "MANUAL_SOL_USDC_QUOTE_ONLY",
+      "inputMint": "So11111111111111111111111111111111111111112",
+      "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "intendedInputAmountSol": 0.001,
+      "requestedSlippageBps": 100,
+      "createdAt": "2026-06-23T12:00:00.000Z",
+      "thesisMatch": false,
+      "riskNotes": "R31 example — real mints, observation-only, default 100 bps requested tolerance"
+    }
+  ]
+}

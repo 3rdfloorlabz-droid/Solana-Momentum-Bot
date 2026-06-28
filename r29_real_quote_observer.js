@@ -25,10 +25,32 @@ const DEFAULT_CONFIG_FILE = path.join(ROOT, "examples", "r29_real_quote_observat
 const DEFAULT_CANDIDATES_FILE = r20.DEFAULT_CANDIDATES_FILE;
 
 const SCHEMA_VERSION = 1;
-const JUPITER_QUOTE_ENDPOINT = "https://quote-api.jup.ag/v6/quote";
+const OBSERVATION_SCHEMA_VERSION = 2;
+const DEFAULT_REQUESTED_SLIPPAGE_BPS = 100;
+const PROVIDER_ERROR_BODY_MAX_LEN = 500;
+const SLIPPAGE_INTERPRETATION = "REQUESTED_TOLERANCE_NOT_REALIZED";
+const JUPITER_QUOTE_BASE_URL_DEFAULT = "https://lite-api.jup.ag/swap/v1";
+const JUPITER_QUOTE_BASE_URL_PRO = "https://api.jup.ag/swap/v1";
+const JUPITER_QUOTE_PATH = "/quote";
+const ENDPOINT_POLICY = "QUOTE_ONLY";
+const DEPRECATED_JUPITER_QUOTE_HOST = "quote-api.jup.ag";
 const PROVIDER_ERROR_CLUSTER = 2;
 
+const FORBIDDEN_QUOTE_PATH_MARKERS = [
+  "/swap-instructions",
+  "/execute",
+  "/submit",
+  "/transaction"
+];
+
 const SECRET_FIELD_PATTERN = /private[_-]?key|secret|seed|mnemonic|signer[_-]?secret|passphrase|api[_-]?key|wallet[_-]?private/i;
+const SECRET_BODY_PATTERN = /private[_-]?key|secret|seed|mnemonic|signer[_-]?secret|passphrase|api[_-]?key|authorization\s*:/i;
+const SLIPPAGE_ROUTE_FINDING_CODES = new Set([
+  "MISSING_SLIPPAGE_DATA",
+  "SLIPPAGE_ABOVE_HARD_CAP",
+  "SLIPPAGE_ABOVE_MANUAL_EXCEPTION",
+  "SLIPPAGE_ABOVE_DEFAULT_CAP"
+]);
 const FORBIDDEN_EXECUTION_MODES = new Set(["LIVE", "MICRO_LIVE"]);
 const APPROVAL_ACK_FIELDS = [
   "stopConditionsAcknowledged",
@@ -269,6 +291,27 @@ function recordQuote(state, tokenMint, nowMs) {
   state.lastQuoteAtMs = nowMs;
 }
 
+function resolveRequestedSlippageBps(candidate) {
+  const fromCandidate = Number(candidate?.requestedSlippageBps);
+  if (Number.isFinite(fromCandidate) && fromCandidate > 0) return fromCandidate;
+  return DEFAULT_REQUESTED_SLIPPAGE_BPS;
+}
+
+function sanitizeProviderErrorBody(body, statusCode) {
+  const providerHttpStatus = statusCode ?? null;
+  if (body == null || body === "") {
+    return { providerHttpStatus, providerErrorBodyPreview: null };
+  }
+  let text = typeof body === "string" ? body : JSON.stringify(body);
+  if (SECRET_BODY_PATTERN.test(text)) {
+    return { providerHttpStatus, providerErrorBodyPreview: "[REDACTED_SECRET_LIKE_CONTENT]" };
+  }
+  if (text.length > PROVIDER_ERROR_BODY_MAX_LEN) {
+    text = `${text.slice(0, PROVIDER_ERROR_BODY_MAX_LEN)}...[truncated]`;
+  }
+  return { providerHttpStatus, providerErrorBodyPreview: text };
+}
+
 function buildRouteSummaryFromJupiter(quote) {
   if (!quote || !Array.isArray(quote.routePlan) || quote.routePlan.length === 0) {
     return "unknown_route";
@@ -278,24 +321,179 @@ function buildRouteSummaryFromJupiter(quote) {
     .join(" -> ");
 }
 
-function normalizeJupiterQuoteResponse(rawQuote, candidate) {
-  const slippageBps = Number(rawQuote.slippageBps) || 0;
+function normalizeJupiterQuoteResponse(rawQuote, candidate, requestedSlippageBps) {
   const priceImpactPct = Number(rawQuote.priceImpactPct) || 0;
+  const quotedOutputAmount = Number(rawQuote.outAmount);
+  const minimumOutputThreshold = Number(rawQuote.otherAmountThreshold);
   return {
     inputMint: rawQuote.inputMint || candidate.inputMint,
     outputMint: rawQuote.outputMint || candidate.outputMint,
     inputAmount: Number(rawQuote.inAmount) || candidate.intendedInputAmountSol,
-    quotedOutputAmount: Number(rawQuote.outAmount),
-    minimumOutputAmount: Number(rawQuote.otherAmountThreshold),
-    slippageBps,
+    quotedOutputAmount,
+    outputAmount: quotedOutputAmount,
+    minimumOutputAmount: minimumOutputThreshold,
+    minimumOutputThreshold,
+    requestedSlippageBps,
+    slippageBps: requestedSlippageBps,
+    realizedSlippageBps: null,
+    slippageInterpretation: SLIPPAGE_INTERPRETATION,
     priceImpactBps: Math.round(priceImpactPct * 100),
     routeSummary: buildRouteSummaryFromJupiter(rawQuote),
     quoteAgeSeconds: 0,
-    routeProvider: "jupiter_quote_readonly"
+    routeProvider: "jupiter_quote_readonly",
+    providerHttpStatus: null,
+    providerErrorBodyPreview: null
   };
 }
 
-function fetchJupiterQuoteReadonly(candidate) {
+function normalizeProviderQuote(normalizedOverrides, candidate) {
+  const requestedSlippageBps = resolveRequestedSlippageBps(candidate);
+  const quotedOutputAmount = normalizedOverrides.quotedOutputAmount;
+  return {
+    inputMint: normalizedOverrides.inputMint || candidate.inputMint,
+    outputMint: normalizedOverrides.outputMint || candidate.outputMint,
+    inputAmount: normalizedOverrides.inputAmount ?? candidate.intendedInputAmountSol,
+    quotedOutputAmount,
+    outputAmount: normalizedOverrides.outputAmount ?? quotedOutputAmount,
+    minimumOutputAmount: normalizedOverrides.minimumOutputThreshold ?? normalizedOverrides.minimumOutputAmount,
+    minimumOutputThreshold: normalizedOverrides.minimumOutputThreshold ?? normalizedOverrides.minimumOutputAmount,
+    requestedSlippageBps: normalizedOverrides.requestedSlippageBps ?? requestedSlippageBps,
+    slippageBps: normalizedOverrides.requestedSlippageBps ?? requestedSlippageBps,
+    realizedSlippageBps: null,
+    slippageInterpretation: SLIPPAGE_INTERPRETATION,
+    priceImpactBps: normalizedOverrides.priceImpactBps ?? 0,
+    routeSummary: normalizedOverrides.routeSummary || "unknown_route",
+    quoteAgeSeconds: normalizedOverrides.quoteAgeSeconds ?? 0,
+    routeProvider: normalizedOverrides.routeProvider || "jupiter_quote_readonly",
+    providerHttpStatus: normalizedOverrides.providerHttpStatus ?? null,
+    providerErrorBodyPreview: normalizedOverrides.providerErrorBodyPreview ?? null
+  };
+}
+
+function evaluateObservationQuote(normalized, nowMs) {
+  const policy = r18.SHADOW_QUOTE_POLICY;
+  const findings = [];
+  let quoteRequestVerdict = r18.DECISION.PASS;
+  let routeQualityVerdict = r18.DECISION.PASS;
+
+  function bumpRequest(severity) {
+    if (severity === r18.DECISION.REJECT) quoteRequestVerdict = r18.DECISION.REJECT;
+    else if (severity === r18.DECISION.WARN && quoteRequestVerdict === r18.DECISION.PASS) {
+      quoteRequestVerdict = r18.DECISION.WARN;
+    }
+  }
+
+  function bumpRoute(severity) {
+    if (severity === r18.DECISION.REJECT) routeQualityVerdict = r18.DECISION.REJECT;
+    else if (severity === r18.DECISION.WARN && routeQualityVerdict === r18.DECISION.PASS) {
+      routeQualityVerdict = r18.DECISION.WARN;
+    }
+  }
+
+  const requestedSlippageBps = normalized.requestedSlippageBps;
+  if (!Number.isFinite(requestedSlippageBps)) {
+    findings.push({ code: "MISSING_REQUESTED_SLIPPAGE", severity: r18.DECISION.REJECT });
+    bumpRequest(r18.DECISION.REJECT);
+  } else if (requestedSlippageBps > policy.hardRejectSlippageBps) {
+    findings.push({
+      code: "REQUESTED_SLIPPAGE_ABOVE_HARD_CAP",
+      severity: r18.DECISION.REJECT,
+      requestedSlippageBps
+    });
+    bumpRequest(r18.DECISION.REJECT);
+  } else if (requestedSlippageBps > policy.manualExceptionSlippageCapBps) {
+    findings.push({
+      code: "REQUESTED_SLIPPAGE_ABOVE_MANUAL_EXCEPTION",
+      severity: r18.DECISION.REJECT,
+      requestedSlippageBps
+    });
+    findings.push({
+      code: "SLIPPAGE_ABOVE_MANUAL_EXCEPTION",
+      severity: r18.DECISION.REJECT,
+      requestedSlippageBps,
+      deprecatedAlias: true
+    });
+    bumpRequest(r18.DECISION.REJECT);
+  } else if (requestedSlippageBps > policy.defaultSlippageCapBps) {
+    findings.push({
+      code: "REQUESTED_SLIPPAGE_ABOVE_DEFAULT_CAP",
+      severity: r18.DECISION.WARN,
+      requestedSlippageBps
+    });
+    bumpRequest(r18.DECISION.WARN);
+  }
+
+  const routeQuote = {
+    inputMint: normalized.inputMint,
+    outputMint: normalized.outputMint,
+    inputAmount: normalized.inputAmount,
+    outputAmount: normalized.outputAmount ?? normalized.quotedOutputAmount,
+    minimumOutputAmount: normalized.minimumOutputThreshold ?? normalized.minimumOutputAmount,
+    priceImpactBps: normalized.priceImpactBps,
+    quoteAgeSeconds: normalized.quoteAgeSeconds,
+    routeProvider: normalized.routeProvider,
+    routeSummary: normalized.routeSummary
+  };
+  const routeEval = r18.evaluateShadowQuote(routeQuote, { nowMs });
+  for (const finding of routeEval.findings) {
+    if (SLIPPAGE_ROUTE_FINDING_CODES.has(finding.code)) continue;
+    findings.push(finding);
+    bumpRoute(finding.severity);
+  }
+
+  let decision = r18.DECISION.PASS;
+  if (quoteRequestVerdict === r18.DECISION.REJECT || routeQualityVerdict === r18.DECISION.REJECT) {
+    decision = r18.DECISION.REJECT;
+  } else if (quoteRequestVerdict === r18.DECISION.WARN || routeQualityVerdict === r18.DECISION.WARN) {
+    decision = r18.DECISION.WARN;
+  }
+
+  return {
+    decision,
+    quoteRequestVerdict,
+    routeQualityVerdict,
+    findings
+  };
+}
+
+function resolveJupiterQuoteBaseUrl(options = {}) {
+  if (options.jupiterQuoteBaseUrl) return String(options.jupiterQuoteBaseUrl).replace(/\/+$/, "");
+  if (options.useProJupiterBase === true) return JUPITER_QUOTE_BASE_URL_PRO;
+  return JUPITER_QUOTE_BASE_URL_DEFAULT;
+}
+
+function buildJupiterQuoteRequestUrl(baseUrl, params) {
+  const normalizedBase = String(baseUrl).replace(/\/+$/, "");
+  return `${normalizedBase}${JUPITER_QUOTE_PATH}?${params.toString()}`;
+}
+
+function isAllowedQuoteOnlyUrl(urlString) {
+  let parsed;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return { allowed: false, reason: "invalid quote URL" };
+  }
+
+  if (parsed.hostname.toLowerCase() === DEPRECATED_JUPITER_QUOTE_HOST) {
+    return { allowed: false, reason: "deprecated Jupiter quote host blocked" };
+  }
+
+  const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+  if (!pathname.endsWith("/quote")) {
+    return { allowed: false, reason: "quote URL pathname must end with /quote" };
+  }
+
+  for (const marker of FORBIDDEN_QUOTE_PATH_MARKERS) {
+    if (pathname.includes(marker)) {
+      return { allowed: false, reason: `forbidden quote path: ${marker}` };
+    }
+  }
+
+  return { allowed: true, pathname, providerPath: JUPITER_QUOTE_PATH };
+}
+
+function fetchJupiterQuoteReadonly(candidate, options = {}) {
   return new Promise((resolve, reject) => {
     const inputMint = candidate.inputMint;
     const outputMint = candidate.outputMint;
@@ -305,14 +503,21 @@ function fetchJupiterQuoteReadonly(candidate) {
       return;
     }
 
+    const requestedSlippageBps = resolveRequestedSlippageBps(candidate);
     const params = new URLSearchParams({
       inputMint,
       outputMint,
       amount: String(amountLamports),
-      slippageBps: "300",
+      slippageBps: String(requestedSlippageBps),
       swapMode: "ExactIn"
     });
-    const url = `${JUPITER_QUOTE_ENDPOINT}?${params.toString()}`;
+    const providerBaseUrl = resolveJupiterQuoteBaseUrl(options);
+    const url = buildJupiterQuoteRequestUrl(providerBaseUrl, params);
+    const urlCheck = isAllowedQuoteOnlyUrl(url);
+    if (!urlCheck.allowed) {
+      reject(new Error(urlCheck.reason));
+      return;
+    }
 
     const req = https.get(url, { headers: { Accept: "application/json" } }, (res) => {
       let body = "";
@@ -323,7 +528,8 @@ function fetchJupiterQuoteReadonly(candidate) {
           return;
         }
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`quote HTTP ${res.statusCode}`));
+          const preview = sanitizeProviderErrorBody(body, res.statusCode);
+          reject(Object.assign(new Error(`quote HTTP ${res.statusCode}`), preview));
           return;
         }
         try {
@@ -332,7 +538,7 @@ function fetchJupiterQuoteReadonly(candidate) {
             reject(new Error("malformed quote response"));
             return;
           }
-          resolve(normalizeJupiterQuoteResponse(quote, candidate));
+          resolve(normalizeJupiterQuoteResponse(quote, candidate, requestedSlippageBps));
         } catch (err) {
           reject(err);
         }
@@ -345,21 +551,6 @@ function fetchJupiterQuoteReadonly(candidate) {
   });
 }
 
-function buildEvaluationQuote(normalized) {
-  return {
-    inputMint: normalized.inputMint,
-    outputMint: normalized.outputMint,
-    inputAmount: normalized.inputAmount,
-    outputAmount: normalized.quotedOutputAmount,
-    minimumOutputAmount: normalized.minimumOutputAmount,
-    slippageBps: normalized.slippageBps,
-    priceImpactBps: normalized.priceImpactBps,
-    quoteAgeSeconds: normalized.quoteAgeSeconds,
-    routeProvider: normalized.routeProvider,
-    routeSummary: normalized.routeSummary
-  };
-}
-
 function buildObservationRecord(candidate, normalized, evaluation, collectedAt, provider) {
   const warnings = evaluation.findings
     .filter((f) => f.severity === r18.DECISION.WARN)
@@ -370,6 +561,7 @@ function buildObservationRecord(candidate, normalized, evaluation, collectedAt, 
 
   return {
     schemaVersion: SCHEMA_VERSION,
+    observationSchemaVersion: OBSERVATION_SCHEMA_VERSION,
     collectedAt,
     sourceMode: "R29_OBSERVATION_ONLY",
     networkPolling: true,
@@ -384,11 +576,21 @@ function buildObservationRecord(candidate, normalized, evaluation, collectedAt, 
     outputMint: normalized.outputMint,
     inputAmount: normalized.inputAmount,
     quotedOutputAmount: normalized.quotedOutputAmount,
-    minimumOutputAmount: normalized.minimumOutputAmount,
-    slippageBps: normalized.slippageBps,
+    outputAmount: normalized.outputAmount ?? normalized.quotedOutputAmount,
+    minimumOutputAmount: normalized.minimumOutputThreshold ?? normalized.minimumOutputAmount,
+    minimumOutputThreshold: normalized.minimumOutputThreshold ?? normalized.minimumOutputAmount,
+    requestedSlippageBps: normalized.requestedSlippageBps,
+    slippageBps: normalized.requestedSlippageBps,
+    slippageBpsDeprecated: true,
+    realizedSlippageBps: null,
+    slippageInterpretation: SLIPPAGE_INTERPRETATION,
     priceImpactBps: normalized.priceImpactBps,
     routeSummary: normalized.routeSummary,
     quoteAgeSeconds: normalized.quoteAgeSeconds,
+    routeQualityVerdict: evaluation.routeQualityVerdict,
+    quoteRequestVerdict: evaluation.quoteRequestVerdict,
+    providerHttpStatus: normalized.providerHttpStatus ?? null,
+    providerErrorBodyPreview: normalized.providerErrorBodyPreview ?? null,
     warnings,
     rejectionReasons,
     gateVerdict: evaluation.decision,
@@ -574,14 +776,17 @@ async function runObservationCycle(options = {}) {
         try {
           let normalized;
           if (quoteProvider) {
-            normalized = await quoteProvider(candidate, { providerName, nowMs });
+            normalized = normalizeProviderQuote(await quoteProvider(candidate, { providerName, nowMs }), candidate);
           } else if (providerName === "jupiter_quote_readonly") {
-            normalized = await fetchJupiterQuoteReadonly(candidate);
+            normalized = await fetchJupiterQuoteReadonly(candidate, {
+              jupiterQuoteBaseUrl: options.jupiterQuoteBaseUrl,
+              useProJupiterBase: options.useProJupiterBase === true
+            });
           } else {
             throw new Error(`unsupported provider: ${providerName}`);
           }
 
-          const evaluation = r18.evaluateShadowQuote(buildEvaluationQuote(normalized), { nowMs });
+          const evaluation = evaluateObservationQuote(normalized, nowMs);
           observations.push(
             buildObservationRecord(candidate, normalized, evaluation, collectedAt, providerName)
           );
@@ -659,6 +864,10 @@ async function runObservationCycle(options = {}) {
       validation: configValidation
     },
     provider: providerName,
+    providerBaseUrl: resolveJupiterQuoteBaseUrl(options),
+    providerPath: JUPITER_QUOTE_PATH,
+    endpointPolicy: ENDPOINT_POLICY,
+    networkPolling: observeOnce === true,
     rateLimits: limits,
     observationCount: observations.length,
     passCount,
@@ -768,6 +977,15 @@ if (require.main === module) {
 
 module.exports = {
   SCHEMA_VERSION,
+  OBSERVATION_SCHEMA_VERSION,
+  DEFAULT_REQUESTED_SLIPPAGE_BPS,
+  SLIPPAGE_INTERPRETATION,
+  PROVIDER_ERROR_BODY_MAX_LEN,
+  JUPITER_QUOTE_BASE_URL_DEFAULT,
+  JUPITER_QUOTE_BASE_URL_PRO,
+  JUPITER_QUOTE_PATH,
+  ENDPOINT_POLICY,
+  DEPRECATED_JUPITER_QUOTE_HOST,
   DEFAULT_APPROVAL_FILE,
   DEFAULT_CONFIG_FILE,
   DEFAULT_CANDIDATES_FILE,
@@ -780,8 +998,15 @@ module.exports = {
   normalizeCandidateSource,
   filterCandidates,
   checkRateLimits,
+  resolveRequestedSlippageBps,
+  sanitizeProviderErrorBody,
+  normalizeProviderQuote,
+  evaluateObservationQuote,
   buildObservationRecord,
   deriveObserverStatus,
+  resolveJupiterQuoteBaseUrl,
+  buildJupiterQuoteRequestUrl,
+  isAllowedQuoteOnlyUrl,
   runObservationCycle,
   appendObservations,
   writeStatus,
