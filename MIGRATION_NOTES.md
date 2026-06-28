@@ -92,10 +92,10 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
 | **R10 Live Execution Path Review** | **COMPLETE — READY FOR SIGNER SIMULATION HARNESS** — [docs/R10_LIVE_EXECUTION_PATH_REVIEW.md](./docs/R10_LIVE_EXECUTION_PATH_REVIEW.md) |
 | **R11 Emergency Stop Validation** | **COMPLETE — EMERGENCY STOP VALIDATED IN SIMULATION ONLY** — [docs/R11_EMERGENCY_STOP_VALIDATION.md](./docs/R11_EMERGENCY_STOP_VALIDATION.md) |
-| **R12 Micro-Live Readiness Checklist** | **COMPLETE — CHECKLIST DEFINED BUT BLOCKED** — [docs/R12_MICRO_LIVE_READINESS_CHECKLIST.md](./docs/R12_MICRO_LIVE_READINESS_CHECKLIST.md) |
+| **R12 Micro-Live Readiness Checklist** | **CLOSED — CHECKLIST DEFINED BUT BLOCKED** — [docs/R12_MICRO_LIVE_READINESS_CHECKLIST.md](./docs/R12_MICRO_LIVE_READINESS_CHECKLIST.md) |
 | **R13 Final Micro-Live Approval Gate** | **DEFINED — BLOCKED** — [docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md](./docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md) |
 | **R14 Slippage / MEV Protection Review** | **COMPLETE — NOT IMPLEMENTED** — [docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md](./docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md) |
-| **Recommended next gate** | Continue R7b if possible; simulated routing fixtures; **do not arm; 1 SOL is liquidity not risk** |
+| **Recommended next gate** | Continue R7b; R15 Manual Approval Record / Session Runbook; **do not arm; 1 SOL is liquidity not risk** |
 | **Safety suite** | **28/28** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
