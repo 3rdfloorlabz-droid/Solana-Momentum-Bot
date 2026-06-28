@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "fixtureType": "R34_MANUAL_BATCH_EXAMPLE_ONLY",
+  "networkPolling": false,
+  "note": "Up to 3 manual observation candidates. Run with --observe-once only. No wallet, no signing, no submission.",
+  "candidates": [
+    {
+      "candidateId": "R34-SOL-USDC-001",
+      "enabled": true,
+      "source": "manual",
+      "tokenSymbol": "SOL-USDC",
+      "tokenMint": "So11111111111111111111111111111111111111112",
+      "pairAddress": "MANUAL_SOL_USDC_QUOTE_ONLY",
+      "inputMint": "So11111111111111111111111111111111111111112",
+      "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "intendedInputAmountSol": 0.001,
+      "requestedSlippageBps": 100,
+      "createdAt": "2026-06-23T14:00:00.000Z",
+      "thesisMatch": false,
+      "riskNotes": "R34 batch candidate 1 — SOL-USDC, 0.001 SOL, 100 bps requested tolerance"
+    },
+    {
+      "candidateId": "R34-SOL-USDC-002",
+      "enabled": true,
+      "source": "manual",
+      "tokenSymbol": "SOL-USDC",
+      "tokenMint": "So11111111111111111111111111111111111111112",
+      "pairAddress": "MANUAL_SOL_USDC_QUOTE_ONLY",
+      "inputMint": "So11111111111111111111111111111111111111112",
+      "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "intendedInputAmountSol": 0.002,
+      "requestedSlippageBps": 100,
+      "createdAt": "2026-06-23T14:01:00.000Z",
+      "thesisMatch": false,
+      "riskNotes": "R34 batch candidate 2 — SOL-USDC, 0.002 SOL, 100 bps requested tolerance"
+    }
+  ]
+}
