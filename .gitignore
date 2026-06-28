@@ -7,6 +7,8 @@ node_modules/
 !.env.example
 .env.local
 operator_records/local_rpc_config.json
+operator_records/r43e_real_proof_target.json
+operator_records/*proof_target*.json
 operator_records/*.secret.json
 secrets/
 private/

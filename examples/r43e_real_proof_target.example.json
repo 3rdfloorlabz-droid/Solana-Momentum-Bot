@@ -1,0 +1,12 @@
+{
+  "configType": "R43E_REAL_PROOF_TARGET",
+  "purpose": "one-transaction engineering proof only",
+  "inputMint": "So11111111111111111111111111111111111111112",
+  "outputMint": "PLACEHOLDER_TARGET_TOKEN_MINT",
+  "amountSol": 0.01,
+  "slippageBps": 300,
+  "routeProvider": "jupiter",
+  "maxTradeSizeSol": 0.01,
+  "stopAfterFirstTransaction": true,
+  "notes": "Local proof target only. Do not commit real target if sensitive."
+}
