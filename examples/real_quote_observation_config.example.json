@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "configType": "EXAMPLE_ONLY",
+  "active": false,
+  "networkPollingAllowed": false,
+  "tradingAllowed": false,
+  "signingAllowed": false,
+  "submissionAllowed": false,
+  "walletRequired": false,
+  "providers": [],
+  "candidateSources": ["fixture"],
+  "maxQuotesPerTokenPerMinute": 3,
+  "maxTokensPerCycle": 5,
+  "maxQuotesPerDay": 100,
+  "cooldownSeconds": 5,
+  "outputPath": "analysis/real_quote_observations.jsonl",
+  "statusPath": "analysis/r22_real_quote_observation_status.json",
+  "_note": "EXAMPLE ONLY — disabled by default. Does not activate network polling."
+}
