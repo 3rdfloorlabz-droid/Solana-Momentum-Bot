@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **34/34** safety tests including Sprint 4 R6a through R20 guards.
+Equivalent: `node run_safety_tests.js` — runs **35/35** safety tests including Sprint 4 R6a through R21 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -101,8 +101,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R18 Shadow-Quote Design Review** | **COMPLETE — NOT ACTIVE** — [docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md](./docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md) |
 | **R19 Shadow Quote Collection Plan** | **DEFINED — NOT ACTIVE** — [docs/R19_SHADOW_QUOTE_COLLECTION_PLAN.md](./docs/R19_SHADOW_QUOTE_COLLECTION_PLAN.md) |
 | **R20 Fixture + Dry-Run Shadow Quote Collector** | **BUILT — FIXTURE ONLY — NETWORK POLLING BLOCKED** — [docs/R20_FIXTURE_DRY_RUN_SHADOW_QUOTE_COLLECTOR.md](./docs/R20_FIXTURE_DRY_RUN_SHADOW_QUOTE_COLLECTOR.md) |
-| **Recommended next gate** | R21 quote observation approval; continue R7b; **do not arm** |
-| **Safety suite** | **34/34** |
+| **R21 Real Quote Observation Approval Gate** | **DEFINED — POLLING NOT ACTIVE** — [docs/R21_REAL_QUOTE_OBSERVATION_APPROVAL_GATE.md](./docs/R21_REAL_QUOTE_OBSERVATION_APPROVAL_GATE.md) |
+| **Recommended next gate** | R22 real quote collector (disabled); continue R7b; **do not arm** |
+| **Safety suite** | **35/35** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

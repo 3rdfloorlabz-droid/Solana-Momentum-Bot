@@ -59,6 +59,8 @@ const TESTS = [
   "test_r19_shadow_quote_collection_check.js",
   // Sprint 4 R20: fixture dry-run shadow quote collector (temp fixtures only).
   "test_r20_shadow_quote_collector.js",
+  // Sprint 4 R21: real quote observation approval gate (temp fixtures only).
+  "test_r21_real_quote_observation_approval_check.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
