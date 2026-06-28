@@ -556,7 +556,7 @@ function printSummary(status) {
   console.log("[r43a-review] Final Pre-Approval Readiness Review (read-only)");
   console.log(`  verdict: ${status.r43aVerdict}`);
   console.log(`  rpc status: ${status.rpcSummary.status}`);
-  console.log(`  caps approved: false`);
+  console.log(`  caps approved: ${status.capsSummary?.approved === true}`);
   console.log(`  live trading approved: false`);
   console.log(`  failed checks: ${status.failedChecks.length}`);
 }

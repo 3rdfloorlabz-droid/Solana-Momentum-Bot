@@ -1,9 +1,11 @@
 {
   "schemaVersion": 1,
-  "configType": "OPERATOR_DRAFT",
-  "approved": false,
-  "approvedBy": "",
-  "approvedAt": null,
+  "configType": "OPERATOR_APPROVED_RECORD",
+  "approved": true,
+  "approvedBy": "Taylor Cheaney",
+  "approvedAt": "2026-06-28T22:34:43.278Z",
+  "approvalText": "I approve a one-transaction micro-live engineering proof only. This is not strategy-profit validation, not full live trading approval, and not approval for repeated trading. Maximum trade size is 0.01 SOL. Maximum daily loss is 0.05 SOL. I will be present during execution. Stop after the first transaction.",
+  "approvalScope": "one-transaction micro-live engineering proof only",
   "purpose": "micro-live engineering proof only",
   "maxTradeSizeSol": 0.01,
   "maxDailyLossSol": 0.05,
@@ -12,5 +14,5 @@
   "autoCompoundingAllowed": false,
   "requireHumanPresent": true,
   "stopAfterFirstTransaction": true,
-  "notes": "Draft caps only. Not approved for execution. Final approval required at R43."
+  "notes": "R43B operator caps approval record. One-transaction engineering proof only. Full live trading NOT APPROVED. R7 edge NOT ENOUGH DATA. Posture remains disarmed until later proof gates."
 }
