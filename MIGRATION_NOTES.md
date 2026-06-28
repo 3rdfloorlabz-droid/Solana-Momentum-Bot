@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **43/43** safety tests including Sprint 4 R6a through R31-R32 guards.
+Equivalent: `node run_safety_tests.js` — runs **44/44** safety tests including Sprint 4 R6a through R33 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -114,8 +114,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R30 Real Quote Observation Results Review** | **COMPLETE — ROUTE REJECTED BY POLICY** — [docs/R30_REAL_QUOTE_OBSERVATION_RESULTS_REVIEW.md](./docs/R30_REAL_QUOTE_OBSERVATION_RESULTS_REVIEW.md) |
 | **R31 Quote Observation Hardening** | **COMPLETE — TRADING STILL BLOCKED** — [docs/R31_QUOTE_OBSERVATION_HARDENING.md](./docs/R31_QUOTE_OBSERVATION_HARDENING.md) |
 | **R32 Additional Observation Batch Plan** | **DEFINED — MANUAL ONLY** — [docs/R32_ADDITIONAL_OBSERVATION_BATCH_PLAN.md](./docs/R32_ADDITIONAL_OBSERVATION_BATCH_PLAN.md) |
-| **Recommended next gate** | Small manual observation batch when operator ready; continue R7b; **do not arm** |
-| **Safety suite** | **43/43** |
+| **R33 Clean Quote Observation Review** | **COMPLETE — TRADING STILL BLOCKED** — [docs/R33_CLEAN_QUOTE_OBSERVATION_REVIEW.md](./docs/R33_CLEAN_QUOTE_OBSERVATION_REVIEW.md) |
+| **Recommended next gate** | R34 batch review; continue R7b; **do not arm** |
+| **Safety suite** | **44/44** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
