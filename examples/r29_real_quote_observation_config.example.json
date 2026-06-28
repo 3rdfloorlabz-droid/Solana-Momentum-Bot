@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "configType": "EXAMPLE_ONLY",
+  "active": false,
+  "networkPollingAllowed": false,
+  "tradingAllowed": false,
+  "signingAllowed": false,
+  "submissionAllowed": false,
+  "walletRequired": false,
+  "defaultProvider": "jupiter_quote_readonly",
+  "candidateSources": ["fixture", "manual", "paper_candidate"],
+  "observationsPath": "analysis/real_quote_observations.jsonl",
+  "statusPath": "analysis/r29_real_quote_observation_status.json",
+  "rateLimitStatePath": "analysis/r29_rate_limit_state.json"
+}
