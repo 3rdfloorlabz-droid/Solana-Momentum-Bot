@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **24/24** safety tests including Sprint 4 R6a, R7, R7b, R8, R9, and R10 guards.
+Equivalent: `node run_safety_tests.js` — runs **25/25** safety tests including Sprint 4 R6a, R7, R7b, R8, R9, R10, and R11 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -91,8 +91,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) |
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
 | **R10 Live Execution Path Review** | **COMPLETE — READY FOR SIGNER SIMULATION HARNESS** — [docs/R10_LIVE_EXECUTION_PATH_REVIEW.md](./docs/R10_LIVE_EXECUTION_PATH_REVIEW.md) |
-| **Recommended next gate** | Continue R7b → micro-live readiness checklist — **do not connect wallet; not live trading** |
-| **Safety suite** | **24/24** |
+| **R11 Emergency Stop Validation** | **COMPLETE — EMERGENCY STOP VALIDATED IN SIMULATION ONLY** — [docs/R11_EMERGENCY_STOP_VALIDATION.md](./docs/R11_EMERGENCY_STOP_VALIDATION.md) |
+| **Recommended next gate** | Continue R7b → R12 Micro-Live Readiness Checklist — **do not connect wallet; not live trading** |
+| **Safety suite** | **25/25** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

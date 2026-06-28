@@ -264,6 +264,111 @@ function runFakeLifecycle(options = {}) {
   return { harness, transaction, approval, signed, submitted, confirmed };
 }
 
+function triggerEmergencyStop(harness, reason = "manual_operator_stop", source = "simulation") {
+  if (!harness || harness.simulated !== true) {
+    throw Object.assign(new Error("invalid harness for emergency stop"), { code: "SIM_HARNESS_INVALID" });
+  }
+  if (typeof harness.emergencyStop !== "boolean") {
+    throw Object.assign(new Error("malformed emergency stop state"), { code: "SIM_EMERGENCY_STATE_MALFORMED" });
+  }
+  harness.emergencyStop = true;
+  return recordEvent(harness, "EMERGENCY_STOP_TRIGGERED", {
+    reason,
+    source,
+    autoRecoveryAttempted: false,
+    recoveryActionsCreated: false
+  });
+}
+
+function attemptAutomaticEmergencyReset(harness) {
+  if (!harness || harness.simulated !== true) {
+    throw Object.assign(new Error("invalid harness for reset attempt"), { code: "SIM_HARNESS_INVALID" });
+  }
+  recordEvent(harness, "AUTO_RESET_BLOCKED", {
+    allowed: false,
+    reason: "manual_operator_review_required"
+  });
+  return {
+    ok: false,
+    autoReset: false,
+    reason: "manual_operator_review_required"
+  };
+}
+
+function runMidFlowEmergencyStopScenario(options = {}) {
+  const harness = createSignerSimulationHarness(options);
+  const posture = {
+    executionMode: "MICRO_LIVE",
+    dryRunMode: false,
+    liveArmed: true,
+    emergencyStop: false,
+    ...(options.posture || {})
+  };
+  const context = {
+    singletonLockValid: true,
+    exactlyOneExecutorLoop: true,
+    r8LimitsLoaded: true,
+    walletMonitorFresh: true,
+    signerPresent: true,
+    operatorApprovalPresent: true,
+    ...(options.context || {})
+  };
+  const tx = createFakeTransaction(options.intent || {});
+  const signed = fakeSign(harness, tx, posture, context);
+  triggerEmergencyStop(harness, options.stopReason || "mid_flow_operator_stop", options.stopSource || "simulation");
+  let submitError = null;
+  try {
+    fakeSubmit(harness, signed, posture, context);
+  } catch (err) {
+    submitError = err;
+  }
+  return { harness, tx, signed, submitError, posture, context };
+}
+
+function runPostConfirmEmergencyStopScenario(options = {}) {
+  const first = runFakeLifecycle(options);
+  triggerEmergencyStop(first.harness, options.stopReason || "post_confirm_operator_stop", options.stopSource || "simulation");
+  const nextTx = createFakeTransaction(options.nextIntent || { tokenAddress: "MintAfterStop", amountUsd: 7 });
+  let signError = null;
+  try {
+    fakeSign(first.harness, nextTx, options.posture || {
+      executionMode: "MICRO_LIVE",
+      dryRunMode: false,
+      liveArmed: true,
+      emergencyStop: false
+    }, options.context || {
+      singletonLockValid: true,
+      exactlyOneExecutorLoop: true,
+      r8LimitsLoaded: true,
+      walletMonitorFresh: true,
+      signerPresent: true,
+      operatorApprovalPresent: true
+    });
+  } catch (err) {
+    signError = err;
+  }
+  return { ...first, nextTx, signError };
+}
+
+function writeEmergencyStopValidationOutput(harness, outputFile) {
+  const target = outputFile || path.join(harness.outputDir, "r11_emergency_stop_validation.json");
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const payload = {
+    timestamp: new Date().toISOString(),
+    review: "R11-emergency-stop-validation",
+    simulated: true,
+    liveTradingApproved: false,
+    emergencyStopValidatedInSimulationOnly: true,
+    walletAddress: harness.walletAddress,
+    emergencyStopActive: harness.emergencyStop === true,
+    recoveryActionsCreated: false,
+    eventCount: harness.events.length,
+    events: harness.events
+  };
+  fs.writeFileSync(target, `${JSON.stringify(payload, null, 2)}\n`);
+  return target;
+}
+
 function writeSimulationOutput(harness, outputFile) {
   const target = outputFile || path.join(harness.outputDir, "signer_simulation_output.json");
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -310,6 +415,11 @@ module.exports = {
   fakeSign,
   fakeSubmit,
   fakeConfirm,
+  triggerEmergencyStop,
+  attemptAutomaticEmergencyReset,
+  runMidFlowEmergencyStopScenario,
+  runPostConfirmEmergencyStopScenario,
   runFakeLifecycle,
-  writeSimulationOutput
+  writeSimulationOutput,
+  writeEmergencyStopValidationOutput
 };

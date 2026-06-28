@@ -39,6 +39,8 @@ const TESTS = [
   "test_r9_wallet_security_check.js",
   // Sprint 4 R10: fake signer simulation harness (temp fixtures only).
   "test_signer_simulation_harness.js",
+  // Sprint 4 R11: emergency stop validation via fake simulation (temp fixtures only).
+  "test_emergency_stop_validation.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
