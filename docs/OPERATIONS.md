@@ -267,6 +267,28 @@ Checkpoints run at: **start**, **+1h**, **+4h**, **+12h**, **+24h**. The runner 
 
 Optional: run full safety suite at every checkpoint with `R6A_RUN_SAFETY_ALL=1` (default: safety at start and +24h only).
 
+### Resume soak after runner interruption
+
+If the runner stops but the soak clock should continue from the original start time, set the original soak start ISO timestamp and resume:
+
+```powershell
+$env:R6A_SOAK_STARTED_AT = "2026-06-27T01:45:46.258Z"
+node run_24h_soak_checkpoints.js
+```
+
+Alternatively auto-read the first `start` row from `soak_runs/r6a_24h_soak_checkpoints.jsonl`:
+
+```powershell
+$env:R6A_RESUME_SOAK = "1"
+node run_24h_soak_checkpoints.js
+```
+
+The runner skips checkpoints whose scheduled time has already elapsed and continues with the remaining schedule (+4h, +12h, +24h from original start).
+
+### Reviewing `live_errors.jsonl` during soak
+
+Rows **1–54** (through **2026-06-14**) are synthetic output from `test_execution_logging.js`, not production or soak incidents. Line **55** is an operator note with `code: SYNTHETIC_HISTORY_BOUNDARY`. When judging R6 pass criteria or reviewing error tails, **ignore rows at or before that boundary** unless new rows appear after it during the soak window.
+
 ### Manual checkpoint
 
 ```powershell

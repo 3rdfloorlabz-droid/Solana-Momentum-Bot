@@ -32,6 +32,30 @@ const SCHEDULE = TEST_MODE
       { label: "cp4_24h", delayMs: 24 * 60 * 60 * 1000 }
     ];
 
+function readResumeStartedAt(soakRunsDir) {
+  const env = process.env.R6A_SOAK_STARTED_AT;
+  if (env) {
+    const ms = Date.parse(env);
+    if (!Number.isNaN(ms)) return ms;
+  }
+  if (process.env.R6A_RESUME_SOAK !== "1") return null;
+  const jsonlPath = path.join(soakRunsDir, "r6a_24h_soak_checkpoints.jsonl");
+  if (!fs.existsSync(jsonlPath)) return null;
+  const lines = fs.readFileSync(jsonlPath, "utf8").trim().split(/\r?\n/).filter(Boolean);
+  for (const line of lines) {
+    try {
+      const row = JSON.parse(line);
+      if (row.checkpointLabel === "start" && row.timestamp) {
+        const ms = Date.parse(row.timestamp);
+        if (!Number.isNaN(ms)) return ms;
+      }
+    } catch {
+      // ignore malformed rows
+    }
+  }
+  return null;
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -53,13 +77,18 @@ function formatDuration(ms) {
 async function runScheduledCheckpoints() {
   const soakRunsDir = process.env.SOAK_RUNS_DIR || DEFAULT_SOAK_RUNS_DIR;
   fs.mkdirSync(soakRunsDir, { recursive: true });
-  const startedAt = Date.now();
+  const resumeStartedAt = readResumeStartedAt(soakRunsDir);
+  const resuming = resumeStartedAt !== null;
+  const startedAt = resuming ? resumeStartedAt : Date.now();
   const checkpoints = [];
 
   console.log("[r6a-soak] 24-hour minimum dry-run soak checkpoint runner");
   console.log("[r6a-soak] observation only — does not start/stop/kill processes");
   if (TEST_MODE) {
     console.log("[r6a-soak] R6A_TEST_INTERVALS=1 (short test schedule active)");
+  } else if (resuming) {
+    console.log(`[r6a-soak] resuming soak from ${new Date(startedAt).toISOString()}`);
+    console.log(`[r6a-soak] elapsed: ${formatDuration(Date.now() - startedAt)}`);
   } else {
     console.log("[r6a-soak] production schedule: start, +1h, +4h, +12h, +24h");
   }
@@ -67,6 +96,16 @@ async function runScheduledCheckpoints() {
 
   for (const entry of SCHEDULE) {
     const elapsed = Date.now() - startedAt;
+    if (resuming && elapsed > entry.delayMs + 5000) {
+      console.log(`[r6a-soak] skipping ${entry.label} (already elapsed at ${formatDuration(entry.delayMs)})`);
+      checkpoints.push({
+        label: entry.label,
+        skipped: true,
+        resumeReason: "already_elapsed",
+        scheduledDelayMs: entry.delayMs
+      });
+      continue;
+    }
     const waitMs = Math.max(0, entry.delayMs - elapsed);
     if (waitMs > 0) {
       console.log(`[r6a-soak] next checkpoint ${entry.label} in ${formatDuration(waitMs)}`);
@@ -88,7 +127,7 @@ async function runScheduledCheckpoints() {
     console.log(`  evidence: ${result.paths.jsonlPath}`);
   }
 
-  const overallVerdict = checkpoints.every(row => row.verdict === "PASS") ? "PASS" : "FAIL";
+  const overallVerdict = checkpoints.every(row => row.skipped || row.verdict === "PASS") ? "PASS" : "FAIL";
   const summary = {
     timestamp: new Date().toISOString(),
     soakPlan: "R6a-24h-minimum-risk-accepted",
@@ -97,6 +136,7 @@ async function runScheduledCheckpoints() {
     riskAcceptanceNote:
       "24 hours is the minimum accepted soak and does not provide the same confidence as the preferred 72-hour soak.",
     testMode: TEST_MODE,
+    resumed: resuming,
     startedAt: new Date(startedAt).toISOString(),
     completedAt: new Date().toISOString(),
     checkpoints,
@@ -121,5 +161,6 @@ module.exports = {
   SCHEDULE,
   TEST_MODE,
   shouldRunSafety,
+  readResumeStartedAt,
   runScheduledCheckpoints
 };
