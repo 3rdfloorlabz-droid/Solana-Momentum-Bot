@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "fixtureType": "EXAMPLE_ONLY",
+  "sourceMode": "EXAMPLE_ONLY",
+  "decisions": [
+    {
+      "decisionId": "SHADOW-DEC-EXAMPLE-001",
+      "sourceMode": "EXAMPLE_ONLY",
+      "candidateId": "CAND-EXAMPLE-001",
+      "quoteObservationId": "QUOTE-OBS-EXAMPLE-001",
+      "tokenSymbol": "SIMULATED_TOKEN_A",
+      "intendedInputSol": 0.008,
+      "slippageBps": 80,
+      "priceImpactBps": 50,
+      "gateVerdict": "PASS",
+      "simulatedAction": "WOULD_ENTER",
+      "simulatedReason": "Fixture example — quote passes R18 policy; shadow only, no execution",
+      "approved": false,
+      "tradingAllowed": false,
+      "signingAllowed": false,
+      "submissionAllowed": false
+    },
+    {
+      "decisionId": "SHADOW-DEC-EXAMPLE-002",
+      "sourceMode": "EXAMPLE_ONLY",
+      "candidateId": "CAND-EXAMPLE-002",
+      "quoteObservationId": "QUOTE-OBS-EXAMPLE-002",
+      "tokenSymbol": "SIMULATED_TOKEN_B",
+      "intendedInputSol": 0.006,
+      "slippageBps": 150,
+      "priceImpactBps": 120,
+      "gateVerdict": "WARN",
+      "simulatedAction": "SKIP",
+      "simulatedReason": "Fixture example — elevated slippage/impact; shadow skip",
+      "approved": false,
+      "tradingAllowed": false,
+      "signingAllowed": false,
+      "submissionAllowed": false
+    }
+  ],
+  "_note": "EXAMPLE ONLY — fake shadow execution decisions. No wallet, no signing, no submission."
+}

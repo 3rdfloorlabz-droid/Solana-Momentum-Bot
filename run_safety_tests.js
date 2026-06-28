@@ -66,6 +66,8 @@ const TESTS = [
   // Sprint 4 R23-R25: provider adapter skeleton + combined provider gate (temp fixtures only).
   "test_r24_provider_adapter_skeleton.js",
   "test_r23_r25_provider_gate_check.js",
+  // Sprint 4 R26-R27: activation review + shadow execution design (temp fixtures only).
+  "test_r26_r27_activation_shadow_design_check.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

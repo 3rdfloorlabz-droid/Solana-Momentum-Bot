@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **38/38** safety tests including Sprint 4 R6a through R23-R25 guards.
+Equivalent: `node run_safety_tests.js` — runs **39/39** safety tests including Sprint 4 R6a through R26-R27 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -106,8 +106,10 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R23 Real Provider Implementation Review** | **DEFINED — NOT ACTIVE** — [docs/R23_REAL_PROVIDER_IMPLEMENTATION_REVIEW.md](./docs/R23_REAL_PROVIDER_IMPLEMENTATION_REVIEW.md) |
 | **R24 Disabled Provider Adapter Skeleton** | **BUILT — NETWORK OFF** — [docs/R24_DISABLED_PROVIDER_ADAPTER_SKELETON.md](./docs/R24_DISABLED_PROVIDER_ADAPTER_SKELETON.md) |
 | **R25 Activation Approval Record** | **DEFINED — NOT APPROVED** — [docs/R25_REAL_QUOTE_OBSERVATION_ACTIVATION_APPROVAL_RECORD.md](./docs/R25_REAL_QUOTE_OBSERVATION_ACTIVATION_APPROVAL_RECORD.md) |
-| **Recommended next gate** | Future operator activation review only; continue R7b; **do not arm** |
-| **Safety suite** | **38/38** |
+| **R26 Activation Review** | **DEFINED — NOT ACTIVATED** — [docs/R26_REAL_QUOTE_OBSERVATION_ACTIVATION_REVIEW.md](./docs/R26_REAL_QUOTE_OBSERVATION_ACTIVATION_REVIEW.md) |
+| **R27 Shadow Execution Design** | **DEFINED — NOT ACTIVE** — [docs/R27_SHADOW_EXECUTION_DESIGN.md](./docs/R27_SHADOW_EXECUTION_DESIGN.md) |
+| **Recommended next gate** | Manual operator quote observation decision; continue R7b; **do not arm** |
+| **Safety suite** | **39/39** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
