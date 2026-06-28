@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **47/47** safety tests including Sprint 4 R6a through R36 guards.
+Equivalent: `node run_safety_tests.js` — runs **48/48** safety tests including Sprint 4 R6a through R37 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -118,8 +118,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R34 Small Manual Quote Batch Review** | **DEFINED — OBSERVATION ONLY** — [docs/R34_SMALL_MANUAL_QUOTE_OBSERVATION_BATCH_REVIEW.md](./docs/R34_SMALL_MANUAL_QUOTE_OBSERVATION_BATCH_REVIEW.md) |
 | **R35 Quote Batch Results + Shadow Readiness** | **COMPLETE — READY FOR SHADOW HARNESS DESIGN** — [docs/R35_QUOTE_BATCH_RESULTS_AND_SHADOW_READINESS.md](./docs/R35_QUOTE_BATCH_RESULTS_AND_SHADOW_READINESS.md) |
 | **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
-| **Recommended next gate** | R37 shadow results review; continue R7b; **do not arm** |
-| **Safety suite** | **47/47** |
+| **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — READY FOR WALLET SETUP DESIGN ONLY** — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
+| **Recommended next gate** | R38 research wallet design; continue R7b; **do not arm; no private keys** |
+| **Safety suite** | **48/48** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

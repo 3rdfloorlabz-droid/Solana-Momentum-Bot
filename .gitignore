@@ -99,3 +99,14 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# Local secrets - never commit
+.env
+.env.*
+*.env
+secrets/
+wallets/
+*.key
+*.pem
+*private*
+*secret*
