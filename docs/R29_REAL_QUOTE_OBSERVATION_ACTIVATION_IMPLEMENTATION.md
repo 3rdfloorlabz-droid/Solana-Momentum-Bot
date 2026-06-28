@@ -83,6 +83,21 @@ Before polling, **all** must be true:
 - Submit · sign · wallet request · private key request
 - Transaction serialization
 
+### R29a — Jupiter quote endpoint migration (2026-06-23)
+
+| Item | Value |
+|------|-------|
+| Old failing host | `quote-api.jup.ag` (deprecated) |
+| New default quote base | `https://lite-api.jup.ag/swap/v1` |
+| Optional pro base | `https://api.jup.ag/swap/v1` (override only; no API keys in repo) |
+| Quote path only | `/quote` → `https://lite-api.jup.ag/swap/v1/quote?...` |
+| Endpoint policy | `QUOTE_ONLY` — pathname must end with `/quote` |
+| Provider name | `jupiter_quote_readonly` (unchanged) |
+
+Blocked paths: `/swap-instructions` · `/execute` · `/submit` · `/transaction`. **Trading remains blocked.** No signing · no submission · no wallet.
+
+Status output includes: `providerBaseUrl` · `providerPath` · `endpointPolicy` · `networkPolling` (true only during `--observe-once`).
+
 ---
 
 ## 6. Output policy
