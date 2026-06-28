@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **29/29** safety tests including Sprint 4 R6a through R15 guards.
+Equivalent: `node run_safety_tests.js` — runs **30/30** safety tests including Sprint 4 R6a through R16 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -96,8 +96,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R13 Final Micro-Live Approval Gate** | **DEFINED — BLOCKED** — [docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md](./docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md) |
 | **R14 Slippage / MEV Protection Review** | **COMPLETE — NOT IMPLEMENTED** — [docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md](./docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md) |
 | **R15 Manual Approval Record / Session Runbook** | **DEFINED — LIVE STILL BLOCKED** — [docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md](./docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md) |
-| **Recommended next gate** | Continue R7b; R16 Implementation Gap Review; **do not arm; 1 SOL is liquidity not risk** |
-| **Safety suite** | **29/29** |
+| **R16 Micro-Live Implementation Gap Review** | **COMPLETE — LIVE BLOCKED** — [docs/R16_MICRO_LIVE_IMPLEMENTATION_GAP_REVIEW.md](./docs/R16_MICRO_LIVE_IMPLEMENTATION_GAP_REVIEW.md) |
+| **Recommended next gate** | R17 Simulated Micro-Live Config + Approval Harness; continue R7b; **do not arm** |
+| **Safety suite** | **30/30** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
