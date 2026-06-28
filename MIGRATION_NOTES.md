@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **36/36** safety tests including Sprint 4 R6a through R22 guards.
+Equivalent: `node run_safety_tests.js` — runs **38/38** safety tests including Sprint 4 R6a through R23-R25 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -103,8 +103,11 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R20 Fixture + Dry-Run Shadow Quote Collector** | **BUILT — FIXTURE ONLY — NETWORK POLLING BLOCKED** — [docs/R20_FIXTURE_DRY_RUN_SHADOW_QUOTE_COLLECTOR.md](./docs/R20_FIXTURE_DRY_RUN_SHADOW_QUOTE_COLLECTOR.md) |
 | **R21 Real Quote Observation Approval Gate** | **DEFINED — POLLING NOT ACTIVE** — [docs/R21_REAL_QUOTE_OBSERVATION_APPROVAL_GATE.md](./docs/R21_REAL_QUOTE_OBSERVATION_APPROVAL_GATE.md) |
 | **R22 Real Quote Observation Collector** | **BUILT — DISABLED BY DEFAULT** — [docs/R22_REAL_QUOTE_OBSERVATION_COLLECTOR_DISABLED.md](./docs/R22_REAL_QUOTE_OBSERVATION_COLLECTOR_DISABLED.md) |
-| **Recommended next gate** | R23 real provider implementation review; continue R7b; **do not arm** |
-| **Safety suite** | **36/36** |
+| **R23 Real Provider Implementation Review** | **DEFINED — NOT ACTIVE** — [docs/R23_REAL_PROVIDER_IMPLEMENTATION_REVIEW.md](./docs/R23_REAL_PROVIDER_IMPLEMENTATION_REVIEW.md) |
+| **R24 Disabled Provider Adapter Skeleton** | **BUILT — NETWORK OFF** — [docs/R24_DISABLED_PROVIDER_ADAPTER_SKELETON.md](./docs/R24_DISABLED_PROVIDER_ADAPTER_SKELETON.md) |
+| **R25 Activation Approval Record** | **DEFINED — NOT APPROVED** — [docs/R25_REAL_QUOTE_OBSERVATION_ACTIVATION_APPROVAL_RECORD.md](./docs/R25_REAL_QUOTE_OBSERVATION_ACTIVATION_APPROVAL_RECORD.md) |
+| **Recommended next gate** | Future operator activation review only; continue R7b; **do not arm** |
+| **Safety suite** | **38/38** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

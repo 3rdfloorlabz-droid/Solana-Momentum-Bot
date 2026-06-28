@@ -63,6 +63,9 @@ const TESTS = [
   "test_r21_real_quote_observation_approval_check.js",
   // Sprint 4 R22: real quote observation collector disabled by default (temp fixtures only).
   "test_r22_real_quote_observation_collector.js",
+  // Sprint 4 R23-R25: provider adapter skeleton + combined provider gate (temp fixtures only).
+  "test_r24_provider_adapter_skeleton.js",
+  "test_r23_r25_provider_gate_check.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

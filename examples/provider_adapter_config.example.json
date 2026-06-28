@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "configType": "EXAMPLE_ONLY",
+  "active": false,
+  "networkPollingAllowed": false,
+  "tradingAllowed": false,
+  "signingAllowed": false,
+  "submissionAllowed": false,
+  "walletRequired": false,
+  "providers": [
+    { "name": "fixture", "enabled": true, "mode": "FIXTURE_ONLY" },
+    { "name": "replay", "enabled": true, "mode": "REPLAY_ONLY" },
+    { "name": "jupiter", "enabled": false, "mode": "OBSERVATION_ONLY", "stub": true },
+    { "name": "gmgn", "enabled": false, "mode": "OBSERVATION_ONLY", "stub": true }
+  ],
+  "rateLimits": {
+    "maxQuotesPerTokenPerMinute": 3,
+    "maxTokensPerCycle": 5,
+    "maxQuotesPerDay": 100,
+    "cooldownSeconds": 5
+  },
+  "output": {
+    "observationsPath": "analysis/real_quote_observations.jsonl",
+    "statusPath": "analysis/r24_provider_adapter_status.json"
+  },
+  "_note": "EXAMPLE ONLY — disabled by default. Fixture/replay only. No network calls."
+}
