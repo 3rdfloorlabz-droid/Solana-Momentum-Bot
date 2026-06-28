@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js` in order.
+Equivalent: `node run_safety_tests.js` — runs **19/19** safety tests including Sprint 4 R6a soak checkpoint guards (`test_soak_checkpoint_tooling.js`).
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -70,15 +70,27 @@ Review these before importing into TracktaOS:
 - `execution_audit.jsonl`: dry-run/live execution stage audit log.
 - `near_misses.json`: rejected candidate history.
 - `near_miss_followups.json`: follow-up outcomes.
-- `live_trades.jsonl`, `live_trades.json`: live event history or legacy live data.
+- `live_trades.jsonl`: live event history (**canonical** executor ledger).
+- `live_trades.json`: legacy/orphan filename — **not read by executor**; may exist empty locally. Merge manually if non-empty history diverges from `.jsonl`.
 - `live_positions.json`: current live position state.
-- `live_errors.jsonl`: execution and guard errors.
+- `live_errors.jsonl`: execution and guard errors. Rows through **2026-06-14** from `test_execution_logging.js` are synthetic; tagged by operator note `SYNTHETIC_HISTORY_BOUNDARY` (line 55+). Ignore those when reviewing soak or live-readiness error counts.
 - `live_control_events.jsonl`: start/stop/emergency/reset events.
 - `wallet_history.jsonl`, `wallet_status.json`, `rpc_health.json`: read-only wallet/RPC telemetry.
 - `simulation_intents.jsonl`, `simulation_rejections.jsonl`, `simulation_results.json`: simulation outputs.
 - Legacy caches / manual backups: `boosts.json`, `signals.json`, `trending.json`, `*_backup.json`, `*_before_*.json`.
 
 These files may be large, append-only, or environment-specific. TracktaOS should classify them as data artifacts, not source code.
+
+### Operational status (2026-06-28)
+
+| Item | Status |
+|------|--------|
+| **R6a 24h soak** | **COMPLETE — PASS** (2026-06-28) — evidence in `soak_runs/`; does not approve live trading |
+| **Safety suite** | **19/19** |
+| **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
+| **Soak evidence** | `soak_runs/` (gitignored) |
+
+See [ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md) for canonical paths and [OPERATIONS.md](./docs/OPERATIONS.md) → **R6a 24-hour Dry-run Soak Checkpoints**.
 
 ### Future `data/` convention (TracktaOS packaging — not current behavior)
 

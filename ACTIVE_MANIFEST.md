@@ -66,6 +66,24 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | `validate_live_preflight.js` | Pre-live environment validation |
 | `validate_wallet_connection.js` | Wallet/RPC connectivity check |
 | `validate_data.js` | Paper-trade JSONL structure validation |
+| `soak_checkpoint.js` | R6a read-only soak checkpoint collector (evidence only) |
+| `run_24h_soak_checkpoints.js` | R6a 24h checkpoint scheduler (evidence only) |
+
+---
+
+## Operational status
+
+**Last updated:** 2026-06-28
+
+| Item | Status |
+|------|--------|
+| **R6a 24h soak** | **COMPLETE — PASS** (2026-06-28) — started `2026-06-27T01:45:46Z`; all checkpoints PASS; summary in `soak_runs/r6a_24h_soak_summary.json`. **Does not approve live trading.** Next: R7 Strategy Performance / Edge Review |
+| **Safety suite** | **19/19** (`node run_safety_tests.js`) |
+| **Posture** | `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false` |
+| **`live_errors.jsonl`** | Rows 1–54 = synthetic `test_execution_logging.js` (tagged `SYNTHETIC_HISTORY_BOUNDARY` line 55) |
+| **`live_trades.json`** | Empty orphan — canonical ledger is `live_trades.jsonl` |
+| **Dedicated RPC** | **Missing** — promotion gate OPEN; pipeline observation allowed |
+| **Soak evidence** | `soak_runs/r6a_24h_soak_checkpoints.jsonl`, `r6a_24h_soak_latest.json` (gitignored) |
 
 ---
 
@@ -83,11 +101,11 @@ Equivalent manual run:
 node run_safety_tests.js
 ```
 
-Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, the Sprint 4 R3 guard `test_observation_dedup_atomic.js`, the Sprint 4 R4 guard `test_live_positions_atomic.js`, the Sprint 4 R5 guard `test_executor_singleton_guard.js`, `test_ownership_guards.js`, the Sprint 4 A2c guard `test_recovery_preview_guards.js`, the Sprint 4 A2i/A2j static guard `test_dashboard_auth_guards.js`, the Sprint 4 A2k behavioral guard `test_dashboard_auth_behavior.js`, the Sprint 4 A2m guard `test_recovery_audit.js`, the Sprint 4 A2p guard `test_recovery_route_guards.js`, the Sprint 4 A2q guard `test_fake_recovery_harness.js`, the Sprint 4 A2r guard `test_low_risk_recovery_behavior.js`, and the Sprint 4 A2s guard `test_low_risk_recovery_routes.js`.
+Core scripts (in order): `test_signer_guard.js`, `test_pipeline_candidate_handoff.js`, `test_pipeline_dry_run.js`, `test_observation_pool.js`, the Sprint 4 state-ownership guards `test_paper_positions_ownership.js`, `test_config_store_atomic.js`, the Sprint 4 R3 guard `test_observation_dedup_atomic.js`, the Sprint 4 R4 guard `test_live_positions_atomic.js`, the Sprint 4 R5 guard `test_executor_singleton_guard.js`, the Sprint 4 R6a guard `test_soak_checkpoint_tooling.js`, `test_ownership_guards.js`, the Sprint 4 A2c guard `test_recovery_preview_guards.js`, the Sprint 4 A2i/A2j static guard `test_dashboard_auth_guards.js`, the Sprint 4 A2k behavioral guard `test_dashboard_auth_behavior.js`, the Sprint 4 A2m guard `test_recovery_audit.js`, the Sprint 4 A2p guard `test_recovery_route_guards.js`, the Sprint 4 A2q guard `test_fake_recovery_harness.js`, the Sprint 4 A2r guard `test_low_risk_recovery_behavior.js`, and the Sprint 4 A2s guard `test_low_risk_recovery_routes.js`.
 
 A2c Preview-Only UI (dashboard **Recovery Action Preview**) is guarded by `test_recovery_preview_guards.js` — a static source guard that fails if the preview ever gains buttons, forms, POST routes, `spawn`/`exec`/`child_process`/`process.kill`, or `recovery_actions.jsonl` writes. The preview shows command text only; it executes no recovery.
 
-A2i/A2j dashboard auth guard (`test_dashboard_auth_guards.js`) is **active in `run_safety_tests.js` (18/18)** for static checks (POST route inventory, forbidden recovery routes/primitives, A2c preview boundary, **A2j fail-closed auth wrapper** on `/control/start`, `/control/stop`, `/control/emergency`, and **A2s allowlisted recovery routes** `/recovery/plan/:actionId`, `/recovery/confirm/:actionId`). **A2k** (`test_dashboard_auth_behavior.js`) adds isolated HTTP behavioral auth tests using temp fixtures via `TRACKTA_RUNTIME_ROOT`. **A2m** (`recovery_audit.js` + `test_recovery_audit.js`) implements the append-only recovery audit writer. **A2p** (`test_recovery_route_guards.js`) protects recovery route boundaries. **A2q** (`fake_recovery_harness.js` + `test_fake_recovery_harness.js`) provides a deterministic fake process/runtime model for tests. **A2r** (`fake_recovery_flow.js` + `test_low_risk_recovery_behavior.js`) proves the future low-risk human-confirmed recovery lifecycle using fake harness and temp audit ledger only. **A2s** (`recovery_allowlist.js`, `recovery_service.js`, `recovery_routes.js`, `test_low_risk_recovery_routes.js`) implements authenticated low-risk recovery plan/confirm routes with **simulated execution only** — no real process spawn/kill; **no dashboard recovery buttons**; allowed actions: `restart-scanner`, `restart-paper-monitor`, `restart-wallet-monitor`, `restart-dashboard` only. **R3** (`observation_dedup_store.js` + `test_observation_dedup_atomic.js`) hardens `observation_dedup.json` with atomic temp-rename writes and validation — **state durability only**, not trading/live approval. **R4** (`live_positions_store.js` + `test_live_positions_atomic.js`) hardens `live_positions.json` with atomic temp-rename writes, executor-only ownership, and validation — **state durability only**, not live approval. **R5** (`executor_singleton_guard.js` + `test_executor_singleton_guard.js`) adds a JSON singleton lock for `live_executor.js --loop` to refuse duplicate executor loops on shared runtime state — **state/process ownership hardening only**, not live approval.
+A2i/A2j dashboard auth guard (`test_dashboard_auth_guards.js`) is **active in `run_safety_tests.js` (19/19)** for static checks (POST route inventory, forbidden recovery routes/primitives, A2c preview boundary, **A2j fail-closed auth wrapper** on `/control/start`, `/control/stop`, `/control/emergency`, and **A2s allowlisted recovery routes** `/recovery/plan/:actionId`, `/recovery/confirm/:actionId`). **A2k** (`test_dashboard_auth_behavior.js`) adds isolated HTTP behavioral auth tests using temp fixtures via `TRACKTA_RUNTIME_ROOT`. **A2m** (`recovery_audit.js` + `test_recovery_audit.js`) implements the append-only recovery audit writer. **A2p** (`test_recovery_route_guards.js`) protects recovery route boundaries. **A2q** (`fake_recovery_harness.js` + `test_fake_recovery_harness.js`) provides a deterministic fake process/runtime model for tests. **A2r** (`fake_recovery_flow.js` + `test_low_risk_recovery_behavior.js`) proves the future low-risk human-confirmed recovery lifecycle using fake harness and temp audit ledger only. **A2s** (`recovery_allowlist.js`, `recovery_service.js`, `recovery_routes.js`, `test_low_risk_recovery_routes.js`) implements authenticated low-risk recovery plan/confirm routes with **simulated execution only** — no real process spawn/kill; **no dashboard recovery buttons**; allowed actions: `restart-scanner`, `restart-paper-monitor`, `restart-wallet-monitor`, `restart-dashboard` only. **R3** (`observation_dedup_store.js` + `test_observation_dedup_atomic.js`) hardens `observation_dedup.json` with atomic temp-rename writes and validation — **state durability only**, not trading/live approval. **R4** (`live_positions_store.js` + `test_live_positions_atomic.js`) hardens `live_positions.json` with atomic temp-rename writes, executor-only ownership, and validation — **state durability only**, not live approval. **R5** (`executor_singleton_guard.js` + `test_executor_singleton_guard.js`) adds a JSON singleton lock for `live_executor.js --loop` to refuse duplicate executor loops on shared runtime state — **state/process ownership hardening only**, not live approval. **R6a** (`soak_checkpoint.js`, `run_24h_soak_checkpoints.js`, `test_soak_checkpoint_tooling.js`) collects read-only soak checkpoint evidence under `soak_runs/` — **observation only**, not live approval.
 
 **CI:** GitHub Actions workflow **Safety Tests** (`.github/workflows/safety-tests.yml`) runs `npm test` on every push and pull request to `main`.
 
@@ -154,6 +172,7 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | `near_misses.json` | Scanner | Rejected high-score candidates (JSONL format) |
 | `near_miss_followups.json` | `near_miss_followup.js` | Follow-up price measurements |
 | `live_trades.jsonl` | `live_executor.js` | Live event history (**canonical** executor ledger) |
+| `live_trades.json` | *(none — orphan)* | **Not canonical.** Empty local orphan may exist; executor/dashboard read `.jsonl` only |
 | `live_positions.json` | `live_executor.js` | Open live positions snapshot |
 
 ### Audit and telemetry (append-only JSONL)
@@ -161,7 +180,7 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | File | Purpose |
 |------|---------|
 | `execution_audit.jsonl` | Pipeline stages, cycle audit |
-| `live_errors.jsonl` | Errors and guard failures |
+| `live_errors.jsonl` | Errors and guard failures; synthetic test rows tagged via `SYNTHETIC_HISTORY_BOUNDARY` operator note |
 | `live_control_events.jsonl` | START / STOP / EMERGENCY / RESET |
 | `wallet_history.jsonl` | Periodic wallet snapshots |
 | `pending_reconciliation.jsonl` | Ambiguous on-chain outcomes (human review) |
@@ -170,6 +189,14 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | `recovery_actions.jsonl` | **A2m:** future recovery action audit (`recovery_audit.js` append-only writer). **Not auto-created; not wired to dashboard recovery execution** |
 
 **Support module (A2m):** `recovery_audit.js` — validated append-only writer for `recovery_actions.jsonl`. Tests: `test_recovery_audit.js` (temp fixtures via `TRACKTA_RUNTIME_ROOT` only).
+
+### R6a soak evidence (gitignored)
+
+| Path | Purpose |
+|------|---------|
+| `soak_runs/r6a_24h_soak_checkpoints.jsonl` | Append-only R6a checkpoint rows |
+| `soak_runs/r6a_24h_soak_latest.json` | Latest checkpoint summary |
+| `soak_runs/r6a_24h_soak_summary.json` | Final runner summary (after +24h) |
 
 ### Snapshots (overwrite JSON)
 
@@ -234,4 +261,4 @@ Log structural changes in [docs/DECISIONS.md](./docs/DECISIONS.md).
 
 ---
 
-*Sprint 1 Q3 · Active manifest · TracktaOS Module 1*
+*Sprint 4 R6a · Active manifest · TracktaOS Module 1 · last status update 2026-06-27*
