@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "configType": "EXAMPLE_ONLY",
+  "note": "Placeholder demo caps only — NOT authorization. Operator must create and approve real caps before any arming.",
+  "maxTradeSizeSol": 0.02,
+  "maxDailyLossSol": 0.05,
+  "maxOpenPositions": 1,
+  "maxTradesFirstProof": 1,
+  "stopAfterFirstTransaction": true,
+  "dedicatedHotWalletOnly": true,
+  "neverUseMainWallet": true,
+  "humanPresentRequired": true,
+  "operatorApproved": false,
+  "liveTradingApproved": false,
+  "microLiveApproved": false
+}

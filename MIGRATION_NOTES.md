@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **48/48** safety tests including Sprint 4 R6a through R37 guards.
+Equivalent: `node run_safety_tests.js` — runs **50/50** safety tests including Sprint 4 R6a through R38 guards and R8A preflight.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -87,6 +87,7 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 |------|--------|
 | **R6a 24h soak** | **COMPLETE — PASS** |
 | **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** |
+| **R8A Micro-live Engineering Proof Plan** | **DEFINED — ENGINEERING PROOF ONLY** — [docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md](./docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md) · operator fast-track; **does NOT bypass R7** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) |
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
@@ -119,8 +120,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R35 Quote Batch Results + Shadow Readiness** | **COMPLETE — READY FOR SHADOW HARNESS DESIGN** — [docs/R35_QUOTE_BATCH_RESULTS_AND_SHADOW_READINESS.md](./docs/R35_QUOTE_BATCH_RESULTS_AND_SHADOW_READINESS.md) |
 | **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — READY FOR WALLET SETUP DESIGN ONLY** — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
-| **Recommended next gate** | R38 research wallet design; continue R7b; **do not arm; no private keys** |
-| **Safety suite** | **48/48** |
+| **R38 Research Wallet + Secret Storage Design** | **DEFINED — NO KEY HANDLED** — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
+| **Recommended next gate** | R39 redaction tests; continue R7b; **do not arm; no private keys** |
+| **Safety suite** | **50/50** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
