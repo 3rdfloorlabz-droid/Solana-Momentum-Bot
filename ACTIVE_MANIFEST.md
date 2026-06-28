@@ -111,6 +111,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R6a 24h soak** | **COMPLETE — PASS** (2026-06-28) — `soak_runs/r6a_24h_soak_summary.json` |
 | **R7 Strategy Performance / Edge Review** | **COMPLETE — NOT ENOUGH DATA** (2026-06-28) — [docs/R7_STRATEGY_PERFORMANCE_EDGE_REVIEW.md](./docs/R7_STRATEGY_PERFORMANCE_EDGE_REVIEW.md) · **live trading NOT approved** |
 | **R8A Micro-live Engineering Proof Plan** | **DEFINED — ENGINEERING PROOF ONLY** (2026-06-28) — [docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md](./docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md) · **operator fast-track; does NOT bypass R7; live trading NOT approved** |
+| **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** (2026-06-28) — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A engineering proof + Track B larger-capital engine |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** — [docs/R7B_STRATEGY_DATA_COLLECTION_PLAN.md](./docs/R7B_STRATEGY_DATA_COLLECTION_PLAN.md) |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** (2026-06-28) — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) · **live trading NOT approved** |
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** (2026-06-28) — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) · **no wallet connected** |
@@ -144,7 +145,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R36 Shadow Execution Harness** | **BUILT — SHADOW EXECUTION HARNESS BUILT — SIMULATION ONLY** (2026-06-23) — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — SHADOW RESULTS REVIEWED — READY FOR WALLET SETUP DESIGN ONLY** (2026-06-23) — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — RESEARCH WALLET SECRET STORAGE DESIGN DEFINED — NO KEY HANDLED** (2026-06-23) — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | R39 Secret Redaction + Leak Detection Tests · continue R7b · **do not arm; no private keys** |
+| **Recommended next gate** | Track A: micro-live guardrails + R39+ · Track B: **B1 FOMO Engine thesis** · [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · **do not arm; no private keys** |
 | **Safety suite** | **50/50** (`node run_safety_tests.js`) |
 | **Posture** | `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false` |
 | **`live_errors.jsonl`** | Rows 1–54 = synthetic `test_execution_logging.js` (tagged `SYNTHETIC_HISTORY_BOUNDARY` line 55) |

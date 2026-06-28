@@ -88,6 +88,8 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R6a 24h soak** | **COMPLETE — PASS** |
 | **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** |
 | **R8A Micro-live Engineering Proof Plan** | **DEFINED — ENGINEERING PROOF ONLY** — [docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md](./docs/R8A_MICRO_LIVE_ENGINEERING_PROOF_PLAN.md) · operator fast-track; **does NOT bypass R7** |
+| **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A + Track B roadmap |
+| **Recommended next gate** | Track A guardrails / R39+ · Track B **B1 thesis** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) |
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
