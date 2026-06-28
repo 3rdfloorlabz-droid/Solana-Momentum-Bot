@@ -80,6 +80,8 @@ const TESTS = [
   "test_r33_clean_quote_observation_review.js",
   // Sprint 4 R34: small manual quote observation batch review (temp fixtures only).
   "test_r34_manual_quote_batch_review.js",
+  // Sprint 4 R35: quote batch results + shadow execution readiness (temp fixtures only).
+  "test_r35_quote_batch_shadow_readiness.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
