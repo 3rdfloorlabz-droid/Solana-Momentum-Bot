@@ -99,11 +99,12 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R43B Operator Caps Approval Record** | **RECORDED — ENGINEERING PROOF ONLY — NOT LIVE TRADING** — [docs/R43B_OPERATOR_CAPS_APPROVAL_RECORD.md](./docs/R43B_OPERATOR_CAPS_APPROVAL_RECORD.md) |
 | **R43C Real Local Signer Under Guardrails** | **BUILT — GUARDED — NOT LIVE TRADING — NO SUBMISSION** — [docs/R43C_REAL_LOCAL_SIGNER_GUARDRAILS.md](./docs/R43C_REAL_LOCAL_SIGNER_GUARDRAILS.md) |
 | **R43D Final Proof Preflight** | **BUILT — READ-ONLY PREFLIGHT — NOT TRANSACTION** — [docs/R43D_FINAL_PROOF_PREFLIGHT.md](./docs/R43D_FINAL_PROOF_PREFLIGHT.md) |
+| **R43E-1 One Transaction Proof Harness** | **BUILT — SIMULATION ONLY — NO SUBMISSION** — [docs/R43E_ONE_TRANSACTION_PROOF_HARNESS.md](./docs/R43E_ONE_TRANSACTION_PROOF_HARNESS.md) |
 | **Operator caps approval** | **APPROVED — ENGINEERING PROOF ONLY** — `operator_records/micro_live_demo_caps.json` · one-transaction scope |
 | **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live approval** |
 | **Operator caps draft** | **APPROVED — ENGINEERING PROOF ONLY** — `operator_records/micro_live_demo_caps.json` · R43B record valid |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A + Track B roadmap |
-| **Recommended next gate** | Track A R43E one-transaction proof · Track B **B1 thesis** |
+| **Recommended next gate** | Track A R43E-2 real transaction review · Track B **B1 thesis** |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) |
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
@@ -137,8 +138,8 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — READY FOR WALLET SETUP DESIGN ONLY** — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — NO KEY HANDLED** — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | Track A operator caps · signer stubs · R43 · Track B **B1 thesis** |
-| **Safety suite** | **62/62** |
+| **Recommended next gate** | Track A R43E-2 real transaction review · Track B **B1 thesis** |
+| **Safety suite** | **63/63** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
