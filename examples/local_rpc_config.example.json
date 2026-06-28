@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "configType": "LOCAL_RPC_EXAMPLE",
+  "purpose": "micro-live engineering proof only",
+  "rpcUrl": "https://YOUR_DEDICATED_RPC_PROVIDER.example/REDACTED",
+  "notes": "Copy to operator_records/local_rpc_config.json locally. Do not commit real RPC URL."
+}

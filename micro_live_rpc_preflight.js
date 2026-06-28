@@ -11,6 +11,7 @@ const secretScan = require("./secret_safety_scan");
 const preflight = require("./signer_plan_preflight");
 const r42 = require("./r42_final_micro_live_review");
 const localSigner = require("./local_signer");
+const rpcConfig = require("./micro_live_rpc_config");
 
 const ROOT = review.ROOT;
 const RUNTIME_ROOT = review.RUNTIME_ROOT;
@@ -35,26 +36,6 @@ const READINESS_VERDICTS = Object.freeze({
   PARTIAL_READINESS: "PARTIAL_READINESS",
   READY_FOR_R43_REVIEW: "READY_FOR_R43_REVIEW"
 });
-
-const PUBLIC_SOLANA_RPC_HOSTNAMES = Object.freeze(new Set([
-  "api.mainnet-beta.solana.com",
-  "api.devnet.solana.com",
-  "api.testnet.solana.com",
-  "solana.com",
-  "www.solana.com"
-]));
-
-const PLACEHOLDER_RPC_PATTERNS = Object.freeze([
-  /placeholder/i,
-  /change[_-]?me/i,
-  /your-api-key/i,
-  /insert[_-]?key/i,
-  /example\.com/i,
-  /TODO/i,
-  /TBD/i,
-  /xxx+/i,
-  /^https?:\/\/\s*$/
-]);
 
 const REQUIRED_SIGNER_FILES = Object.freeze([
   "local_signer.js",
@@ -93,151 +74,8 @@ function isSafeReadinessPosture(posture) {
   );
 }
 
-function redactRpcUrl(endpoint) {
-  if (!endpoint || typeof endpoint !== "string") return "";
-  try {
-    const url = new URL(endpoint.trim());
-    for (const key of [...url.searchParams.keys()]) {
-      if (/key|token|secret|auth|signature|apikey/i.test(key)) {
-        url.searchParams.set(key, "[REDACTED]");
-      }
-    }
-    const userinfo = url.username || url.password;
-    if (userinfo) {
-      url.username = url.username ? "[REDACTED]" : "";
-      url.password = url.password ? "[REDACTED]" : "";
-    }
-    return url.toString();
-  } catch {
-    return "[MALFORMED_ENDPOINT_REDACTED]";
-  }
-}
-
-function isPublicSolanaRpcEndpoint(endpoint) {
-  if (typeof endpoint !== "string" || !endpoint.trim()) return false;
-  try {
-    const hostname = new URL(endpoint.trim()).hostname.toLowerCase();
-    if (PUBLIC_SOLANA_RPC_HOSTNAMES.has(hostname)) return true;
-    if (hostname.endsWith(".solana.com") && hostname.startsWith("api.")) return true;
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-function isPlaceholderRpc(endpoint) {
-  if (typeof endpoint !== "string" || !endpoint.trim()) return true;
-  const trimmed = endpoint.trim();
-  if (trimmed.length < 12) return true;
-  return PLACEHOLDER_RPC_PATTERNS.some((pattern) => pattern.test(trimmed));
-}
-
-function isLocalhostRpc(endpoint) {
-  if (typeof endpoint !== "string" || !endpoint.trim()) return false;
-  try {
-    const hostname = new URL(endpoint.trim()).hostname.toLowerCase();
-    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
-  } catch {
-    return false;
-  }
-}
-
-function collectRpcCandidates(options = {}) {
-  const env = options.env !== undefined ? options.env : process.env;
-  const candidates = [];
-
-  const envKeys = ["HELIUS_RPC_URL", "SOLANA_RPC_URL", "RPC_URL"];
-  for (const key of envKeys) {
-    if (env && env[key]) {
-      candidates.push({ source: key, url: String(env[key]) });
-    }
-  }
-
-  if (env && env.HELIUS_API_KEY) {
-    candidates.push({
-      source: "HELIUS_API_KEY_DERIVED",
-      url: `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(String(env.HELIUS_API_KEY))}`
-    });
-  }
-
-  const configRpc = options.configRpc !== undefined
-    ? options.configRpc
-    : (() => {
-      const cfg = review.readJsonFile(path.join(options.runtimeRoot || RUNTIME_ROOT, "live_config.json"));
-      return cfg.status === "usable" && typeof cfg.data?.rpcEndpoint === "string"
-        ? cfg.data.rpcEndpoint
-        : null;
-    })();
-
-  if (configRpc) {
-    candidates.push({ source: "live_config.rpcEndpoint", url: configRpc });
-  }
-
-  return candidates;
-}
-
-function evaluateRpcCandidate(url, options = {}) {
-  const issues = [];
-  if (!url || typeof url !== "string" || !url.trim()) {
-    return { ok: false, issues: ["empty"], redacted: "" };
-  }
-
-  const trimmed = url.trim();
-  if (isPlaceholderRpc(trimmed)) issues.push("placeholder");
-  if (isLocalhostRpc(trimmed) && options.testOnlyRpc !== true) issues.push("localhost_without_test_mark");
-  if (isPublicSolanaRpcEndpoint(trimmed)) issues.push("public_fallback");
-
-  return {
-    ok: issues.length === 0,
-    issues,
-    redacted: redactRpcUrl(trimmed)
-  };
-}
-
 function checkDedicatedRpc(options = {}) {
-  const candidates = options.rpcCandidates !== undefined
-    ? options.rpcCandidates
-    : collectRpcCandidates(options);
-
-  if (candidates.length === 0) {
-    return {
-      ok: false,
-      status: "missing",
-      selectedSource: null,
-      redactedEndpoint: null,
-      candidates: [],
-      publicFallbackDetected: false,
-      endpointReachability: "not_checked_read_only",
-      note: "no RPC URL configured in env or live_config.json"
-    };
-  }
-
-  const evaluated = candidates.map((candidate) => ({
-    source: candidate.source,
-    ...evaluateRpcCandidate(candidate.url, options)
-  }));
-
-  const dedicated = evaluated.find((candidate) => candidate.ok === true);
-
-  return {
-    ok: dedicated !== undefined,
-    status: dedicated ? "dedicated_configured" : "not_ready",
-    selectedSource: dedicated ? dedicated.source : null,
-    redactedEndpoint: dedicated
-      ? dedicated.redacted
-      : (evaluated[0] ? evaluated[0].redacted : null),
-    candidates: evaluated.map((candidate) => ({
-      source: candidate.source,
-      redacted: candidate.redacted,
-      ok: candidate.ok,
-      issues: candidate.issues
-    })),
-    publicFallbackDetected: evaluated.some((candidate) => candidate.issues.includes("public_fallback")),
-    endpointReachability: "not_checked_read_only",
-    note: dedicated
-      ? "dedicated RPC candidate configured (reachability not probed in R41C)"
-      : evaluated.map((candidate) => `${candidate.source}: ${candidate.issues.join(", ")}`).join("; ")
-  };
+  return rpcConfig.checkDedicatedRpcFromConfig(options);
 }
 
 function checkWalletStatus(runtimeRoot, options = {}) {
@@ -466,6 +304,9 @@ function collectR41cRpcSignerReadiness(options = {}) {
     ? options.dedicatedRpcCheck
     : checkDedicatedRpc({ ...options, runtimeRoot });
 
+  const r41dRpcConfig = dedicatedRpc.r41dConfig
+    || rpcConfig.loadMicroLiveRpcConfig({ ...options, repoRoot, runtimeRoot });
+
   const walletStatus = checkWalletStatus(runtimeRoot, options);
   const requiredSignerFiles = options.requiredSignerFilesCheck !== undefined
     ? options.requiredSignerFilesCheck
@@ -559,6 +400,19 @@ function collectR41cRpcSignerReadiness(options = {}) {
       endpointReachability: dedicatedRpc.endpointReachability,
       candidates: dedicatedRpc.candidates
     },
+    r41dRpcOperatorSetup: {
+      envVar: rpcConfig.ENV_VAR,
+      configFile: rpcConfig.LOCAL_CONFIG_REL,
+      exampleConfig: rpcConfig.EXAMPLE_CONFIG_REL,
+      r41dVerdict: rpcConfig.R41D_VERDICT,
+      status: r41dRpcConfig.status,
+      source: r41dRpcConfig.source,
+      redactedUrl: r41dRpcConfig.redactedUrl,
+      envVarPresent: r41dRpcConfig.envVarPresent,
+      configFilePresent: r41dRpcConfig.configFilePresent,
+      dedicatedCandidate: r41dRpcConfig.dedicatedCandidate,
+      endpointReachability: r41dRpcConfig.endpointReachability
+    },
     walletStatus: {
       ok: walletStatus.ok,
       status: walletStatus.status,
@@ -597,7 +451,7 @@ function collectR41cRpcSignerReadiness(options = {}) {
     failedChecks: failed.map((check) => check.id),
     blockers: [
       ...(operatorCaps.approved !== true ? ["operator caps not approved (R43 required)"] : []),
-      ...(!dedicatedRpc.ok ? ["dedicated RPC not configured"] : []),
+      ...(!dedicatedRpc.ok ? [`dedicated RPC not configured — set ${rpcConfig.ENV_VAR} or ${rpcConfig.LOCAL_CONFIG_REL}`] : []),
       ...(!walletStatus.ok ? ["wallet_status.json missing or stale"] : []),
       ...(!localSignerStub.ok ? ["local signer stub not ready"] : []),
       ...(executorIntegration.integrated ? ["live_executor signer integration present"] : []),
@@ -608,7 +462,7 @@ function collectR41cRpcSignerReadiness(options = {}) {
       "R43 final human approval required before one-transaction proof"
     ],
     recommendedNextSteps: [
-      "Provision dedicated RPC outside public fallback",
+      `Set ${rpcConfig.ENV_VAR} locally or copy ${rpcConfig.EXAMPLE_CONFIG_REL} to ${rpcConfig.LOCAL_CONFIG_REL}`,
       "Keep operator caps approved:false until R43",
       "Complete R43 final approval review",
       "Do not integrate signer into live_executor until R43",
@@ -681,16 +535,15 @@ module.exports = {
   R41C_VERDICT,
   FORBIDDEN_VERDICTS,
   READINESS_VERDICTS,
-  PUBLIC_SOLANA_RPC_HOSTNAMES,
   REQUIRED_SIGNER_FILES,
   readPosture,
   isSafeReadinessPosture,
-  redactRpcUrl,
-  isPublicSolanaRpcEndpoint,
-  isPlaceholderRpc,
-  isLocalhostRpc,
-  collectRpcCandidates,
-  evaluateRpcCandidate,
+  redactRpcUrl: rpcConfig.redactRpcUrl,
+  isPublicSolanaRpcEndpoint: rpcConfig.isPublicSolanaRpcEndpoint,
+  isPlaceholderRpc: rpcConfig.isPlaceholderRpc,
+  isLocalhostRpc: rpcConfig.isLocalhostRpc,
+  collectRpcCandidates: rpcConfig.collectRpcCandidatesFromConfig,
+  evaluateRpcCandidate: rpcConfig.evaluateRpcCandidate,
   checkDedicatedRpc,
   checkWalletStatus,
   checkRequiredSignerFiles,

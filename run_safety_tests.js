@@ -104,6 +104,8 @@ const TESTS = [
   "test_local_signer_safety.js",
   // R41C: dedicated RPC + signer readiness (temp fixtures only).
   "test_micro_live_rpc_preflight.js",
+  // R41D: dedicated RPC operator setup loader (temp fixtures only).
+  "test_micro_live_rpc_config.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

@@ -5,6 +5,9 @@ node_modules/
 .env
 .env.*
 !.env.example
+.env.local
+operator_records/local_rpc_config.json
+operator_records/*.secret.json
 secrets/
 private/
 keys/
