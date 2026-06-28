@@ -29,6 +29,8 @@ const TESTS = [
   "test_executor_singleton_guard.js",
   // Sprint 4 R6a: soak checkpoint tooling (temp soak_runs only).
   "test_soak_checkpoint_tooling.js",
+  // Sprint 4 R7: strategy performance / edge review (temp fixtures only).
+  "test_r7_strategy_review.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

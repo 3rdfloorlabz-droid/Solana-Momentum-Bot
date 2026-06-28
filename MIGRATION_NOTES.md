@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **19/19** safety tests including Sprint 4 R6a soak checkpoint guards (`test_soak_checkpoint_tooling.js`).
+Equivalent: `node run_safety_tests.js` — runs **20/20** safety tests including Sprint 4 R6a soak checkpoint guards and Sprint 4 R7 strategy review guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -85,10 +85,12 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 
 | Item | Status |
 |------|--------|
-| **R6a 24h soak** | **COMPLETE — PASS** (2026-06-28) — evidence in `soak_runs/`; does not approve live trading |
-| **Safety suite** | **19/19** |
+| **R6a 24h soak** | **COMPLETE — PASS** |
+| **R7 Strategy / Edge Review** | **COMPLETE — NOT ENOUGH DATA** — see [docs/R7_STRATEGY_PERFORMANCE_EDGE_REVIEW.md](./docs/R7_STRATEGY_PERFORMANCE_EDGE_REVIEW.md) |
+| **Recommended next gate** | Continue dry-run / paper collection (not R8 yet) |
+| **Safety suite** | **20/20** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
-| **Soak evidence** | `soak_runs/` (gitignored) |
+| **Live trading** | **NOT APPROVED** |
 
 See [ACTIVE_MANIFEST.md](./ACTIVE_MANIFEST.md) for canonical paths and [OPERATIONS.md](./docs/OPERATIONS.md) → **R6a 24-hour Dry-run Soak Checkpoints**.
 

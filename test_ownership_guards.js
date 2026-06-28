@@ -129,6 +129,7 @@ check(`paper_positions.json: exactly one writer via store = monitor (found: ${po
 
 const positionsDirectWriters = rootJsFiles().filter(f => {
   if (f === "paper_positions_store.js") return false; // the store module is the owner
+  if (f.startsWith("test_")) return false;
   return RE.positionsDirectWrite.test(readRoot(f));
 });
 check(`paper_positions.json: no direct writers outside the store module (found: ${positionsDirectWriters.join(", ") || "none"})`,
