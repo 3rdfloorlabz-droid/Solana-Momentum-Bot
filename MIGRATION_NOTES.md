@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **33/33** safety tests including Sprint 4 R6a through R19 guards.
+Equivalent: `node run_safety_tests.js` — runs **34/34** safety tests including Sprint 4 R6a through R20 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -100,8 +100,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R17 Simulated Micro-Live Config + Approval Harness** | **BUILT — LIVE STILL BLOCKED** — [docs/R17_SIMULATED_MICRO_LIVE_CONFIG_AND_APPROVAL_HARNESS.md](./docs/R17_SIMULATED_MICRO_LIVE_CONFIG_AND_APPROVAL_HARNESS.md) |
 | **R18 Shadow-Quote Design Review** | **COMPLETE — NOT ACTIVE** — [docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md](./docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md) |
 | **R19 Shadow Quote Collection Plan** | **DEFINED — NOT ACTIVE** — [docs/R19_SHADOW_QUOTE_COLLECTION_PLAN.md](./docs/R19_SHADOW_QUOTE_COLLECTION_PLAN.md) |
-| **Recommended next gate** | R20 fixture collector; R21 quote observation approval; continue R7b; **do not arm** |
-| **Safety suite** | **33/33** |
+| **R20 Fixture + Dry-Run Shadow Quote Collector** | **BUILT — FIXTURE ONLY — NETWORK POLLING BLOCKED** — [docs/R20_FIXTURE_DRY_RUN_SHADOW_QUOTE_COLLECTOR.md](./docs/R20_FIXTURE_DRY_RUN_SHADOW_QUOTE_COLLECTOR.md) |
+| **Recommended next gate** | R21 quote observation approval; continue R7b; **do not arm** |
+| **Safety suite** | **34/34** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

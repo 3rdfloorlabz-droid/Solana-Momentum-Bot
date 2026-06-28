@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "fixtureType": "EXAMPLE_ONLY",
+  "networkPolling": false,
+  "candidates": [
+    {
+      "candidateId": "CAND-EXAMPLE-001",
+      "source": "paper_trade_candidate",
+      "tokenSymbol": "SIMULATED_TOKEN_A",
+      "tokenMint": "SIMULATED_MEMECOIN_MINT_A_DO_NOT_USE",
+      "pairAddress": "SIMULATED_PAIR_A_DO_NOT_USE",
+      "inputMint": "SIMULATED_SOL_MINT_DO_NOT_USE",
+      "outputMint": "SIMULATED_MEMECOIN_MINT_A_DO_NOT_USE",
+      "intendedInputAmountSol": 0.008,
+      "expectedQuoteProfile": {
+        "slippageBps": 80,
+        "priceImpactBps": 50,
+        "quoteAgeSeconds": 2,
+        "routeStable": true,
+        "quotedOutputAmount": 1250.5,
+        "minimumOutputAmount": 1238.0,
+        "routeProvider": "SIMULATED_JUPITER",
+        "routeSummary": "SIMULATED_POOL_A -> SIMULATED_POOL_B",
+        "routeHash": "simulated_route_hash_cand_001",
+        "priorityFeeEstimateSol": 0.00005,
+        "mevMode": "SIMULATED_REVIEW_ONLY"
+      },
+      "createdAt": "2026-06-28T11:59:58.000Z",
+      "thesisMatch": true,
+      "riskNotes": "Fixture only — not a live candidate"
+    },
+    {
+      "candidateId": "CAND-EXAMPLE-002",
+      "source": "scanner_observation",
+      "tokenSymbol": "SIMULATED_TOKEN_B",
+      "tokenMint": "SIMULATED_MEMECOIN_MINT_B_DO_NOT_USE",
+      "pairAddress": "SIMULATED_PAIR_B_DO_NOT_USE",
+      "inputMint": "SIMULATED_SOL_MINT_DO_NOT_USE",
+      "outputMint": "SIMULATED_MEMECOIN_MINT_B_DO_NOT_USE",
+      "intendedInputAmountSol": 0.006,
+      "expectedQuoteProfile": {
+        "slippageBps": 150,
+        "priceImpactBps": 120,
+        "quoteAgeSeconds": 3,
+        "routeStable": true,
+        "quotedOutputAmount": 900.0,
+        "minimumOutputAmount": 891.0,
+        "routeProvider": "SIMULATED_RAYDIUM",
+        "routeSummary": "SIMULATED_POOL_C",
+        "routeHash": "simulated_route_hash_cand_002",
+        "priorityFeeEstimateSol": 0.00008,
+        "mevMode": "SIMULATED_REVIEW_ONLY"
+      },
+      "createdAt": "2026-06-28T11:59:57.000Z",
+      "thesisMatch": false,
+      "riskNotes": "Elevated slippage fixture — expect WARN"
+    }
+  ]
+}
