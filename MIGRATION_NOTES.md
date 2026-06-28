@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **41/41** safety tests including Sprint 4 R6a through R29 guards.
+Equivalent: `node run_safety_tests.js` — runs **42/42** safety tests including Sprint 4 R6a through R30 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -110,8 +110,10 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R27 Shadow Execution Design** | **DEFINED — NOT ACTIVE** — [docs/R27_SHADOW_EXECUTION_DESIGN.md](./docs/R27_SHADOW_EXECUTION_DESIGN.md) |
 | **R28 Manual Quote Observation Decision Session** | **DEFINED — NOT APPROVED** — [docs/R28_MANUAL_QUOTE_OBSERVATION_DECISION_SESSION.md](./docs/R28_MANUAL_QUOTE_OBSERVATION_DECISION_SESSION.md) |
 | **R29 Real Quote Observation Activation** | **IMPLEMENTED — TRADING STILL BLOCKED** — [docs/R29_REAL_QUOTE_OBSERVATION_ACTIVATION_IMPLEMENTATION.md](./docs/R29_REAL_QUOTE_OBSERVATION_ACTIVATION_IMPLEMENTATION.md) |
-| **Recommended next gate** | R30 results review; continue R7b; **do not arm** |
-| **Safety suite** | **41/41** |
+| **R29a Jupiter Quote Endpoint Migration** | **PATCHED** — default quote base `https://lite-api.jup.ag/swap/v1/quote`; old host `quote-api.jup.ag` removed |
+| **R30 Real Quote Observation Results Review** | **COMPLETE — ROUTE REJECTED BY POLICY** — [docs/R30_REAL_QUOTE_OBSERVATION_RESULTS_REVIEW.md](./docs/R30_REAL_QUOTE_OBSERVATION_RESULTS_REVIEW.md) |
+| **Recommended next gate** | R31-R32 hardening + observation batch plan; continue R7b; **do not arm** |
+| **Safety suite** | **42/42** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 

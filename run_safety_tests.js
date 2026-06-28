@@ -72,6 +72,8 @@ const TESTS = [
   "test_r28_manual_quote_observation_decision_check.js",
   // Sprint 4 R29: real quote observation activation implementation (temp fixtures only).
   "test_r29_real_quote_observer.js",
+  // Sprint 4 R30: real quote observation results review (temp fixtures only).
+  "test_r30_quote_observation_results_review.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
