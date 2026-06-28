@@ -114,8 +114,10 @@ const TESTS = [
   "test_local_signer_real_guardrails.js",
   // R43D: final proof preflight (temp fixtures only).
   "test_r43d_final_proof_preflight.js",
-  // R43E-1/R43E-2: one-transaction proof harness simulation + real proof guards (temp fixtures only).
+  // R43E-1/R43E-2/R43E-3: one-transaction proof harness + operator broadcast deps (temp fixtures only).
   "test_r43e_one_transaction_proof_harness.js",
+  // R43E-3: operator broadcast dependency adapter (temp fixtures only).
+  "test_r43e_operator_broadcast_deps.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

@@ -25,6 +25,7 @@ const OUTPUT_FILE = path.join(OUTPUT_DIR, "r43e_one_transaction_proof_harness.js
 const REAL_PROOF_OUTPUT_FILE = path.join(OUTPUT_DIR, "r43e_real_proof_review.json");
 const GATE_DOC = "docs/R43E_ONE_TRANSACTION_PROOF_HARNESS.md";
 const REAL_PROOF_GATE_DOC = "docs/R43E2_REAL_TRANSACTION_IMPLEMENTATION_REVIEW.md";
+const OPERATOR_BROADCAST_DEPS_DOC = "docs/R43E3_OPERATOR_BROADCAST_DEPS.md";
 const TARGET_CONFIG_REL = "operator_records/r43e_real_proof_target.json";
 const EXAMPLE_TARGET_REL = "examples/r43e_real_proof_target.example.json";
 const PLACEHOLDER_OUTPUT_MINT = "PLACEHOLDER_TARGET_TOKEN_MINT";
@@ -45,10 +46,10 @@ const VERDICTS = Object.freeze({
 });
 
 const REAL_PROOF_VERDICTS = Object.freeze({
-  NOT_READY: "R43E_REAL_PROOF_NOT_READY",
   READY_FOR_FINAL_COMMAND: "R43E_REAL_PROOF_READY_FOR_FINAL_COMMAND",
   ATTEMPTED: "R43E_REAL_PROOF_ATTEMPTED",
-  BLOCKED: "R43E_REAL_PROOF_BLOCKED"
+  BLOCKED: "R43E_REAL_PROOF_BLOCKED",
+  FAILED_BEFORE_BROADCAST: "R43E_REAL_PROOF_FAILED_BEFORE_BROADCAST"
 });
 
 const FORBIDDEN_VERDICTS = Object.freeze([
@@ -337,25 +338,87 @@ function assertRealProofGuards(context) {
   }
 }
 
-function executeRealProofAttempt(context, deps) {
+function resolveRealProofDeps(options = {}, cli = {}) {
+  if (options.deps !== undefined) return options.deps;
+  if (cli.finalBroadcastConfirmation === true) {
+    const operatorBroadcastDeps = require("./r43e_operator_broadcast_deps");
+    return operatorBroadcastDeps.createOperatorBroadcastDeps({
+      allowOperatorBroadcastDeps: true,
+      cli,
+      repoRoot: options.repoRoot || ROOT,
+      runtimeRoot: options.runtimeRoot || RUNTIME_ROOT,
+      analysisDir: options.analysisDir || OUTPUT_DIR,
+      env: options.env,
+      httpRequest: options.httpRequest,
+      sendRawTransactionImpl: options.sendRawTransactionImpl,
+      jupiterSwapBaseUrl: options.jupiterSwapBaseUrl,
+      dedicatedRpcUrl: options.dedicatedRpcUrl,
+      testFixtureSecret: options.testFixtureSecret,
+      testSecretBytes: options.testSecretBytes,
+      r43dStatusSummary: options.r43dStatusSummary,
+      simulationStatusSummary: options.simulationStatusSummary,
+      capsLoad: options.capsLoad,
+      proofTargetLoad: options.proofTargetLoad,
+      proofScopeCapsCheck: options.proofScopeCapsCheck,
+      localSecretSourceCheck: options.localSecretSourceCheck,
+      executorIntegrationCheck: options.executorIntegrationCheck,
+      r43cStatusSummary: options.r43cStatusSummary,
+      rpcLoad: options.rpcLoad
+    });
+  }
+  return createDefaultProofDeps();
+}
+
+async function executeRealProofAttempt(context, deps) {
   assertRealProofGuards(context);
   if (context.broadcastAttempted === true) {
     throw Object.assign(new Error("stopAfterFirstTransaction — broadcast already attempted"), {
       code: "R43E_PROOF_STOPPED"
     });
   }
-  const quote = deps.fetchJupiterQuote(context);
-  const swapTx = deps.fetchJupiterSwapTransaction(context, quote);
+  if (deps.blocked === true) {
+    throw Object.assign(new Error(deps.blockReason || "operator broadcast deps blocked"), {
+      code: "R43E_OPERATOR_DEPS_BLOCKED"
+    });
+  }
+
+  const quote = await Promise.resolve(deps.fetchJupiterQuote(context));
+  const swapTx = await Promise.resolve(deps.fetchJupiterSwapTransaction(context, quote));
   const signer = deps.loadGuardedLocalSigner(context);
-  const signed = deps.signSwapTransaction(signer, swapTx, context);
-  const broadcast = deps.sendRawTransaction({
-    rpcUrlRedacted: context.rpcMetadata.redactedUrl,
-    signedTransaction: signed.signedTransactionBase64
-  });
-  context.broadcastAttempted = true;
+  const signed = await Promise.resolve(deps.signSwapTransaction(signer, swapTx, context));
+  if (typeof signer.destroy === "function") signer.destroy();
+
+  let transactionSubmitted = false;
+  let signature = null;
+  let broadcastError = null;
+  const broadcastAttemptedAt = new Date().toISOString();
+  context.sendRawTransactionCalled = false;
+
+  try {
+    context.sendRawTransactionCalled = true;
+    const broadcast = await Promise.resolve(deps.sendRawTransaction({
+      rpcUrlRedacted: context.rpcMetadata.redactedUrl,
+      signedTransaction: signed.signedTransactionBase64
+    }));
+    context.broadcastAttempted = true;
+    transactionSubmitted = true;
+    signature = broadcast.signature || null;
+  } catch (err) {
+    if (context.sendRawTransactionCalled === true) {
+      context.broadcastAttempted = true;
+      transactionSubmitted = true;
+      broadcastError = err && err.message ? err.message : String(err);
+    } else {
+      throw err;
+    }
+  }
+
   return {
-    transactionSubmitted: true,
-    signature: broadcast.signature || null,
+    transactionSubmitted,
+    signature,
+    broadcastError,
+    broadcastAttemptedAt,
+    signerPublicKey: signed.publicKey || signer.getPublicKey(),
     proofStoppedAfterFirstAttempt: true
   };
 }
@@ -377,18 +440,23 @@ function collectSimulationStatusForRealProof(options = {}) {
 }
 
 function collectRealProofReview(options = {}) {
+  return collectRealProofReviewAsync(options);
+}
+
+async function collectRealProofReviewAsync(options = {}) {
   const repoRoot = options.repoRoot || ROOT;
   const runtimeRoot = options.runtimeRoot || RUNTIME_ROOT;
   const analysisDir = options.analysisDir || OUTPUT_DIR;
   const cli = options.cli || parseCliArgs(options.argv);
-  const deps = options.deps || createDefaultProofDeps();
+  const deps = resolveRealProofDeps(options, cli);
   const realCliValidation = validateRealProofCli(cli);
   const blockers = [...realCliValidation.blockers];
   const warnings = [];
 
   const gateDocPresent = options.realProofGateDocPresent !== undefined
     ? options.realProofGateDocPresent === true
-    : fs.existsSync(path.join(repoRoot, REAL_PROOF_GATE_DOC));
+    : fs.existsSync(path.join(repoRoot, REAL_PROOF_GATE_DOC))
+      || fs.existsSync(path.join(repoRoot, OPERATOR_BROADCAST_DEPS_DOC));
 
   const r43dStatus = options.r43dStatusSummary !== undefined
     ? options.r43dStatusSummary
@@ -474,11 +542,15 @@ function collectRealProofReview(options = {}) {
     broadcast: false
   };
 
-  let r43eRealProofVerdict = REAL_PROOF_VERDICTS.NOT_READY;
+  let r43eRealProofVerdict = REAL_PROOF_VERDICTS.BLOCKED;
   let transactionSubmitted = false;
   let signature = null;
+  let broadcastError = null;
+  let broadcastAttemptedAt = null;
+  let signerPublicKey = null;
   let proofStoppedAfterFirstAttempt = false;
   let nextRequiredStep = "final execution command required";
+  let operatorBroadcastDepsEnabled = deps.operatorBroadcastDepsEnabled === true;
 
   const gateStatus = {
     executeRealProofFlag: cli.executeRealProof === true,
@@ -506,32 +578,49 @@ function collectRealProofReview(options = {}) {
   if (blockers.length > 0) {
     r43eRealProofVerdict = r43eRealProofVerdict === REAL_PROOF_VERDICTS.BLOCKED
       ? REAL_PROOF_VERDICTS.BLOCKED
-      : REAL_PROOF_VERDICTS.NOT_READY;
+      : REAL_PROOF_VERDICTS.BLOCKED;
   } else if (cli.finalBroadcastConfirmation !== true) {
     r43eRealProofVerdict = REAL_PROOF_VERDICTS.READY_FOR_FINAL_COMMAND;
     nextRequiredStep = "final execution command required";
   } else {
-    const context = {
-      cli,
-      realProofGuardsPassed: true,
-      rpcMetadata,
-      proofTarget: proofTargetLoad.data,
-      caps,
-      r43dStatus,
-      broadcastAttempted: false
-    };
+    let context = null;
     try {
-      const attempt = executeRealProofAttempt(context, deps);
+      context = {
+        cli,
+        realProofGuardsPassed: true,
+        rpcMetadata,
+        proofTarget: proofTargetLoad.data,
+        caps,
+        r43dStatus,
+        broadcastAttempted: false,
+        sendRawTransactionCalled: false
+      };
+      const attempt = await executeRealProofAttempt(context, deps);
       transactionSubmitted = attempt.transactionSubmitted === true;
       signature = attempt.signature;
+      broadcastError = attempt.broadcastError || null;
+      broadcastAttemptedAt = attempt.broadcastAttemptedAt || null;
+      signerPublicKey = attempt.signerPublicKey || null;
       proofStoppedAfterFirstAttempt = attempt.proofStoppedAfterFirstAttempt === true;
       signerMetadata.transactionSubmitted = transactionSubmitted;
       signerMetadata.broadcast = transactionSubmitted;
+      signerMetadata.publicKey = signerPublicKey;
       r43eRealProofVerdict = REAL_PROOF_VERDICTS.ATTEMPTED;
       nextRequiredStep = NEXT_R43F_STEP;
     } catch (err) {
-      blockers.push(err && err.message ? err.message : String(err));
-      r43eRealProofVerdict = REAL_PROOF_VERDICTS.BLOCKED;
+      const errMessage = err && err.message ? err.message : String(err);
+      blockers.push(errMessage);
+      if (err.code === "R43E_OPERATOR_DEPS_BLOCKED") {
+        r43eRealProofVerdict = REAL_PROOF_VERDICTS.BLOCKED;
+      } else if (err.code === "REAL_TRANSACTION_BUILD_NOT_IMPLEMENTED"
+          || !context || context.sendRawTransactionCalled !== true) {
+        r43eRealProofVerdict = REAL_PROOF_VERDICTS.FAILED_BEFORE_BROADCAST;
+        broadcastError = errMessage;
+      } else {
+        r43eRealProofVerdict = REAL_PROOF_VERDICTS.ATTEMPTED;
+        broadcastError = errMessage;
+        nextRequiredStep = NEXT_R43F_STEP;
+      }
     }
   }
 
@@ -545,7 +634,7 @@ function collectRealProofReview(options = {}) {
 
   return {
     timestamp: new Date().toISOString(),
-    review: "R43E-2-real-transaction-proof-review",
+    review: "R43E-3-operator-broadcast-proof-review",
     schemaVersion: SCHEMA_VERSION,
     gateDocPresent,
     approved: false,
@@ -559,7 +648,11 @@ function collectRealProofReview(options = {}) {
     blockers,
     warnings,
     gateStatus,
+    operatorBroadcastDepsEnabled,
     proofTargetSummary: summarizeProofTarget(proofTargetLoad.data),
+    amountSol: proofTargetLoad.data?.amountSol ?? null,
+    slippageBps: proofTargetLoad.data?.slippageBps ?? null,
+    routeProvider: proofTargetLoad.data?.routeProvider ?? null,
     capsStatus: r43dStatus.capsStatus || {
       approved: caps?.approved === true,
       approvalScope: caps?.approvalScope || null,
@@ -570,9 +663,12 @@ function collectRealProofReview(options = {}) {
     },
     rpcStatus: rpcMetadata,
     signerStatus: signerMetadata,
+    signerPublicKey,
     postureStatus: r43dStatus.postureStatus,
     transactionSubmitted,
     signature,
+    broadcastAttemptedAt,
+    broadcastError,
     proofStoppedAfterFirstAttempt,
     r7Status: r43dStatus.r7Verdict || "NOT ENOUGH DATA",
     nextRequiredStep,
@@ -592,17 +688,22 @@ function writeRealProofReview(status, outputDir = OUTPUT_DIR) {
 
 function runRealProofReview(options = {}) {
   const analysisDir = options.outputDir || OUTPUT_DIR;
-  const status = collectRealProofReview(options);
-  const outputFile = writeRealProofReview(status, analysisDir);
-  return { ...status, outputFile };
+  return collectRealProofReviewAsync(options).then((status) => {
+    const outputFile = writeRealProofReview(status, analysisDir);
+    return { ...status, outputFile };
+  });
 }
 
 function printRealProofSummary(status) {
-  console.log("[r43e-real-proof] R43E-2 Real Transaction Proof Review (isolated path)");
+  console.log("[r43e-real-proof] R43E-3 Operator Broadcast Proof Review (isolated path)");
   console.log(`  verdict: ${status.r43eRealProofVerdict}`);
   console.log(`  proofMode: ${status.proofMode}`);
+  console.log(`  operatorBroadcastDepsEnabled: ${status.operatorBroadcastDepsEnabled === true}`);
   console.log(`  transactionSubmitted: ${status.transactionSubmitted}`);
   console.log(`  signature: ${status.signature || "null"}`);
+  if (status.broadcastError) {
+    console.log(`  broadcastError: ${status.broadcastError}`);
+  }
   console.log(`  blockers: ${status.blockers.length}`);
   for (const blocker of status.blockers) {
     console.log(`    - ${blocker}`);
@@ -832,8 +933,12 @@ function printSummary(status) {
 if (require.main === module) {
   const cli = parseCliArgs();
   if (cli.executeRealProof === true) {
-    const status = runRealProofReview({ cli });
-    printRealProofSummary(status);
+    runRealProofReview({ cli })
+      .then((status) => printRealProofSummary(status))
+      .catch((err) => {
+        console.error("[r43e-real-proof] fatal:", err.message);
+        process.exit(1);
+      });
   } else {
     const status = runR43eOneTransactionProofHarness({ cli });
     printSummary(status);
@@ -848,6 +953,7 @@ module.exports = {
   REAL_PROOF_OUTPUT_FILE,
   GATE_DOC,
   REAL_PROOF_GATE_DOC,
+  OPERATOR_BROADCAST_DEPS_DOC,
   TARGET_CONFIG_REL,
   EXAMPLE_TARGET_REL,
   PLACEHOLDER_OUTPUT_MINT,
@@ -869,7 +975,9 @@ module.exports = {
   loadProofTargetConfig,
   summarizeProofTarget,
   createDefaultProofDeps,
+  resolveRealProofDeps,
   executeRealProofAttempt,
+  collectRealProofReviewAsync,
   buildProofIntent,
   collectR43eOneTransactionProofHarness,
   collectRealProofReview,

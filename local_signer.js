@@ -676,5 +676,6 @@ module.exports = {
   createLocalSignerStub,
   createLocalSignerReal,
   loadSignerFromApprovedSource,
+  loadSecretBytesFromApprovedSource,
   printStubSummary
 };

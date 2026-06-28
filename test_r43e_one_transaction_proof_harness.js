@@ -129,6 +129,7 @@ function readyContext(overrides = {}) {
 }
 
 try {
+  (async () => {
   assert.strictEqual(
     r43e.collectR43eOneTransactionProofHarness(readyContext({
       cli: { simulate: false, humanPresent: false, confirmOneTransactionProof: false }
@@ -405,13 +406,15 @@ try {
     let broadcastCount = 0;
     return {
       deps: {
-        fetchJupiterQuote: () => ({ route: "mock-quote" }),
+        blocked: false,
+        operatorBroadcastDepsEnabled: true,
+        fetchJupiterQuote: () => ({ route: "mock-quote", inputMint: "a", outputMint: "b", slippageBps: 300 }),
         fetchJupiterSwapTransaction: () => ({ swapTransactionBase64: "mockSwapTx" }),
         loadGuardedLocalSigner: () => ({
           getPublicKey: () => "MockPublicKey111",
           getSafeAuditMetadata: () => ({ publicKey: "MockPublicKey111", privateKeysHandled: true })
         }),
-        signSwapTransaction: () => ({ signedTransactionBase64: "mockSignedTx" }),
+        signSwapTransaction: () => ({ signedTransactionBase64: "mockSignedTx", publicKey: "MockPublicKey111" }),
         sendRawTransaction: () => {
           broadcastCount += 1;
           if (onBroadcast) onBroadcast();
@@ -423,54 +426,54 @@ try {
   }
 
   assert.strictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       cli: realProofCli({ finalBroadcastConfirmation: false })
-    })).r43eRealProofVerdict,
+    }))).r43eRealProofVerdict,
     r43e.REAL_PROOF_VERDICTS.READY_FOR_FINAL_COMMAND
   );
   console.log(`${G} execute-real-proof missing final confirmation blocks broadcast`);
 
   assert.strictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       cli: realProofCli({ humanPresent: false })
-    })).r43eRealProofVerdict,
-    r43e.REAL_PROOF_VERDICTS.NOT_READY
+    }))).r43eRealProofVerdict,
+    r43e.REAL_PROOF_VERDICTS.BLOCKED
   );
   console.log(`${G} execute-real-proof missing human-present blocks`);
 
   assert.strictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       proofTargetLoad: { status: "missing", file: "x", data: null }
-    })).r43eRealProofVerdict,
-    r43e.REAL_PROOF_VERDICTS.NOT_READY
+    }))).r43eRealProofVerdict,
+    r43e.REAL_PROOF_VERDICTS.BLOCKED
   );
   console.log(`${G} execute-real-proof missing target config blocks`);
 
   assert.notStrictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       proofTargetOverrides: { amountSol: 0.02, maxTradeSizeSol: 0.02 }
-    })).r43eRealProofVerdict,
+    }))).r43eRealProofVerdict,
     r43e.REAL_PROOF_VERDICTS.READY_FOR_FINAL_COMMAND
   );
   console.log(`${G} target amount > 0.01 blocks`);
 
   assert.notStrictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       proofTargetOverrides: { autoCompoundingAllowed: true }
-    })).r43eRealProofVerdict,
+    }))).r43eRealProofVerdict,
     r43e.REAL_PROOF_VERDICTS.READY_FOR_FINAL_COMMAND
   );
   console.log(`${G} autoCompounding true blocks`);
 
   assert.notStrictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       proofTargetOverrides: { stopAfterFirstTransaction: false, autoCompoundingAllowed: false }
-    })).r43eRealProofVerdict,
+    }))).r43eRealProofVerdict,
     r43e.REAL_PROOF_VERDICTS.READY_FOR_FINAL_COMMAND
   );
   console.log(`${G} stopAfterFirstTransaction false blocks`);
   assert.strictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       localSecretSourceCheck: {
         envSecretJsonPresent: false,
         keyfilePathPresent: false,
@@ -478,21 +481,21 @@ try {
         contentRead: false,
         note: "missing"
       }
-    })).r43eRealProofVerdict,
-    r43e.REAL_PROOF_VERDICTS.NOT_READY
+    }))).r43eRealProofVerdict,
+    r43e.REAL_PROOF_VERDICTS.BLOCKED
   );
   console.log(`${G} missing signer secret source blocks real proof`);
 
   assert.strictEqual(
-    r43e.collectRealProofReview(readyRealContext({
+    (await r43e.collectRealProofReviewAsync(readyRealContext({
       executorIntegrationCheck: { integrated: true, ok: false, note: "integrated" }
-    })).r43eRealProofVerdict,
+    }))).r43eRealProofVerdict,
     r43e.REAL_PROOF_VERDICTS.BLOCKED
   );
   console.log(`${G} normal live_executor integration blocks`);
 
   const mocks = mockDeps();
-  const attempted = r43e.collectRealProofReview(readyRealContext({
+  const attempted = await r43e.collectRealProofReviewAsync(readyRealContext({
     cli: realProofCli({ finalBroadcastConfirmation: true }),
     deps: mocks.deps
   }));
@@ -503,9 +506,9 @@ try {
   assert.strictEqual(mocks.getBroadcastCount(), 1);
   console.log(`${G} mocked broadcast can occur at most once`);
 
-  assert.throws(
+  await assert.rejects(
     () => r43e.executeRealProofAttempt(
-      { realProofGuardsPassed: true, broadcastAttempted: true, rpcMetadata: { redactedUrl: "[REDACTED]" } },
+      { realProofGuardsPassed: true, broadcastAttempted: true, rpcMetadata: { redactedUrl: "[REDACTED]" }, proofTarget: {} },
       mocks.deps
     ),
     (err) => err && err.code === "R43E_PROOF_STOPPED"
@@ -513,14 +516,14 @@ try {
   console.log(`${G} after mocked broadcast, harness stops`);
 
   const mocksNoFinal = mockDeps();
-  r43e.collectRealProofReview(readyRealContext({
+  await r43e.collectRealProofReviewAsync(readyRealContext({
     cli: realProofCli({ finalBroadcastConfirmation: false }),
     deps: mocksNoFinal.deps
   }));
   assert.strictEqual(mocksNoFinal.getBroadcastCount(), 0);
   console.log(`${G} transactionSubmitted false unless mocked broadcast path called`);
 
-  const realOutput = r43e.runRealProofReview(readyRealContext({
+  const realOutput = await r43e.runRealProofReview(readyRealContext({
     cli: realProofCli({ finalBroadcastConfirmation: false })
   }));
   assert.ok(realOutput.outputFile.includes("r43e_real_proof_review.json"));
@@ -533,11 +536,16 @@ try {
   assert.ok(!/require\s*\(\s*['"]\.\/live_executor['"]/.test(src));
   assert.ok(/executeRealProofAttempt/.test(src));
   assert.ok(/sendRawTransaction/.test(src));
-  assert.ok(/function executeRealProofAttempt/.test(src));
+  assert.ok(/async function executeRealProofAttempt|function executeRealProofAttempt/.test(src));
+  assert.ok(/r43e_operator_broadcast_deps/.test(src));
   assert.ok(!/executeSwap/.test(src));
-  console.log(`${G} no live_executor integration; sendRawTransaction only via injectable deps`);
+  console.log(`${G} no live_executor integration; operator broadcast deps wired`);
 
   console.log("\nR43E ONE TRANSACTION PROOF HARNESS TEST PASSED (41/41)");
+  })().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 } catch (err) {
   console.error(err);
   process.exit(1);
