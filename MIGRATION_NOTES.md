@@ -37,7 +37,7 @@ Core safety tests run via npm (Sprint 1 Q6):
 npm test
 ```
 
-Equivalent: `node run_safety_tests.js` — runs **46/46** safety tests including Sprint 4 R6a through R35 guards.
+Equivalent: `node run_safety_tests.js` — runs **47/47** safety tests including Sprint 4 R6a through R36 guards.
 
 Additional standalone scripts (manual / extended coverage):
 
@@ -117,8 +117,9 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R33 Clean Quote Observation Review** | **COMPLETE — TRADING STILL BLOCKED** — [docs/R33_CLEAN_QUOTE_OBSERVATION_REVIEW.md](./docs/R33_CLEAN_QUOTE_OBSERVATION_REVIEW.md) |
 | **R34 Small Manual Quote Batch Review** | **DEFINED — OBSERVATION ONLY** — [docs/R34_SMALL_MANUAL_QUOTE_OBSERVATION_BATCH_REVIEW.md](./docs/R34_SMALL_MANUAL_QUOTE_OBSERVATION_BATCH_REVIEW.md) |
 | **R35 Quote Batch Results + Shadow Readiness** | **COMPLETE — READY FOR SHADOW HARNESS DESIGN** — [docs/R35_QUOTE_BATCH_RESULTS_AND_SHADOW_READINESS.md](./docs/R35_QUOTE_BATCH_RESULTS_AND_SHADOW_READINESS.md) |
-| **Recommended next gate** | R36 shadow harness (simulation only); continue R7b; **do not arm** |
-| **Safety suite** | **46/46** |
+| **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
+| **Recommended next gate** | R37 shadow results review; continue R7b; **do not arm** |
+| **Safety suite** | **47/47** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
