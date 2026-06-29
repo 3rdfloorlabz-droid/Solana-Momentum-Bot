@@ -104,11 +104,13 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R43E-3 Operator Broadcast Dependency Adapter** | **BUILT — OPERATOR DEPS WIRED — NOT FULL LIVE TRADING** — [docs/R43E3_OPERATOR_BROADCAST_DEPS.md](./docs/R43E3_OPERATOR_BROADCAST_DEPS.md) |
 | **R43F Post-Transaction Audit Review** | **COMPLETE — ENGINEERING PROOF AUDIT — NOT LIVE APPROVAL** — [docs/R43F_POST_TRANSACTION_AUDIT.md](./docs/R43F_POST_TRANSACTION_AUDIT.md) |
 | **Track B B1 Thesis** | **DEFINED — TRACK A CLOSED — RESEARCH ONLY** — [docs/TRACK_B_B1_THESIS.md](./docs/TRACK_B_B1_THESIS.md) · closes Track A engineering proof; opens Track B research |
+| **Track B B2 Data Collection Plan** | **DEFINED — OBSERVATION ONLY — NOT LIVE APPROVAL** — [docs/TRACK_B_B2_DATA_COLLECTION_PLAN.md](./docs/TRACK_B_B2_DATA_COLLECTION_PLAN.md) |
+| **B2A 24-Hour Observation Run Plan** | **DEFINED — OBSERVATION ONLY — NOT LIVE APPROVAL** — [docs/B2A_24H_OBSERVATION_RUN_PLAN.md](./docs/B2A_24H_OBSERVATION_RUN_PLAN.md) |
 | **Operator caps approval** | **APPROVED — ENGINEERING PROOF ONLY** — `operator_records/micro_live_demo_caps.json` · one-transaction scope |
 | **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live approval** |
 | **Operator caps draft** | **APPROVED — ENGINEERING PROOF ONLY** — `operator_records/micro_live_demo_caps.json` · R43B record valid |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A + Track B roadmap |
-| **Recommended next gate** | Track B **B2 data collection plan** · Track A engineering proof **closed** (R43E + R43F) |
+| **Recommended next gate** | Execute **B2A 24h observation run** · **B2B review** · **B3 smart-wallet scoring model** after B2 thresholds |
 | **R7b Strategy Data Collection** | **PLAN COMPLETE — collection IN PROGRESS** |
 | **R8 Risk Controls Review** | **COMPLETE — RISK CONTROLS DEFINED BUT NOT ARMED** — [docs/R8_RISK_CONTROLS_REVIEW.md](./docs/R8_RISK_CONTROLS_REVIEW.md) |
 | **R9 Wallet / Signer Security Review** | **COMPLETE — WALLET SECURITY DESIGN DEFINED BUT NOT CONNECTED** — [docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md](./docs/R9_WALLET_SIGNER_SECURITY_REVIEW.md) |
@@ -142,8 +144,8 @@ These files may be large, append-only, or environment-specific. TracktaOS should
 | **R36 Shadow Execution Harness** | **BUILT — SIMULATION ONLY** — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — READY FOR WALLET SETUP DESIGN ONLY** — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — NO KEY HANDLED** — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | Track B **B2 data collection plan** · Track A engineering proof **closed** (R43E + R43F) |
-| **Safety suite** | **66/66** |
+| **Recommended next gate** | Execute **B2A 24h observation run** · **B2B review** · **B3 smart-wallet scoring model** after B2 thresholds |
+| **Safety suite** | **67/67** |
 | **Dedicated RPC** | Missing — observation OK; promotion/live submission blocked |
 | **Live trading** | **NOT APPROVED** |
 
