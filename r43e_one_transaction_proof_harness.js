@@ -413,7 +413,8 @@ async function collectRealProofReviewAsync(options = {}) {
   let nextRequiredStep = "final execution command required";
   let operatorBroadcastDepsEnabled = deps.operatorBroadcastDepsEnabled === true;
 
-  const gateStatus = {
+  const preBroadcastGateStatus = {
+    scope: "pre-broadcast-only",
     executeRealProofFlag: cli.executeRealProof === true,
     humanPresentFlag: cli.humanPresent === true,
     confirmOneTransactionProofFlag: cli.confirmOneTransactionProof === true,
@@ -426,8 +427,7 @@ async function collectRealProofReviewAsync(options = {}) {
       || localSecretSource.keyfilePathPresent === true,
     executorNotIntegrated: executorIntegration.ok === true,
     rpcDedicatedCandidate: rpcMetadata.dedicatedCandidate === true,
-    liveTradingApproved: false,
-    transactionSubmitted: false
+    liveTradingApproved: false
   };
 
   if (executorIntegration.ok === false) {
@@ -485,6 +485,15 @@ async function collectRealProofReviewAsync(options = {}) {
     }
   }
 
+  const finalTransactionStatus = {
+    transactionSubmitted,
+    signature,
+    proofStoppedAfterFirstAttempt,
+    broadcastAttemptedAt,
+    broadcastError,
+    broadcastAttemptCount: transactionSubmitted === true ? 1 : 0
+  };
+
   const flagsReceived = {
     executeRealProof: cli.executeRealProof === true,
     humanPresent: cli.humanPresent === true,
@@ -508,7 +517,9 @@ async function collectRealProofReviewAsync(options = {}) {
     flagsReceived,
     blockers,
     warnings,
-    gateStatus,
+    preBroadcastGateStatus,
+    gateStatus: preBroadcastGateStatus,
+    finalTransactionStatus,
     operatorBroadcastDepsEnabled,
     proofTargetSummary: summarizeProofTarget(proofTargetLoad.data),
     amountSol: proofTargetLoad.data?.amountSol ?? null,

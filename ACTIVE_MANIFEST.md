@@ -114,6 +114,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | `r43d_final_proof_preflight.js` | R43D final proof preflight (`analysis/r43d_final_proof_preflight.json`) |
 | `r43e_one_transaction_proof_harness.js` | R43E-1 simulation + R43E-2/R43E-3 real proof path (`analysis/r43e_one_transaction_proof_harness.json`, `analysis/r43e_real_proof_review.json`) |
 | `r43e_operator_broadcast_deps.js` | R43E-3 operator broadcast dependency adapter (isolated proof path only) |
+| `r43f_post_transaction_audit.js` | R43F post-transaction audit review (`analysis/r43f_post_transaction_audit.json`) |
 | `r42_final_micro_live_review.js` | R42 final micro-live approval review (`analysis/r42_final_micro_live_review.json`) |
 
 ---
@@ -141,6 +142,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R43E-1 One Transaction Proof Harness** | **BUILT — SIMULATION ONLY — NO SUBMISSION** (2026-06-23) — [docs/R43E_ONE_TRANSACTION_PROOF_HARNESS.md](./docs/R43E_ONE_TRANSACTION_PROOF_HARNESS.md) · **isolated harness; no live_executor integration** |
 | **R43E-2 Real Transaction Implementation Review** | **BUILT — REVIEWABLE REAL PROOF PATH — NO DEFAULT SUBMISSION** (2026-06-23) — [docs/R43E2_REAL_TRANSACTION_IMPLEMENTATION_REVIEW.md](./docs/R43E2_REAL_TRANSACTION_IMPLEMENTATION_REVIEW.md) · **broadcast only with all final flags + local proof target; live trading NOT approved** |
 | **R43E-3 Operator Broadcast Dependency Adapter** | **BUILT — OPERATOR DEPS WIRED — NOT FULL LIVE TRADING** (2026-06-23) — [docs/R43E3_OPERATOR_BROADCAST_DEPS.md](./docs/R43E3_OPERATOR_BROADCAST_DEPS.md) · **Jupiter quote/swap + local sign + dedicated RPC; stop after first attempt** |
+| **R43F Post-Transaction Audit Review** | **COMPLETE — ENGINEERING PROOF AUDIT — NOT LIVE APPROVAL** (2026-06-29) — [docs/R43F_POST_TRANSACTION_AUDIT.md](./docs/R43F_POST_TRANSACTION_AUDIT.md) · **read-only review of r43e_real_proof_review.json; no new submission** |
 | **R42 Final Micro-Live Approval Review** | **COMPLETE — READY TO CREATE OPERATOR CAPS FILE** (2026-06-23) — [docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md](./docs/R42_FINAL_MICRO_LIVE_APPROVAL_REVIEW.md) · **not full live trading approval** |
 | **Operator caps approval** | **APPROVED — ENGINEERING PROOF ONLY** — `operator_records/micro_live_demo_caps.json` · `approved: true` · Taylor Cheaney · one-transaction scope only |
 | **FOMO Strategic Pivot** | **DEFINED — PLANNING ONLY** (2026-06-28) — [docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md](./docs/FOMO_STRATEGIC_PIVOT_AND_ENGINE_ROADMAP.md) · Track A engineering proof + Track B larger-capital engine |
@@ -177,8 +179,8 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R36 Shadow Execution Harness** | **BUILT — SHADOW EXECUTION HARNESS BUILT — SIMULATION ONLY** (2026-06-23) — [docs/R36_SHADOW_EXECUTION_HARNESS.md](./docs/R36_SHADOW_EXECUTION_HARNESS.md) |
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — SHADOW RESULTS REVIEWED — READY FOR WALLET SETUP DESIGN ONLY** (2026-06-23) — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — RESEARCH WALLET SECRET STORAGE DESIGN DEFINED — NO KEY HANDLED** (2026-06-23) — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
-| **Recommended next gate** | Track A: R43F post-transaction audit review (after operator final proof command) · Track B: **B1 FOMO Engine thesis** · **do not arm; no private keys** |
-| **Safety suite** | **64/64** (`node run_safety_tests.js`) |
+| **Recommended next gate** | Track B: **B1 FOMO Engine thesis** · Track A one-transaction engineering proof **closed pending operator sign-off** · **do not arm; no private keys** |
+| **Safety suite** | **66/66** (`node run_safety_tests.js`) |
 | **Posture** | `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false` |
 | **`live_errors.jsonl`** | Rows 1–54 = synthetic `test_execution_logging.js` (tagged `SYNTHETIC_HISTORY_BOUNDARY` line 55) |
 | **`live_trades.json`** | Empty orphan — canonical ledger is `live_trades.jsonl` |
@@ -358,7 +360,8 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 | `analysis/r43c_local_signer_readiness.json` | R43C guarded real local signer readiness status (gitignored) |
 | `analysis/r43d_final_proof_preflight.json` | R43D final proof preflight status (gitignored) |
 | `analysis/r43e_one_transaction_proof_harness.json` | R43E-1 one-transaction proof harness status (gitignored) |
-| `analysis/r43e_real_proof_review.json` | R43E-2 real proof review audit (gitignored) |
+| `analysis/r43e_real_proof_review.json` | R43E real proof review audit (gitignored) |
+| `analysis/r43f_post_transaction_audit.json` | R43F post-transaction audit (gitignored) |
 | `examples/r43e_real_proof_target.example.json` | R43E-2 proof target example (placeholders only) |
 | `examples/micro_live_demo_caps.example.json` | Track A example-only operator caps template (NOT authorization) |
 | `operator_records/micro_live_demo_caps.json` | Track A operator caps approval record (`approved: true` — engineering proof only) |
