@@ -6,15 +6,20 @@
 const fs = require("fs");
 const https = require("https");
 const path = require("path");
+const review = require("./r7_strategy_review");
 const r42 = require("./r42_final_micro_live_review");
 const r43c = require("./r43c_local_signer_readiness");
 const r43d = require("./r43d_final_proof_preflight");
 const localSigner = require("./local_signer");
 const rpcConfig = require("./micro_live_rpc_config");
+const cliGuards = require("./r43e_real_proof_cli_guards");
+const proofConfig = require("./r43e_proof_config");
 
-function r43eHarness() {
-  return require("./r43e_one_transaction_proof_harness");
-}
+const DEFAULT_REPO_ROOT = review.ROOT;
+const DEFAULT_RUNTIME_ROOT = review.RUNTIME_ROOT;
+const DEFAULT_OUTPUT_DIR = process.env.R43E_OUTPUT_DIR
+  ? path.resolve(process.env.R43E_OUTPUT_DIR)
+  : path.join(DEFAULT_REPO_ROOT, "analysis");
 
 const OPERATOR_DEPS_BLOCKED = "R43E_OPERATOR_DEPS_BLOCKED";
 const REAL_TRANSACTION_BUILD_NOT_IMPLEMENTED = "REAL_TRANSACTION_BUILD_NOT_IMPLEMENTED";
@@ -100,15 +105,15 @@ function proofTargetUsesScanner(target) {
 function collectOperatorDepsBlockers(options = {}) {
   const blockers = [];
   const cli = options.cli || {};
-  const repoRoot = options.repoRoot || r43eHarness().ROOT;
-  const runtimeRoot = options.runtimeRoot || r43eHarness().RUNTIME_ROOT;
+  const repoRoot = options.repoRoot || DEFAULT_REPO_ROOT;
+  const runtimeRoot = options.runtimeRoot || DEFAULT_RUNTIME_ROOT;
 
   if (options.allowOperatorBroadcastDeps !== true) {
     blockers.push("allowOperatorBroadcastDeps must be true");
     return { ok: false, blockers };
   }
 
-  const broadcastCli = r43eHarness().validateRealProofBroadcastCli(cli);
+  const broadcastCli = cliGuards.validateRealProofBroadcastCli(cli);
   if (!broadcastCli.ok) blockers.push(...broadcastCli.blockers);
 
   const r43dStatus = options.r43dStatusSummary !== undefined
@@ -116,7 +121,7 @@ function collectOperatorDepsBlockers(options = {}) {
     : r43d.collectR43dFinalProofPreflight({
       repoRoot,
       runtimeRoot,
-      analysisDir: options.analysisDir || r43eHarness().OUTPUT_DIR,
+      analysisDir: options.analysisDir || DEFAULT_OUTPUT_DIR,
       humanPresent: cli.humanPresent === true,
       cli: { humanPresent: cli.humanPresent === true },
       runSecretScan: options.runSecretScan,
@@ -126,7 +131,7 @@ function collectOperatorDepsBlockers(options = {}) {
   const simulationStatus = options.simulationStatusSummary !== undefined
     ? options.simulationStatusSummary
     : {
-      r43eVerdict: r43eHarness().VERDICTS.COMPLETED,
+      r43eVerdict: proofConfig.SIMULATION_VERDICT_COMPLETED,
       transactionSubmitted: false
     };
 
@@ -136,13 +141,13 @@ function collectOperatorDepsBlockers(options = {}) {
   const caps = capsLoad.data;
   const proofScopeCaps = options.proofScopeCapsCheck !== undefined
     ? options.proofScopeCapsCheck
-    : r43eHarness().validateProofScopeCaps(caps);
+    : proofConfig.validateProofScopeCaps(caps);
 
   const proofTargetLoad = options.proofTargetLoad !== undefined
     ? options.proofTargetLoad
-    : r43eHarness().loadProofTargetConfig(repoRoot, options);
+    : proofConfig.loadProofTargetConfig(repoRoot, options);
   const proofTargetValidation = proofTargetLoad.status === "present"
-    ? r43eHarness().validateProofTarget(proofTargetLoad.data)
+    ? proofConfig.validateProofTarget(proofTargetLoad.data)
     : { ok: false, errors: [`proof target ${proofTargetLoad.status}`] };
 
   const localSecretSource = options.localSecretSourceCheck !== undefined
@@ -167,14 +172,14 @@ function collectOperatorDepsBlockers(options = {}) {
       if (!blockers.includes(item)) blockers.push(item);
     }
   }
-  if (simulationStatus.r43eVerdict !== r43eHarness().VERDICTS.COMPLETED) {
+  if (simulationStatus.r43eVerdict !== proofConfig.SIMULATION_VERDICT_COMPLETED) {
     blockers.push(`R43E simulation not completed: ${simulationStatus.r43eVerdict}`);
   }
   if (!proofScopeCaps.ok) {
     blockers.push(`proof scope caps invalid: ${proofScopeCaps.errors.join("; ")}`);
   }
   if (proofTargetLoad.status !== "present") {
-    blockers.push(`proof target config ${proofTargetLoad.status}: ${r43eHarness().TARGET_CONFIG_REL}`);
+    blockers.push(`proof target config ${proofTargetLoad.status}: ${proofConfig.TARGET_CONFIG_REL}`);
   }
   if (!proofTargetValidation.ok) {
     blockers.push(`proof target invalid: ${proofTargetValidation.errors.join("; ")}`);
@@ -271,7 +276,7 @@ function defaultHttpRequest(url, options = {}) {
 function resolveDedicatedRpcUrl(options = {}, gateContext = {}) {
   if (options.dedicatedRpcUrl) return options.dedicatedRpcUrl;
   const resolved = rpcConfig.resolveMicroLiveRpcUrl({
-    repoRoot: options.repoRoot || r43eHarness().ROOT,
+    repoRoot: options.repoRoot || DEFAULT_REPO_ROOT,
     env: options.env
   });
   if (!resolved.rpcUrl) {
@@ -297,7 +302,7 @@ function buildSignerGuardOptions(context, options = {}) {
     recoveryPresent: context.r43dStatus?.tradingState?.recoveryPresent === true,
     executorSignerIntegrated: false,
     liveExecutorIntegration: false,
-    repoRoot: options.repoRoot || r43eHarness().ROOT,
+    repoRoot: options.repoRoot || DEFAULT_REPO_ROOT,
     env: options.env,
     testFixtureSecret: options.testFixtureSecret === true,
     testSecretBytes: options.testSecretBytes
@@ -442,7 +447,7 @@ function createOperatorBroadcastDeps(options = {}) {
             testSecretBytes: options.testSecretBytes
           })
           : localSigner.loadSecretBytesFromApprovedSource({
-            repoRoot: options.repoRoot || r43eHarness().ROOT,
+            repoRoot: options.repoRoot || DEFAULT_REPO_ROOT,
             env: options.env
           });
         const { VersionedTransaction, Keypair } = require("@solana/web3.js");

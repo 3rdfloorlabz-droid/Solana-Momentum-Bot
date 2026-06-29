@@ -118,6 +118,8 @@ const TESTS = [
   "test_r43e_one_transaction_proof_harness.js",
   // R43E-3: operator broadcast dependency adapter (temp fixtures only).
   "test_r43e_operator_broadcast_deps.js",
+  // R43E CLI guards: shared validation without circular deps.
+  "test_r43e_real_proof_cli_guards.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).

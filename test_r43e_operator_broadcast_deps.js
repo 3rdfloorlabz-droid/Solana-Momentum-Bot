@@ -14,6 +14,7 @@ const r43b = require("./r43b_operator_caps_approval_check");
 const capsModule = require("./micro_live_caps");
 const rpcConfig = require("./micro_live_rpc_config");
 const operatorDeps = require("./r43e_operator_broadcast_deps");
+const cliGuards = require("./r43e_real_proof_cli_guards");
 
 const REPO_RECOVERY = path.join(__dirname, "recovery_actions.jsonl");
 const REPO_CONFIG = path.join(__dirname, "live_config.json");
@@ -194,6 +195,9 @@ function mockBroadcastDeps(overrides = {}) {
 
 (async () => {
   try {
+    assert.strictEqual(typeof cliGuards.validateRealProofBroadcastCli, "function");
+    console.log(`${G} validateRealProofBroadcastCli exported from guard module`);
+
     const defaultDeps = operatorDeps.createOperatorBroadcastDeps({});
     assert.strictEqual(defaultDeps.blocked, true);
     assert.throws(() => defaultDeps.fetchJupiterQuote({}), (err) => err.code === operatorDeps.OPERATOR_DEPS_BLOCKED);
@@ -392,7 +396,21 @@ function mockBroadcastDeps(overrides = {}) {
     if (beforeCapsHash) assert.ok(beforeCapsHash.equals(fs.readFileSync(REPO_CAPS)));
     console.log(`${G} no normal trading state mutation`);
 
-    console.log("\nR43E OPERATOR BROADCAST DEPS TEST PASSED (28/28)");
+    const finalBlockedReview = await r43e.collectRealProofReviewAsync({
+      ...readyOperatorOptions({ allowOperatorBroadcastDeps: true }),
+      cli: finalCli(),
+      r43dStatusSummary: readyR43dStatus({
+        r43dVerdict: r43d.VERDICTS.NOT_READY,
+        blockers: ["fixture gate blocked"]
+      }),
+      outputDir: tmpOutput
+    });
+    assert.strictEqual(finalBlockedReview.r43eRealProofVerdict, r43e.REAL_PROOF_VERDICTS.BLOCKED);
+    assert.strictEqual(finalBlockedReview.transactionSubmitted, false);
+    assert.ok(!/"privateKey"\s*:/.test(JSON.stringify(finalBlockedReview)));
+    console.log(`${G} final command path blocks safely without validateRealProofBroadcastCli crash`);
+
+    console.log("\nR43E OPERATOR BROADCAST DEPS TEST PASSED (30/30)");
   } catch (err) {
     console.error(err);
     process.exit(1);

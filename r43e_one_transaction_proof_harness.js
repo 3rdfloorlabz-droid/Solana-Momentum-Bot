@@ -15,6 +15,8 @@ const capsModule = require("./micro_live_caps");
 const rpcConfig = require("./micro_live_rpc_config");
 const localSigner = require("./local_signer");
 const provider = require("./signer_provider");
+const cliGuards = require("./r43e_real_proof_cli_guards");
+const proofConfig = require("./r43e_proof_config");
 
 const ROOT = review.ROOT;
 const RUNTIME_ROOT = review.RUNTIME_ROOT;
@@ -26,18 +28,18 @@ const REAL_PROOF_OUTPUT_FILE = path.join(OUTPUT_DIR, "r43e_real_proof_review.jso
 const GATE_DOC = "docs/R43E_ONE_TRANSACTION_PROOF_HARNESS.md";
 const REAL_PROOF_GATE_DOC = "docs/R43E2_REAL_TRANSACTION_IMPLEMENTATION_REVIEW.md";
 const OPERATOR_BROADCAST_DEPS_DOC = "docs/R43E3_OPERATOR_BROADCAST_DEPS.md";
-const TARGET_CONFIG_REL = "operator_records/r43e_real_proof_target.json";
-const EXAMPLE_TARGET_REL = "examples/r43e_real_proof_target.example.json";
-const PLACEHOLDER_OUTPUT_MINT = "PLACEHOLDER_TARGET_TOKEN_MINT";
+const TARGET_CONFIG_REL = proofConfig.TARGET_CONFIG_REL;
+const EXAMPLE_TARGET_REL = proofConfig.EXAMPLE_TARGET_REL;
+const PLACEHOLDER_OUTPUT_MINT = proofConfig.PLACEHOLDER_OUTPUT_MINT;
+const PROOF_SCOPE = proofConfig.PROOF_SCOPE;
+const MAX_TRADE_SIZE_SOL = proofConfig.MAX_TRADE_SIZE_SOL;
 
 const SCHEMA_VERSION = 1;
 const R43E_REVIEW_VERDICT = "R43E ONE TRANSACTION PROOF HARNESS — SIMULATION + REAL PROOF REVIEW — NOT LIVE TRADING";
-const PROOF_SCOPE = "one-transaction engineering proof only";
 const PROOF_MODE = "SIMULATION_ONLY";
 const REAL_PROOF_MODE = "REAL_PROOF_ISOLATED";
 const NEXT_REQUIRED_STEP = "final execution command required";
 const NEXT_R43F_STEP = "R43F post-transaction audit review";
-const MAX_TRADE_SIZE_SOL = 0.01;
 
 const VERDICTS = Object.freeze({
   NOT_READY: "R43E_SIMULATION_NOT_READY",
@@ -60,81 +62,14 @@ const FORBIDDEN_VERDICTS = Object.freeze([
   "AUTONOMOUS_TRADING_ENABLED"
 ]);
 
-function parseCliArgs(argv = process.argv.slice(2)) {
-  return {
-    simulate: argv.includes("--simulate"),
-    executeRealProof: argv.includes("--execute-real-proof"),
-    humanPresent: argv.includes("--human-present"),
-    confirmOneTransactionProof: argv.includes("--confirm-one-transaction-proof"),
-    finalBroadcastConfirmation: argv.includes("--final-broadcast-confirmation")
-  };
-}
-
-function validateCliFlags(cli = {}) {
-  const blockers = [];
-  if (cli.executeRealProof === true) {
-    blockers.push("real proof path requires --execute-real-proof handler; do not combine with simulation-only flags");
-    return { ok: false, blockers };
-  }
-  if (cli.simulate !== true) {
-    blockers.push("--simulate required for R43E proof harness (SIMULATION_ONLY)");
-  }
-  if (cli.humanPresent !== true) {
-    blockers.push("--human-present required");
-  }
-  if (cli.confirmOneTransactionProof !== true) {
-    blockers.push("--confirm-one-transaction-proof required");
-  }
-  return { ok: blockers.length === 0, blockers };
-}
-
-function validateRealProofCli(cli = {}) {
-  const blockers = [];
-  if (cli.executeRealProof !== true) {
-    blockers.push("--execute-real-proof required for real proof path");
-  }
-  if (cli.simulate === true) {
-    blockers.push("--simulate cannot be combined with --execute-real-proof");
-  }
-  if (cli.humanPresent !== true) {
-    blockers.push("--human-present required");
-  }
-  if (cli.confirmOneTransactionProof !== true) {
-    blockers.push("--confirm-one-transaction-proof required");
-  }
-  return { ok: blockers.length === 0, blockers };
-}
-
-function validateRealProofBroadcastCli(cli = {}) {
-  const base = validateRealProofCli(cli);
-  if (!base.ok) return base;
-  if (cli.finalBroadcastConfirmation !== true) {
-    return { ok: false, blockers: ["--final-broadcast-confirmation required for broadcast attempt"] };
-  }
-  return { ok: true, blockers: [] };
-}
-
-function validateProofScopeCaps(caps) {
-  const errors = [];
-  if (!caps || typeof caps !== "object") {
-    return { ok: false, errors: ["caps missing"] };
-  }
-  if (caps.approved !== true) errors.push("caps not approved");
-  if (caps.approvalScope !== r43b.REQUIRED_APPROVAL_SCOPE) {
-    errors.push("approvalScope must be one-transaction micro-live engineering proof only");
-  }
-  if (!Number.isFinite(Number(caps.maxTradeSizeSol)) || Number(caps.maxTradeSizeSol) > MAX_TRADE_SIZE_SOL) {
-    errors.push(`maxTradeSizeSol must be <= ${MAX_TRADE_SIZE_SOL}`);
-  }
-  if (!Number.isFinite(Number(caps.maxDailyLossSol)) || Number(caps.maxDailyLossSol) > 0.05) {
-    errors.push("maxDailyLossSol must be <= 0.05");
-  }
-  if (Number(caps.maxTradesPerSession) !== 1) errors.push("maxTradesPerSession must be 1");
-  if (Number(caps.maxOpenLivePositions) !== 1) errors.push("maxOpenLivePositions must be 1");
-  if (caps.autoCompoundingAllowed !== false) errors.push("autoCompoundingAllowed must be false");
-  if (caps.stopAfterFirstTransaction !== true) errors.push("stopAfterFirstTransaction must be true");
-  return { ok: errors.length === 0, errors };
-}
+const parseCliArgs = cliGuards.parseCliArgs;
+const validateCliFlags = cliGuards.validateCliFlags;
+const validateRealProofCli = cliGuards.validateRealProofCli;
+const validateRealProofBroadcastCli = cliGuards.validateRealProofBroadcastCli;
+const validateProofScopeCaps = proofConfig.validateProofScopeCaps;
+const loadProofTargetConfig = proofConfig.loadProofTargetConfig;
+const validateProofTarget = proofConfig.validateProofTarget;
+const summarizeProofTarget = proofConfig.summarizeProofTarget;
 
 function buildProofIntent(context) {
   const createdAt = new Date().toISOString();
@@ -240,80 +175,6 @@ function deriveR43eVerdict(context) {
     blockers: [],
     warnings,
     reason: "R43E simulation gates satisfied — awaiting simulation execution flags"
-  };
-}
-
-function loadProofTargetConfig(repoRoot, options = {}) {
-  if (options.proofTargetLoad !== undefined) {
-    return options.proofTargetLoad;
-  }
-  const file = path.join(repoRoot, TARGET_CONFIG_REL);
-  if (!fs.existsSync(file)) {
-    return { status: "missing", file, data: null };
-  }
-  try {
-    const data = JSON.parse(fs.readFileSync(file, "utf8"));
-    return { status: "present", file, data };
-  } catch (err) {
-    return {
-      status: "corrupt",
-      file,
-      data: null,
-      error: err && err.message ? err.message : String(err)
-    };
-  }
-}
-
-function validateProofTarget(target) {
-  const errors = [];
-  if (!target || typeof target !== "object") {
-    return { ok: false, errors: ["proof target missing"] };
-  }
-  if (target.configType !== "R43E_REAL_PROOF_TARGET") {
-    errors.push("configType must be R43E_REAL_PROOF_TARGET");
-  }
-  if (target.purpose !== PROOF_SCOPE) {
-    errors.push(`purpose must be "${PROOF_SCOPE}"`);
-  }
-  if (!Number.isFinite(Number(target.amountSol)) || Number(target.amountSol) > MAX_TRADE_SIZE_SOL) {
-    errors.push(`amountSol must be <= ${MAX_TRADE_SIZE_SOL}`);
-  }
-  if (!Number.isFinite(Number(target.maxTradeSizeSol)) || Number(target.maxTradeSizeSol) > MAX_TRADE_SIZE_SOL) {
-    errors.push(`maxTradeSizeSol must be <= ${MAX_TRADE_SIZE_SOL}`);
-  }
-  if (target.stopAfterFirstTransaction !== true) {
-    errors.push("stopAfterFirstTransaction must be true");
-  }
-  if (target.autoCompoundingAllowed === true) {
-    errors.push("autoCompoundingAllowed must be false");
-  }
-  if (!target.inputMint || typeof target.inputMint !== "string") {
-    errors.push("inputMint required");
-  }
-  if (!target.outputMint || typeof target.outputMint !== "string") {
-    errors.push("outputMint required");
-  }
-  if (target.outputMint === PLACEHOLDER_OUTPUT_MINT || /PLACEHOLDER/i.test(target.outputMint)) {
-    errors.push("outputMint must not be a placeholder");
-  }
-  if (target.routeProvider !== "jupiter") {
-    errors.push("routeProvider must be jupiter for isolated proof path");
-  }
-  return { ok: errors.length === 0, errors };
-}
-
-function summarizeProofTarget(target) {
-  if (!target) return null;
-  return {
-    configType: target.configType || null,
-    purpose: target.purpose || null,
-    inputMint: target.inputMint || null,
-    outputMint: target.outputMint || null,
-    amountSol: target.amountSol,
-    slippageBps: target.slippageBps,
-    routeProvider: target.routeProvider || null,
-    maxTradeSizeSol: target.maxTradeSizeSol,
-    stopAfterFirstTransaction: target.stopAfterFirstTransaction === true
   };
 }
 
