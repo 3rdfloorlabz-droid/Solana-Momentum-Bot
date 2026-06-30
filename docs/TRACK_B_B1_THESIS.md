@@ -31,7 +31,7 @@ Track A did **not** answer the strategy question: **does this momentum thesis pr
 
 Track B begins here. The product direction is **decision intelligence first, execution second** — measuring signal quality, liquidity capacity, and execution realism before any future capital or live-trading discussion.
 
-**Recommended next milestone:** **B2 — Data collection plan** (data source map, measurement cadence, and forward-test instrumentation).
+**Recommended next milestone:** **B2 — Data collection plan** — see [Track B B2 Data Collection Plan](./TRACK_B_B2_DATA_COLLECTION_PLAN.md). Next after B2 execution: **B3 smart-wallet scoring model**.
 
 ---
 

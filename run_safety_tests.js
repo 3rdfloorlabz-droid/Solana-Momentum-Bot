@@ -122,6 +122,8 @@ const TESTS = [
   "test_r43e_real_proof_cli_guards.js",
   // R43F: post-transaction audit review (temp fixtures only).
   "test_r43f_post_transaction_audit.js",
+  // B2A: 24-hour observation status (temp fixtures only).
+  "test_b2a_24h_observation_status.js",
   "test_ownership_guards.js",
   // Sprint 4 A2c guardrails: static guard that the Recovery Action Preview UI
   // stays preview-only (no buttons/forms/POST/spawn/kill/recovery_actions writes).
