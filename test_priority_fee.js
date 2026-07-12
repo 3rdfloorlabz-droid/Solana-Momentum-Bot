@@ -110,6 +110,22 @@ function mockResult(result) {
     await expectCode(codes.PRIORITY_FEE_UNAVAILABLE, () =>
       test.resolvePriorityFee({ ...cfg, fallbackPriorityFeeLamports: null })
     );
+    mockResult({ totalPriorityFeeLamports: 250000 });
+    const tradeSized = await test.resolvePriorityFee(cfg, { tradeSizeSol: 0.005, accountKeys: [] });
+    assert(tradeSized.appliedPriorityFeeLamports === 250000, "fee under 50% trade notional should pass");
+
+    mockResult({ totalPriorityFeeLamports: 2600000 });
+    let feeRejected = false;
+    try {
+      await test.resolvePriorityFee(
+        { ...cfg, maxPriorityFeeLamports: 3000000 },
+        { tradeSizeSol: 0.005, accountKeys: [] }
+      );
+    } catch (error) {
+      feeRejected = error.code === codes.PRIORITY_FEE_EXCEEDS_TRADE_SIZE;
+    }
+    assert(feeRejected, "fee above 50% trade notional should fail closed");
+
     await expectCode(codes.PRIORITY_FEE_UNAVAILABLE, () =>
       test.resolvePriorityFee({ ...cfg, priorityFeeMode: "unsupported" })
     );

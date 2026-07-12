@@ -25,7 +25,8 @@ const quote = Object.freeze({
   swapMode: "ExactIn",
   slippageBps: 300,
   priceImpactPct: "1",
-  routePlan: Object.freeze([{ swapInfo: { label: "MOCK" }, percent: 100 }])
+  routePlan: Object.freeze([{ swapInfo: { label: "MOCK" }, percent: 100 }]),
+  _jupiterBaseUrl: test.JUPITER_SWAP_BASE_DEFAULT
 });
 const priorityFee = Object.freeze({
   appliedPriorityFeeLamports: 200000
@@ -83,6 +84,8 @@ function mockSingleSwap() {
     process.env.JUPITER_API_KEY = fakeApiKey;
     mockSingleSwap();
     const built = await test.buildSwapTx(quote, signer, priorityFee, cfg);
+    assert(capturedRequest.url.startsWith(`${test.JUPITER_SWAP_BASE_DEFAULT}/swap`), "swap build must use unified /swap/v1 base");
+    assert(!capturedRequest.url.includes("quote-api.jup.ag"), "deprecated Jupiter host must not be used for swap build");
     assert(built.transaction.type === "versioned_v0", "versioned v0 transaction shape not detected");
     assert(built.transaction.serializedBytes instanceof Uint8Array, "transaction bytes not held in memory");
     assert(capturedRequest.body.quoteResponse === quote || JSON.stringify(capturedRequest.body.quoteResponse) === JSON.stringify(quote), "validated quote not passed unchanged");

@@ -59,6 +59,8 @@ async function expectCode(code, fn, stage = null) {
 
 const swapArgs = cfg => ({
   cfg: {
+    automationEnabled: true,
+    emergencyStop: false,
     maxEntrySlippagePct: 3,
     maxExitSlippagePct: 5,
     maxRoutePriceImpactPct: 10,
@@ -71,13 +73,17 @@ const swapArgs = cfg => ({
   tokenAddress: "11111111111111111111111111111111",
   pairAddress: "test-pair",
   expectedPrice: 1,
-  positionSizeSol: 0.10
+  positionSizeSol: 0.005
 });
 
 (async () => {
   try {
     assert(guard, "signer guard test interface missing");
     assert(!Object.hasOwn(guard, "loadSignerFromEnvForRealExecution"), "private signer loader must not be exported");
+
+    // Isolate LIVE-path guard tests from operator/test pending-reconciliation rows.
+    fs.writeFileSync(executor.FILES.PENDING_RECONCILIATION_FILE, "");
+    executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
 
     delete process.env.SOLANA_SIGNER_SECRET;
     delete process.env.EXPECTED_WALLET_PUBLIC_ADDRESS;
@@ -90,10 +96,15 @@ const swapArgs = cfg => ({
       guard.submitSwapForTest("BUY", swapArgs({ dryRunMode: false, walletPublicAddress: "unused" }))
     , "GUARD");
 
+    process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
+    process.env.SOLANA_RPC_URL = "https://dedicated-rpc.invalid/?api-key=signer-guard-test";
+    executor.__r16LivePathTest.setMicroLiveApprovalGateForTest(() => ({ ok: true }));
+
     process.env.SOLANA_SIGNER_SECRET = "not-json";
     await expectCode(codes.SIGNER_LOAD_FAILED, () =>
       guard.submitSwapForTest("BUY", swapArgs({ dryRunMode: false, walletPublicAddress: "unused" }))
     );
+    executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
 
     const testKeypair = makeTestKeypair();
     process.env.SOLANA_SIGNER_SECRET = testKeypair.secretJson;
@@ -107,7 +118,7 @@ const swapArgs = cfg => ({
         outAmount: "90000000",
         otherAmountThreshold: "87300000",
         priceImpactPct: "1",
-        slippageBps: 300,
+        slippageBps: 100,
         routePlan: [{ swapInfo: { label: "MOCK" }, percent: 100 }]
       })
     }));
@@ -130,11 +141,16 @@ const swapArgs = cfg => ({
     await expectCode(codes.WALLET_MISMATCH, () =>
       guard.submitSwapForTest("BUY", swapArgs({ dryRunMode: false, walletPublicAddress: "WrongWalletAddress" }))
     );
+    executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
 
+    delete process.env.FOMO_ENABLE_LIVE_SUBMISSION;
     await expectCode(codes.REAL_PATH_DISABLED, () =>
       guard.submitSwapForTest("BUY", swapArgs({ dryRunMode: false, walletPublicAddress: testKeypair.address }))
     , "GUARD");
+    executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
 
+    process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
+    executor.__r16LivePathTest.setMicroLiveApprovalGateForTest(() => ({ ok: true }));
     process.env.EXPECTED_WALLET_PUBLIC_ADDRESS = "WrongExpectedWallet";
     await expectCode(codes.WALLET_MISMATCH, () =>
       guard.submitSwapForTest("BUY", swapArgs({ dryRunMode: false, walletPublicAddress: testKeypair.address }))
@@ -153,6 +169,8 @@ const swapArgs = cfg => ({
     console.log("SIGNER GUARD TEST PASSED");
     console.log("Dry run bypassed signer; guard codes verified; network/transaction calls: 0");
   } finally {
+    executor.__r16LivePathTest.resetMicroLiveApprovalGateForTest();
+    executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
     if (originalSigner === undefined) delete process.env.SOLANA_SIGNER_SECRET;
     else process.env.SOLANA_SIGNER_SECRET = originalSigner;
     if (originalExpected === undefined) delete process.env.EXPECTED_WALLET_PUBLIC_ADDRESS;

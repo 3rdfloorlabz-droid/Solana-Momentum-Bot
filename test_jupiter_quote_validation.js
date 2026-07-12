@@ -48,7 +48,7 @@ function quoteFor(kind, overrides = {}) {
     outAmount: "90000000",
     otherAmountThreshold: "87300000",
     priceImpactPct: "1.5",
-    slippageBps: kind === "BUY" ? 300 : 500,
+    slippageBps: kind === "BUY" ? 100 : 100,
     routePlan: [{ swapInfo: { label: "MOCK_ROUTE" }, percent: 100 }],
     ...overrides
   };
@@ -93,16 +93,26 @@ function makeTestKeypair() {
       quoteFor("BUY", { priceImpactPct: "10.01" }), "BUY", cfg, buyMints
     )));
     await expectCode(codes.ENTRY_SLIPPAGE_BLOCKED, () => Promise.resolve(test.validateJupiterRoute(
-      quoteFor("BUY", { slippageBps: 301 }), "BUY", cfg, buyMints
+      quoteFor("BUY", { slippageBps: 101 }), "BUY", { ...cfg, maxEntrySlippagePct: 1 }, buyMints
     )));
+    await expectCode(codes.ROUTE_REJECTED, () => Promise.resolve(test.validateJupiterRoute(
+      quoteFor("BUY", { slippageBps: 300 }), "BUY", { ...cfg, hardRejectSlippageBps: 300 }, buyMints
+    )));
+    await expectCode(codes.ROUTE_REJECTED, () => Promise.resolve(test.validateJupiterRoute(
+      quoteFor("BUY", { otherAmountThreshold: null, outAmount: null }), "BUY", cfg, buyMints
+    )));
+    assert(test.isQuoteFresh({ _fetchedAtMs: Date.now() }, 10000), "fresh quote should pass");
+    assert(!test.isQuoteFresh({ _fetchedAtMs: Date.now() - 11000 }, 10000), "stale quote should fail");
     await expectCode(codes.EXIT_SLIPPAGE_BLOCKED, () => Promise.resolve(test.validateJupiterRoute(
-      quoteFor("SELL", { slippageBps: 501 }), "SELL", cfg, sellMints
+      quoteFor("SELL", { slippageBps: 150 }), "SELL", { ...cfg, maxExitSlippagePct: 1 }, sellMints
     )));
     assert(test.validateJupiterRoute(quoteFor("BUY"), "BUY", cfg, buyMints), "good BUY route rejected");
 
     test.setQuoteFetchForTest(async url => {
       quoteCalls += 1;
-      assert(url.startsWith(test.JUPITER_QUOTE_ENDPOINT), "wrong Jupiter quote endpoint");
+      assert(url.startsWith(`${test.JUPITER_SWAP_BASE_DEFAULT}/quote`), "wrong Jupiter quote endpoint");
+      assert(!url.includes("quote-api.jup.ag"), "deprecated Jupiter quote host must not be used");
+      assert(!url.includes("/v6/"), "Jupiter v6 quote path must not be used");
       return { ok: true, json: async () => quoteFor("BUY") };
     });
     const fetchedQuote = await test.getJupiterQuote("BUY", cfg, buyMints, 100000000);
@@ -133,7 +143,7 @@ function makeTestKeypair() {
       tokenAddress: tokenMint,
       pairAddress: "mock-pair",
       expectedPrice: 1,
-      positionSizeSol: 0.10
+      positionSizeSol: 0.005
     }));
 
     if (process.env.RUN_REAL_QUOTE_TEST === "true") {

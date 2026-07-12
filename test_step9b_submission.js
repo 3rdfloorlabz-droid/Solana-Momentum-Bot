@@ -30,6 +30,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function resetPendingReconciliationForLiveSubmitTests() {
+  fs.writeFileSync(pendingFile, "");
+  executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
+}
+
 function encodeBase58(bytes) {
   const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
   let value = 0n;
@@ -137,10 +142,10 @@ function installPipelineMocks({ returnedTxSig, fillThrows = false, highUsdFill =
       inputMint: quoteTest.SOL_MINT,
       outputMint: tokenAddress,
       inAmount: "10000000",
-      outAmount: "100000000",
-      otherAmountThreshold: "97000000",
+      outAmount: "100",
+      otherAmountThreshold: "97",
       priceImpactPct: "1",
-      slippageBps: 300,
+      slippageBps: 100,
       routePlan: [{ swapInfo: { label: "MOCK" }, percent: 100 }]
     })
   }));
@@ -201,7 +206,7 @@ function installPipelineMocks({ returnedTxSig, fillThrows = false, highUsdFill =
             postTokenBalances: [{
               owner,
               mint: tokenAddress,
-              uiTokenAmount: { uiAmount: highUsdFill ? 50 : 100, uiAmountString: highUsdFill ? "50" : "100" }
+              uiTokenAmount: { uiAmount: 100, uiAmountString: "100" }
             }]
           }
         }
@@ -223,6 +228,8 @@ function resetMocks() {
 
 (async () => {
   try {
+    executor.__r16LivePathTest.setMicroLiveApprovalGateForTest(() => ({ ok: true }));
+    resetPendingReconciliationForLiveSubmitTests();
     delete process.env.EXPECTED_WALLET_PUBLIC_ADDRESS;
     delete process.env.HELIUS_RPC_URL;
     delete process.env.HELIUS_API_KEY;
@@ -343,12 +350,17 @@ function resetMocks() {
     assert(!JSON.stringify(confirmUnknownRows[0]).includes("[REDACTED_BASE58]"), "confirmation unknown should not redact public base58 identifiers");
     assert(confirmUnknownRows[0].currentBlockHeight === 12345, "current block height not captured");
 
+    // Reconciliation helper tests above intentionally leave pending rows; LIVE submit
+    // scenarios below require a clean pending queue.
+    resetPendingReconciliationForLiveSubmitTests();
+
     installPipelineMocks({ owner: keypair.address });
     submissionTest.setConfirmationFetchForTest(async () => ({ ok: true, status: 200, json: async () => ({ result: { value: [null] } }) }));
     await expectExecutionError(codes.CONFIRMATION_TIMEOUT, stages.CONFIRMATION, () =>
       pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: keypair.address, confirmationTimeoutMs: 0 }))
     );
 
+    resetPendingReconciliationForLiveSubmitTests();
     installPipelineMocks({ owner: keypair.address });
     submissionTest.setConfirmationFetchForTest(async () => ({
       ok: true,
@@ -360,11 +372,13 @@ function resetMocks() {
     );
     assert(typeof failedError.extra.txSig === "string" && failedError.extra.txSig.length === 8, "confirmation failed txSig must be truncated in audit/error metadata");
 
+    resetPendingReconciliationForLiveSubmitTests();
     installPipelineMocks({ fillThrows: true, owner: keypair.address });
     await expectExecutionError(codes.FILL_PARSE_FAILED, stages.FILL_PARSE, () =>
       pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: keypair.address }))
     );
 
+    resetPendingReconciliationForLiveSubmitTests();
     let fillRetryAttempts = 0;
     installPipelineMocks({ missingFillAttempts: 2, owner: keypair.address });
     submissionTest.setFillFetchForTest(async () => {
@@ -396,6 +410,7 @@ function resetMocks() {
     assert(fillRetryAttempts === 3, "fill parser must retry getTransaction for indexing lag");
     assert(retryFill.actualFillPriceSolPerToken === 0.0001, "retry fill price mismatch");
 
+    resetPendingReconciliationForLiveSubmitTests();
     installPipelineMocks({ highUsdFill: true, owner: keypair.address });
     const noBlock = await pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: keypair.address }));
     assert(typeof noBlock.txSig === "string" && noBlock.txSig.length > 32, "post-fill slippage path should return landed tx");
@@ -447,6 +462,7 @@ function resetMocks() {
     console.log("HAPPY_PATH_FILL_PARSE_AUDIT:");
     console.log(JSON.stringify(happyFillAudit));
   } finally {
+    executor.__r16LivePathTest.resetMicroLiveApprovalGateForTest();
     resetMocks();
     if (originalEnv.signer === undefined) delete process.env.SOLANA_SIGNER_SECRET; else process.env.SOLANA_SIGNER_SECRET = originalEnv.signer;
     if (originalEnv.rpc === undefined) delete process.env.SOLANA_RPC_URL; else process.env.SOLANA_RPC_URL = originalEnv.rpc;

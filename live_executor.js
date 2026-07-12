@@ -9,7 +9,8 @@
 //   3. emergencyStop:true => no entries AND no exits. Requires reset_live_safety.js.
 //   4. Fixed position size. No compounding, no averaging down, no martingale.
 //   5. Max 1 open live position.
-//   6. Daily stop: 3 losses OR -0.10 SOL realized => no new entries.
+//   6. Daily stop: maxDailyLossCount losses OR maxDailyLossSol realized => no new entries.
+//      Session stop: maxSessionLossSol realized since sessionStartedAt => no new entries.
 //   7. Strict gmgn_v4 thesis only.
 //   8. Never reads a private key from source. Real signing requires an env var
 //      the user provides, and is NOT implemented here (guarded stub).
@@ -23,6 +24,9 @@
 
 "use strict";
 
+// A4.8 — load local `.env` before ROOT/RPC env reads (never prints values).
+require("./local_env").loadLocalEnv();
+
 const fs   = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -30,6 +34,9 @@ const configStore = require("./config_store"); // A1b: shared atomic config writ
 const observationDedupStore = require("./observation_dedup_store"); // R3: atomic dedup snapshot writer
 const livePositionsStore = require("./live_positions_store"); // R4: atomic live positions writer
 const executorSingletonGuard = require("./executor_singleton_guard"); // R5: duplicate loop guard
+const auditWriter = require("./audit_writer"); // Vulcan Stage 2: producer-attributed audit rows
+const { AsyncLocalStorage } = require("async_hooks"); // Vulcan Stage 3: invocation-context propagation
+const jupiterClient = require("./jupiter_swap_client");
 
 let axios = null;
 try { axios = require("axios"); } catch { /* price polling will degrade gracefully */ }
@@ -55,8 +62,8 @@ const CONFIG_AUDIT_FILE   = path.join(ROOT, "config_change_audit.jsonl");
 const EXECUTOR_LOCK_FILE  = executorSingletonGuard.getExecutorLockPath();
 
 const DEX = "https://api.dexscreener.com";
-const JUPITER_QUOTE_ENDPOINT = "https://quote-api.jup.ag/v6/quote";
-const JUPITER_SWAP_ENDPOINT = "https://api.jup.ag/swap/v1/swap";
+const JUPITER_SWAP_BASE_DEFAULT = jupiterClient.JUPITER_SWAP_BASE_DEFAULT;
+const JUPITER_SWAP_BASE_PRO = jupiterClient.JUPITER_SWAP_BASE_PRO;
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 const PHASE            = "PHASE_1_AUTONOMOUS_DRY_RUN";
@@ -84,7 +91,19 @@ const EXECUTION_ABORT_CODES = Object.freeze({
   SUBMISSION_NOT_IMPLEMENTED: "SUBMISSION_NOT_IMPLEMENTED",
   CONFIRMATION_TIMEOUT: "CONFIRMATION_TIMEOUT",
   CONFIRMATION_FAILED: "CONFIRMATION_FAILED",
-  FILL_PARSE_FAILED: "FILL_PARSE_FAILED"
+  FILL_PARSE_FAILED: "FILL_PARSE_FAILED",
+  QUOTE_STALE: "QUOTE_STALE",
+  ROUTE_CHANGED_SINCE_QUOTE: "ROUTE_CHANGED_SINCE_QUOTE",
+  REALIZED_SLIPPAGE_HALT: "REALIZED_SLIPPAGE_HALT",
+  RETRY_LIMIT_EXCEEDED: "RETRY_LIMIT_EXCEEDED",
+  PARTIAL_FILL_UNRECONCILED: "PARTIAL_FILL_UNRECONCILED",
+  PRIORITY_FEE_EXCEEDS_TRADE_SIZE: "PRIORITY_FEE_EXCEEDS_TRADE_SIZE",
+  LIQUIDITY_BELOW_FLOOR: "LIQUIDITY_BELOW_FLOOR",
+  MICRO_LIVE_APPROVAL_BLOCKED: "MICRO_LIVE_APPROVAL_BLOCKED",
+  DUPLICATE_SUBMIT_IN_FLIGHT: "DUPLICATE_SUBMIT_IN_FLIGHT",
+  CAPITAL_EXPOSURE_BLOCKED: "CAPITAL_EXPOSURE_BLOCKED",
+  PENDING_RECONCILIATION_BLOCKS_ENTRY: "PENDING_RECONCILIATION_BLOCKS_ENTRY",
+  EMERGENCY_STOP_ACTIVE: "EMERGENCY_STOP_ACTIVE"
 });
 const EXPECTED_OBSERVATION_ABORT_CODES = Object.freeze(new Set([
   EXECUTION_ABORT_CODES.QUOTE_FAILED,
@@ -187,15 +206,122 @@ function makeExecutionError(code, stage, message, extra = {}) {
   return error;
 }
 
-function logExecutionStage(stage, payload = {}) {
-  const event = {
-    timestamp: nowIso(),
+// ─── Vulcan Stage 3 — invocation-context propagation ──────────────────────────
+//
+// Producer identity (Stage 2) answers WHO wrote the row. Invocation context
+// (Stage 3) answers WHY the path was invoked — e.g. a monitor-driven live-exit
+// mirror vs the canonical executor loop. Because logExecutionStage sits deep
+// under submitSwap(), we propagate context across the async call chain with a
+// Node AsyncLocalStorage rather than threading a parameter through every stage.
+// This is a logging concern only: it does not alter trade, gate, or A4 logic.
+const invocationContextStore = new AsyncLocalStorage();
+
+// Normalize an untrusted context object to safe string fields. Unknown/missing
+// values default to "unknown" (or "none" for bridgeMode) — we never guess.
+function normalizeInvocationContext(context) {
+  if (!context || typeof context !== "object") return null;
+  const pick = (v) => (typeof v === "string" && v.trim().length > 0 ? v : undefined);
+  return {
+    invocationContext: pick(context.invocationContext) || "unknown",
+    invocationSource: pick(context.invocationSource) || "unknown",
+    bridgeMode: pick(context.bridgeMode) || "none",
+    // Optional Stage 2 enrichments — only carried when explicitly supplied.
+    runtimeMode: pick(context.runtimeMode),
+    authorityMode: pick(context.authorityMode),
+    capitalExposure: pick(context.capitalExposure),
+    producer: pick(context.producer),
+    sourceModule: pick(context.sourceModule),
+    confidence: pick(context.confidence)
+  };
+}
+
+function currentInvocationContext() {
+  return invocationContextStore.getStore() || null;
+}
+
+// Vulcan Stage 8 — explicit CLI entry invocation contexts. Declared at entry
+// points only; never inferred downstream from producer or audit activity.
+const EXECUTOR_CLI_INVOCATION = {
+  STATUS: {
+    invocationContext: "executor_status",
+    invocationSource: "live_executor",
+    bridgeMode: "none"
+  },
+  CYCLE: {
+    invocationContext: "executor_cycle",
+    invocationSource: "live_executor",
+    bridgeMode: "none"
+  },
+  LOOP: {
+    invocationContext: "executor_loop",
+    invocationSource: "live_executor",
+    bridgeMode: "none"
+  }
+};
+
+// Vulcan Stage 10 — dashboard-originated read/status context. Declared by the
+// dashboard (the entry point) when it invokes audit-producing readiness/status
+// helpers for display only. This is observation, NOT execution: it must never
+// imply executor loop, soak, or live readiness. Kept here so the single source
+// of truth for invocation contexts lives beside the executor/CLI/monitor values.
+const DASHBOARD_INVOCATION = {
+  invocationContext: "dashboard_status",
+  invocationSource: "dashboard",
+  bridgeMode: "dashboard_status_read"
+};
+
+function runWithExecutorInvocationContext(context, fn) {
+  return invocationContextStore.run(normalizeInvocationContext(context) || {}, fn);
+}
+
+// Vulcan Stage 2/3 — attributed execution_audit.jsonl rows.
+//
+// Behavior preserved: the payload is still redacted via redactSecrets BEFORE it
+// leaves this function (redaction is unchanged/strengthened, never weakened), the
+// event still carries timestamp/eventType/stage/payload, and it is still appended
+// to EXECUTION_AUDIT_FILE. Attribution is built via the shared audit_writer so
+// every NEW row records WHO produced it (producer/producerScript/sourceModule),
+// with runtime/authority/capital context defaulting to "unknown" when unknown —
+// we do not guess runtime state from inside this low-level logger.
+//
+// Stage 3: invocationContext/invocationSource/bridgeMode are added from (in order
+// of precedence) an explicit `context` argument, then the ambient AsyncLocalStorage
+// context set around a bridge call (e.g. monitor mirror), then safe defaults.
+// These three fields are additive and sit alongside the shared-writer fields.
+//
+// Error handling: buildAuditEvent throws only if `producer` is missing (always
+// supplied here); the append uses the same appendJsonl/fs.appendFileSync as before
+// and throws on the same fs errors — no new swallow/hide, no execution-enabling path.
+function logExecutionStage(stage, payload = {}, context = {}) {
+  const ambient = currentInvocationContext() || {};
+  const merged = { ...ambient, ...(context || {}) }; // explicit arg wins over ambient
+  const row = auditWriter.buildAuditEvent({
     eventType: "EXECUTION_STAGE",
     stage,
-    payload: redactSecrets(payload)
-  };
-  appendJsonl(EXECUTION_AUDIT_FILE, event);
-  return event;
+    payload: redactSecrets(payload),
+    // Neutral executor-origin tag. We deliberately do NOT assert
+    // "live_executor_loop" here: this logger is reachable from --loop, --cycle,
+    // --status, and monitor-driven mirroring. Invocation context (below)
+    // distinguishes WHY the path ran.
+    producer: merged.producer || "live_executor",
+    producerScript: "live_executor.js",
+    producerPid: process.pid,
+    sourceModule: merged.sourceModule || "live_executor",
+    runtimeMode: merged.runtimeMode || auditWriter.RUNTIME_MODES.UNKNOWN,
+    authorityMode: merged.authorityMode || auditWriter.AUTHORITY_MODES.UNKNOWN,
+    pipelineMode: merged.pipelineMode || "unknown",
+    capitalExposure: merged.capitalExposure || auditWriter.CAPITAL_EXPOSURE.UNKNOWN,
+    gateResult: merged.gateResult !== undefined ? merged.gateResult : null,
+    reason: merged.reason || null,
+    confidence: merged.confidence || "medium",
+    legacyRow: false
+  });
+  // Stage 3 additive invocation-context fields.
+  row.invocationContext = merged.invocationContext || "unknown";
+  row.invocationSource = merged.invocationSource || "unknown";
+  row.bridgeMode = merged.bridgeMode || "none";
+  appendJsonl(EXECUTION_AUDIT_FILE, row);
+  return row;
 }
 
 function logExecutionFailure(code, stage, message, extra = {}) {
@@ -240,6 +366,13 @@ function cycleCandidateAudit(candidate) {
 
 let signerGuardLoadCount = 0;
 let signerLoaderForTest = null;
+let microLiveApprovalGateForTest = null;
+let armedProofApprovalGateForTest = null;
+let approvalRecordProviderForTest = null;
+let capitalExposureProviderForTest = null;
+let writePositionsForTest = null;
+let walletBalanceForTest = null;
+const liveSubmitInFlightKeys = new Set();
 
 function encodeBase58(bytes) {
   if (!(bytes instanceof Uint8Array) && !Buffer.isBuffer(bytes)) {
@@ -480,28 +613,14 @@ async function getJupiterQuote(kind, cfg, mints, amountLamportsOrTokenUnits) {
     );
   }
 
-  const params = new URLSearchParams({
-    inputMint: mints.inputMint,
-    outputMint: mints.outputMint,
-    amount: String(amount),
-    slippageBps: String(Math.round(slippagePct * 100)),
-    swapMode: "ExactIn"
-  });
-
   try {
-    const response = await quoteFetch(`${JUPITER_QUOTE_ENDPOINT}?${params.toString()}`, {
-      method: "GET",
-      headers: { Accept: "application/json" }
+    const quote = await jupiterClient.fetchJupiterQuote({
+      fetchFn: quoteFetch,
+      inputMint: mints.inputMint,
+      outputMint: mints.outputMint,
+      amount,
+      slippageBps: Math.round(slippagePct * 100)
     });
-    if (!response || response.ok !== true) {
-      throw new Error("Jupiter quote HTTP request failed.");
-    }
-    const quote = await response.json();
-    const requiredFields = ["inputMint", "outputMint", "inAmount", "outAmount", "otherAmountThreshold", "priceImpactPct", "slippageBps"];
-    if (!quote || requiredFields.some(field => quote[field] === undefined || quote[field] === null) ||
-        !Array.isArray(quote.routePlan) || quote.routePlan.length === 0) {
-      throw new Error("Jupiter quote response is empty or malformed.");
-    }
     logExecutionStage(EXECUTION_STAGES.QUOTE, {
       kind,
       inputMint: quote.inputMint,
@@ -511,11 +630,12 @@ async function getJupiterQuote(kind, cfg, mints, amountLamportsOrTokenUnits) {
       otherAmountThreshold: quote.otherAmountThreshold,
       priceImpactPct: quote.priceImpactPct,
       slippageBps: quote.slippageBps,
-      routeCount: quote.routePlan.length
+      routeCount: quote.routePlan.length,
+      jupiterBaseUrl: quote._jupiterBaseUrl
     });
     return quote;
   } catch (error) {
-    if (error?.code) throw error;
+    if (error?.code && EXECUTION_ABORT_CODES[error.code]) throw error;
     throw makeExecutionError(
       EXECUTION_ABORT_CODES.QUOTE_FAILED,
       EXECUTION_STAGES.QUOTE,
@@ -525,7 +645,7 @@ async function getJupiterQuote(kind, cfg, mints, amountLamportsOrTokenUnits) {
   }
 }
 
-function validateJupiterRoute(quote, kind, cfg, mints) {
+function validateJupiterRoute(quote, kind, cfg, mints, options = {}) {
   if (!quote || !mints || quote.inputMint !== mints.inputMint || quote.outputMint !== mints.outputMint) {
     throw makeExecutionError(
       EXECUTION_ABORT_CODES.MINT_MISMATCH,
@@ -534,14 +654,35 @@ function validateJupiterRoute(quote, kind, cfg, mints) {
     );
   }
 
+  const minOutput = quote.otherAmountThreshold ?? quote.outAmount;
+  if (minOutput === undefined || minOutput === null || String(minOutput).trim() === "") {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.ROUTE_REJECTED,
+      EXECUTION_STAGES.ROUTE_VALIDATION,
+      "Jupiter route is missing minimum output guarantee."
+    );
+  }
+
   const priceImpactPct = Number(quote.priceImpactPct);
   const slippagePct = Number(quote.slippageBps) / 100;
+  const hardRejectBps = Number(cfg.hardRejectSlippageBps ?? 300);
   const maxSlippagePct = kind === "BUY" ? Number(cfg.maxEntrySlippagePct) : Number(cfg.maxExitSlippagePct);
+  const manualMaxPct = Number(cfg.manualSlippageApprovalBps ?? 200) / 100;
+  const effectiveMaxSlippagePct = options.manualSlippageApproved === true
+    ? Math.max(maxSlippagePct, manualMaxPct)
+    : maxSlippagePct;
   if (!Number.isFinite(priceImpactPct) || !Number.isFinite(slippagePct) || !Number.isFinite(maxSlippagePct)) {
     throw makeExecutionError(
       EXECUTION_ABORT_CODES.QUOTE_FAILED,
       EXECUTION_STAGES.ROUTE_VALIDATION,
       "Jupiter route metrics are malformed."
+    );
+  }
+  if (Number.isFinite(hardRejectBps) && Number(quote.slippageBps) >= hardRejectBps) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.ROUTE_REJECTED,
+      EXECUTION_STAGES.ROUTE_VALIDATION,
+      "Jupiter route slippage exceeds hard reject cap."
     );
   }
   if (priceImpactPct > Number(cfg.maxRoutePriceImpactPct)) {
@@ -551,7 +692,7 @@ function validateJupiterRoute(quote, kind, cfg, mints) {
       "Jupiter route price impact exceeds configured maximum."
     );
   }
-  if (slippagePct > maxSlippagePct) {
+  if (slippagePct > effectiveMaxSlippagePct) {
     throw makeExecutionError(
       kind === "BUY" ? EXECUTION_ABORT_CODES.ENTRY_SLIPPAGE_BLOCKED : EXECUTION_ABORT_CODES.EXIT_SLIPPAGE_BLOCKED,
       EXECUTION_STAGES.ROUTE_VALIDATION,
@@ -565,9 +706,255 @@ function validateJupiterRoute(quote, kind, cfg, mints) {
     outputMint: quote.outputMint,
     priceImpactPct,
     slippagePct,
-    maxSlippagePct
+    maxSlippagePct: effectiveMaxSlippagePct,
+    hardRejectBps,
+    manualSlippageApproved: options.manualSlippageApproved === true
   });
   return quote;
+}
+
+function getQuoteAgeMs(quote, nowMs = Date.now()) {
+  const fetchedAt = Number(quote?._fetchedAtMs);
+  if (!Number.isFinite(fetchedAt) || fetchedAt <= 0) return null;
+  return Math.max(0, nowMs - fetchedAt);
+}
+
+function isQuoteFresh(quote, maxAgeMs, nowMs = Date.now()) {
+  const ageMs = getQuoteAgeMs(quote, nowMs);
+  const limit = Number(maxAgeMs ?? 10000);
+  if (ageMs === null) return false;
+  return ageMs <= limit;
+}
+
+function assertQuoteFresh(quote, cfg, nowMs = Date.now()) {
+  const maxAgeMs = Number(cfg?.maxQuoteAgeMs ?? 10000);
+  if (isQuoteFresh(quote, maxAgeMs, nowMs)) return;
+  throw makeExecutionError(
+    EXECUTION_ABORT_CODES.QUOTE_STALE,
+    EXECUTION_STAGES.ROUTE_VALIDATION,
+    "Quote exceeded maximum age before submit.",
+    { quoteAgeMs: getQuoteAgeMs(quote, nowMs), maxQuoteAgeMs: maxAgeMs, retriable: true }
+  );
+}
+
+function quoteRouteFingerprint(quote) {
+  return jupiterClient.quoteRouteFingerprint(quote);
+}
+
+function assertRouteUnchangedSinceQuote(originalQuote, freshQuote) {
+  const before = quoteRouteFingerprint(originalQuote);
+  const after = quoteRouteFingerprint(freshQuote);
+  if (before === null || after === null || before === after) return;
+  throw makeExecutionError(
+    EXECUTION_ABORT_CODES.ROUTE_CHANGED_SINCE_QUOTE,
+    EXECUTION_STAGES.ROUTE_VALIDATION,
+    "Route changed between quote and submit without re-quote approval.",
+    { retriable: true }
+  );
+}
+
+function checkExecutionTimeLiquidity(poolLiquidityUsd, cfg, options = {}) {
+  const minFloor = Number(cfg?.minPoolLiquidityUsd ?? 25000);
+  const liquidity = Number(poolLiquidityUsd);
+  const kind = options.kind || null;
+  const requireEvidence = options.requireLiquidityEvidence === true
+    || (kind === "SELL" && Number.isFinite(minFloor) && minFloor > 0);
+  if (!Number.isFinite(minFloor) || minFloor <= 0) return;
+  if (poolLiquidityUsd === undefined || poolLiquidityUsd === null) {
+    if (requireEvidence) {
+      throw makeExecutionError(
+        EXECUTION_ABORT_CODES.LIQUIDITY_BELOW_FLOOR,
+        EXECUTION_STAGES.ROUTE_VALIDATION,
+        "Exit-path pool liquidity evidence is required but missing.",
+        { poolLiquidityUsd: null, minPoolLiquidityUsd: minFloor, kind: kind || "UNKNOWN" }
+      );
+    }
+    return;
+  }
+  if (!Number.isFinite(liquidity) || liquidity < minFloor) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.LIQUIDITY_BELOW_FLOOR,
+      EXECUTION_STAGES.ROUTE_VALIDATION,
+      "Pool liquidity is below configured micro-live floor.",
+      { poolLiquidityUsd: Number.isFinite(liquidity) ? liquidity : null, minPoolLiquidityUsd: minFloor, kind: kind || null }
+    );
+  }
+}
+
+function resolveMevRouteMode(cfg, context = {}) {
+  const mode = String(cfg?.mevRouteMode || "public_micro_live_only");
+  const tradeSizeSol = Number(context.positionSizeSol ?? cfg?.positionSizeSol ?? 0);
+  const microLiveMax = Number(cfg?.maxMicroLiveTradeSizeSol ?? 0.01);
+  const executionMode = context.executionMode || null;
+  const scaling = context.scaling === true || tradeSizeSol > microLiveMax;
+  const publicAllowed = mode === "public_micro_live_only" && !scaling && tradeSizeSol <= microLiveMax;
+  const protectedRequired = scaling || mode === "protected_required" || mode === "protected";
+  const posture = Object.freeze({
+    mode,
+    publicAllowed,
+    protectedPreferred: true,
+    protectedRequired,
+    tradeSizeSol,
+    microLiveMaxTradeSizeSol: microLiveMax
+  });
+  if (protectedRequired && mode === "public_micro_live_only" && scaling && executionMode === "LIVE") {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.ROUTE_REJECTED,
+      EXECUTION_STAGES.ROUTE_VALIDATION,
+      "Protected route required before scaling beyond micro-live trade size."
+    );
+  }
+  return posture;
+}
+
+function capPriorityFeeToTradeSize(feeLamports, tradeSizeSol) {
+  const fee = Number(feeLamports);
+  const tradeSol = Number(tradeSizeSol);
+  if (!Number.isFinite(fee) || fee < 0 || !Number.isFinite(tradeSol) || tradeSol <= 0) {
+    return Object.freeze({ exceeded: false, feeLamports: fee, maxFeeLamports: null });
+  }
+  const maxFeeLamports = Math.floor(tradeSol * LAMPORTS_PER_SOL * 0.5);
+  return Object.freeze({
+    exceeded: fee > maxFeeLamports,
+    feeLamports: fee,
+    maxFeeLamports,
+    tradeSizeSol: tradeSol
+  });
+}
+
+function evaluateRealizedSlippage(quotedMinOut, actualOutAmount, cfg) {
+  const quoted = BigInt(String(quotedMinOut));
+  const actualRaw = Number(actualOutAmount);
+  if (!Number.isFinite(actualRaw) || actualRaw < 0) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.PARTIAL_FILL_UNRECONCILED,
+      EXECUTION_STAGES.FILL_PARSE,
+      "Actual fill output is not observable."
+    );
+  }
+  const actual = BigInt(String(Math.floor(actualRaw)));
+  if (actual >= quoted) {
+    return Object.freeze({ warn: false, halt: false, realizedSlippageBps: 0 });
+  }
+  const shortfallBps = Number((quoted - actual) * 10000n / quoted);
+  const haltBps = Number(cfg?.realizedSlippageHaltBps ?? 200);
+  if (shortfallBps > haltBps) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.REALIZED_SLIPPAGE_HALT,
+      EXECUTION_STAGES.FILL_PARSE,
+      "Realized slippage exceeded halt threshold.",
+      { realizedSlippageBps: shortfallBps, haltBps }
+    );
+  }
+  return Object.freeze({
+    warn: shortfallBps > 100,
+    halt: false,
+    realizedSlippageBps: shortfallBps
+  });
+}
+
+function detectPartialFill({ actualOutAmount, expectedMinOut, partialFillSupported = false }) {
+  if (partialFillSupported) return Object.freeze({ partial: false });
+  const actual = Number(actualOutAmount);
+  const expected = Number(expectedMinOut);
+  if (!Number.isFinite(actual) || !Number.isFinite(expected) || expected <= 0) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.PARTIAL_FILL_UNRECONCILED,
+      EXECUTION_STAGES.FILL_PARSE,
+      "Partial fill state is not observable; reconciliation required before next trade."
+    );
+  }
+  if (actual + 1e-12 < expected) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.PARTIAL_FILL_UNRECONCILED,
+      EXECUTION_STAGES.FILL_PARSE,
+      "Partial fill detected; reconciliation required before next trade.",
+      { actualOutAmount: actual, expectedMinOut: expected, retriable: false }
+    );
+  }
+  return Object.freeze({ partial: false });
+}
+
+function maxSubmitAttempts(cfg) {
+  const retries = Number(cfg?.maxSubmitRetries);
+  if (!Number.isFinite(retries) || retries < 0) return 1;
+  return Math.min(Math.floor(retries) + 1, 10);
+}
+
+function isRetriableSubmitError(error) {
+  if (error?.extra?.retriable === true) return true;
+  return [
+    EXECUTION_ABORT_CODES.SUBMIT_FAILED,
+    EXECUTION_ABORT_CODES.QUOTE_STALE,
+    EXECUTION_ABORT_CODES.ROUTE_CHANGED_SINCE_QUOTE,
+    EXECUTION_ABORT_CODES.QUOTE_FAILED
+  ].includes(error?.code);
+}
+
+async function executeQuotedSwapAttempt(kind, ctx) {
+  const {
+    cfg, tokenAddress, positionSizeSol, sellAmountTokenUnits, signer, mode,
+    poolLiquidityUsd, manualSlippageApproved, attempt
+  } = ctx;
+  checkExecutionTimeLiquidity(poolLiquidityUsd, cfg, { kind });
+  const mevPosture = resolveMevRouteMode(cfg, { positionSizeSol, executionMode: mode });
+  const mints = resolveSwapMints(kind, tokenAddress);
+  const quoteAmount = kind === "BUY"
+    ? Math.round(Number(positionSizeSol) * LAMPORTS_PER_SOL)
+    : Number(sellAmountTokenUnits);
+  const quote = await getJupiterQuote(kind, cfg, mints, quoteAmount);
+  validateJupiterRoute(quote, kind, cfg, mints, { manualSlippageApproved });
+  assertQuoteFresh(quote, cfg);
+  const quoteAgeMs = getQuoteAgeMs(quote);
+  const tradeSizeSol = kind === "BUY" ? Number(positionSizeSol) : undefined;
+  const priorityFee = await resolvePriorityFee(cfg, {
+    accountKeys: [mints.inputMint, mints.outputMint],
+    tradeSizeSol
+  });
+  const builtSwap = await buildSwapTx(quote, signer, priorityFee, cfg);
+  const simulation = await simulateSwapTx(builtSwap, cfg);
+  if (mode === "LIVE") {
+    const submitQuote = await getJupiterQuote(kind, cfg, mints, quoteAmount);
+    validateJupiterRoute(submitQuote, kind, cfg, mints, { manualSlippageApproved });
+    assertQuoteFresh(submitQuote, cfg);
+    assertRouteUnchangedSinceQuote(quote, submitQuote);
+  }
+  logExecutionStage(EXECUTION_STAGES.ROUTE_VALIDATION, {
+    r14Attempt: attempt,
+    quoteAgeMs,
+    mevRouteMode: mevPosture.mode,
+    publicAllowed: mevPosture.publicAllowed,
+    protectedRequired: mevPosture.protectedRequired
+  });
+  return Object.freeze({
+    quote, priorityFee, builtSwap, simulation, mints, mevPosture, quoteAgeMs
+  });
+}
+
+async function executeQuotedSwapWithRetries(kind, ctx) {
+  const attempts = maxSubmitAttempts(ctx.cfg);
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await executeQuotedSwapAttempt(kind, { ...ctx, attempt });
+    } catch (error) {
+      lastError = error;
+      if (!isRetriableSubmitError(error) || attempt >= attempts - 1) throw error;
+      logExecutionStage(EXECUTION_STAGES.QUOTE, {
+        kind,
+        retryAttempt: attempt + 1,
+        maxAttempts: attempts,
+        retryReasonCode: error.code,
+        note: "Re-quote before retry; no blind rebroadcast."
+      });
+    }
+  }
+  throw lastError || makeExecutionError(
+    EXECUTION_ABORT_CODES.RETRY_LIMIT_EXCEEDED,
+    EXECUTION_STAGES.SUBMIT,
+    "Quote/submit retry limit exceeded.",
+    { maxAttempts: attempts }
+  );
 }
 
 async function resolvePriorityFee(cfg, context = {}) {
@@ -596,8 +983,20 @@ async function resolvePriorityFee(cfg, context = {}) {
       );
     }
     const rounded = Math.round(candidate);
-    const applied = Math.min(rounded, maxFee);
+    let applied = Math.min(rounded, maxFee);
     const clamped = rounded > maxFee;
+    const tradeSizeSol = Number(context.tradeSizeSol);
+    if (Number.isFinite(tradeSizeSol) && tradeSizeSol > 0) {
+      const tradeCap = capPriorityFeeToTradeSize(applied, tradeSizeSol);
+      if (tradeCap.exceeded) {
+        throw makeExecutionError(
+          EXECUTION_ABORT_CODES.PRIORITY_FEE_EXCEEDS_TRADE_SIZE,
+          EXECUTION_STAGES.PRIORITY_FEE,
+          "Priority fee exceeds 50% of trade notional.",
+          { appliedPriorityFeeLamports: applied, maxFeeLamports: tradeCap.maxFeeLamports, tradeSizeSol }
+        );
+      }
+    }
     const result = Object.freeze({
       mode,
       provider: "helius",
@@ -669,6 +1068,7 @@ async function resolvePriorityFee(cfg, context = {}) {
     return finish({ rawEstimateShape: "malformed", fallbackUsed: hasFallback });
   } catch (error) {
     if (error?.code === EXECUTION_ABORT_CODES.PRIORITY_FEE_UNAVAILABLE) throw error;
+    if (error?.code === EXECUTION_ABORT_CODES.PRIORITY_FEE_EXCEEDS_TRADE_SIZE) throw error;
     logExecutionFailure(
       EXECUTION_ABORT_CODES.PRIORITY_FEE_UNAVAILABLE,
       EXECUTION_STAGES.PRIORITY_FEE,
@@ -775,21 +1175,25 @@ async function buildSwapTx(quote, signer, priorityFee, cfg, context = {}) {
     (totalPriorityFeeLamports * 1e6) / computeUnitLimit
   );
 
-  const requestBody = {
-    quoteResponse: quote,
-    userPublicKey: cfg.walletPublicAddress,
-    wrapAndUnwrapSol: true,
-    asLegacyTransaction: false,
-    slippageBps: Number(quote.slippageBps),
-    prioritizationFeeLamports: totalPriorityFeeLamports,
-    dynamicComputeUnitLimit: false,
-    skipUserAccountsRpcCalls: false
-  };
+  const swapBaseUrl = quote?._jupiterBaseUrl || jupiterClient.resolveJupiterBaseUrl();
+  jupiterClient.assertQuoteBuildConsistency(quote, {
+    swapBaseUrl,
+    walletPublicAddress: cfg.walletPublicAddress,
+    slippageBps: Number(quote.slippageBps)
+  });
+  const swapUrl = jupiterClient.buildSwapRequestUrl(swapBaseUrl);
+  const requestBody = jupiterClient.buildSwapRequestBody(quote, {
+    walletPublicAddress: cfg.walletPublicAddress,
+    priorityFeeLamports: totalPriorityFeeLamports,
+    computeUnitLimit
+  });
 
   try {
-    const headers = { "Content-Type": "application/json", Accept: "application/json" };
-    if (process.env.JUPITER_API_KEY) headers["x-api-key"] = process.env.JUPITER_API_KEY;
-    const response = await swapBuildFetch(JUPITER_SWAP_ENDPOINT, {
+    const headers = {
+      "Content-Type": "application/json",
+      ...jupiterClient.buildJupiterHeaders()
+    };
+    const response = await swapBuildFetch(swapUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
@@ -851,7 +1255,8 @@ async function buildSwapTx(quote, signer, priorityFee, cfg, context = {}) {
         : null,
       wrapAndUnwrapSol: true,
       ataCreation: "unknown_possible",
-      endpoint: redactSecrets(JUPITER_SWAP_ENDPOINT),
+      endpoint: redactSecrets(swapUrl),
+      jupiterBaseUrl: swapBaseUrl,
       quoteHash
     });
     logExecutionStage(EXECUTION_STAGES.TX_BUILD, metadata);
@@ -867,7 +1272,15 @@ async function buildSwapTx(quote, signer, priorityFee, cfg, context = {}) {
       requestBody
     };
   } catch (error) {
-    if (error?.code) throw error;
+    if (error?.code && Object.values(EXECUTION_ABORT_CODES).includes(error.code)) throw error;
+    if (error?.name === "JupiterClientError") {
+      throw makeExecutionError(
+        EXECUTION_ABORT_CODES.TX_BUILD_FAILED,
+        EXECUTION_STAGES.TX_BUILD,
+        error.message,
+        { reason: error.code, ...(error.extra || {}) }
+      );
+    }
     throw makeExecutionError(
       EXECUTION_ABORT_CODES.TX_BUILD_FAILED,
       EXECUTION_STAGES.TX_BUILD,
@@ -1122,6 +1535,7 @@ function readPositions() {
 }
 
 function writePositions(positions) {
+  if (writePositionsForTest) return writePositionsForTest(positions);
   livePositionsStore.writeLivePositionsStateAtomic(positions, LIVE_POSITIONS_FILE);
 }
 
@@ -1166,8 +1580,37 @@ function todayStats() {
   return { tradesToday: todays.length, lossesToday: losses.length, realizedPnlSol };
 }
 
+function getSessionStartIso(cfg = {}) {
+  if (cfg.sessionStartedAt) return cfg.sessionStartedAt;
+  if (cfg.lastAutomationToggleAt) return cfg.lastAutomationToggleAt;
+  return new Date(0).toISOString();
+}
+
+function sessionStats(cfg, sessionStartIso = getSessionStartIso(cfg)) {
+  const startMs = Date.parse(sessionStartIso);
+  const cutoff = Number.isFinite(startMs) ? startMs : 0;
+  const inSession = closedTrades().filter(t => {
+    const exitMs = Date.parse(t.exitTime);
+    return Number.isFinite(exitMs) && exitMs >= cutoff;
+  });
+  const losses = inSession.filter(t => t.status === "LOSS" || Number(t.netPnlSol) < 0);
+  const realizedPnlSol = inSession.reduce((s, t) => s + Number(t.netPnlSol || 0), 0);
+  return {
+    sessionStartedAt: sessionStartIso,
+    tradesInSession: inSession.length,
+    lossesInSession: losses.length,
+    realizedPnlSol
+  };
+}
+
+function sessionStopHit(cfg, session = sessionStats(cfg)) {
+  const cap = Number(cfg.maxSessionLossSol ?? cfg.maxDailyLossSol ?? 0.03);
+  const lossSolHit = session.realizedPnlSol <= -Math.abs(cap);
+  return { hit: lossSolHit, lossSolHit, maxSessionLossSol: cap, ...session };
+}
+
 function dailyStopHit(cfg, daily = todayStats()) {
-  const lossCountHit = daily.lossesToday >= (cfg.maxDailyLossCount || 3);
+  const lossCountHit = daily.lossesToday >= (cfg.maxDailyLossCount ?? 2);
   const lossSolHit   = daily.realizedPnlSol <= -(Math.abs(cfg.maxDailyLossSol || 0.10));
   return { hit: lossCountHit || lossSolHit, lossCountHit, lossSolHit };
 }
@@ -1184,10 +1627,20 @@ function safetyCheck(cfg = loadConfig()) {
 
   const daily = todayStats();
   const stop = dailyStopHit(cfg, daily);
-  if (stop.lossCountHit) reasons.push(`Daily loss-count stop: ${daily.lossesToday}/${cfg.maxDailyLossCount}`);
+  if (stop.lossCountHit) reasons.push(`Daily loss-count stop: ${daily.lossesToday}/${cfg.maxDailyLossCount ?? 2}`);
   if (stop.lossSolHit)   reasons.push(`Daily SOL-loss stop: ${daily.realizedPnlSol.toFixed(4)}/-${cfg.maxDailyLossSol}`);
 
-  return { allowed: reasons.length === 0, reasons, open, daily, dailyStop: stop };
+  const session = sessionStats(cfg);
+  const sessionStop = sessionStopHit(cfg, session);
+  if (sessionStop.lossSolHit) {
+    reasons.push(`Session SOL-loss stop: ${session.realizedPnlSol.toFixed(4)}/-${cfg.maxSessionLossSol ?? cfg.maxDailyLossSol ?? 0.03}`);
+  }
+
+  if (countPendingReconciliationEntries() > 0) {
+    reasons.push("Pending reconciliation requires operator review before new entries");
+  }
+
+  return { allowed: reasons.length === 0, reasons, open, daily, dailyStop: stop, session, sessionStop };
 }
 
 // ─── Thesis matching (strict Phase 1) ─────────────────────────────────────────
@@ -1566,6 +2019,7 @@ async function observePipelineCandidate(cfg, candidate) {
 // ─── Wallet adapter ───────────────────────────────────────────────────────────
 
 async function getWalletBalanceSol(cfg) {
+  if (walletBalanceForTest !== null) return walletBalanceForTest;
   // Best-effort balance read via Solana JSON-RPC. Never throws.
   const addr = cfg.walletPublicAddress;
   if (!addr) return null;
@@ -1790,6 +2244,214 @@ function assertLiveSubmissionArmed(cfg) {
   }
 }
 
+const R15_REQUIRED_ACK_FIELDS = [
+  "totalLossRiskAcknowledged",
+  "slippageCapAcknowledged",
+  "mevProtectionPlanAcknowledged",
+  "emergencyStopPolicyAcknowledged",
+  "noAutoCompoundingAcknowledged",
+  "noAveragingDownAcknowledged",
+  "noUnattendedExecutionAcknowledged",
+  "liveTradingNotForIncomeAcknowledged"
+];
+
+function getMicroLiveApprovalRecordPath() {
+  return path.join(ROOT, "analysis", "r15_manual_approval_record.json");
+}
+
+function loadMicroLiveApprovalRecordRaw() {
+  if (approvalRecordProviderForTest) return approvalRecordProviderForTest();
+  const file = getMicroLiveApprovalRecordPath();
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function loadMicroLiveApprovalRecord() {
+  const raw = loadMicroLiveApprovalRecordRaw();
+  if (!raw) return null;
+  try {
+    const r15 = require("./r15_manual_approval_check");
+    return r15.normalizeRecord(raw);
+  } catch {
+    return null;
+  }
+}
+
+function buildR15ValidationContext(cfg, expectedPurpose, allowLegacyMicroLive) {
+  return {
+    expectedPurpose,
+    expectedSessionId: cfg?.sessionId || cfg?.oriSessionId || null,
+    expectedWallet: cfg?.walletPublicAddress || null,
+    now: Date.now(),
+    allowLegacyMicroLive: allowLegacyMicroLive === true
+  };
+}
+
+function mapR15ValidationError(error, fallbackMessage) {
+  throw makeExecutionError(
+    EXECUTION_ABORT_CODES.MICRO_LIVE_APPROVAL_BLOCKED,
+    EXECUTION_STAGES.GUARD,
+    error?.message || fallbackMessage,
+    {
+      r15Code: error?.code || null,
+      ...(error?.details && typeof error.details === "object" ? error.details : {})
+    }
+  );
+}
+
+function assertMicroLiveApprovalRecord(cfg) {
+  if (microLiveApprovalGateForTest) {
+    const gate = microLiveApprovalGateForTest(cfg);
+    if (gate?.ok === true) return;
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.MICRO_LIVE_APPROVAL_BLOCKED,
+      EXECUTION_STAGES.GUARD,
+      gate?.reason || "Micro-live approval gate blocked LIVE submit.",
+      { failures: gate?.failures || [] }
+    );
+  }
+  const raw = loadMicroLiveApprovalRecordRaw();
+  if (!raw) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.MICRO_LIVE_APPROVAL_BLOCKED,
+      EXECUTION_STAGES.GUARD,
+      "R15 manual approval record missing — LIVE submit blocked."
+    );
+  }
+  try {
+    const r15Validator = require("./r15_approval_validator");
+    r15Validator.assertR15ApprovalRecord(
+      raw,
+      buildR15ValidationContext(cfg, r15Validator.APPROVAL_PURPOSES.MICRO_LIVE, true)
+    );
+  } catch (error) {
+    mapR15ValidationError(error, "Micro-live session approval not granted — LIVE submit blocked.");
+  }
+}
+
+function assertArmedProofApprovalRecord(cfg) {
+  if (armedProofApprovalGateForTest) {
+    const gate = armedProofApprovalGateForTest(cfg);
+    if (gate?.ok === true) return;
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.MICRO_LIVE_APPROVAL_BLOCKED,
+      EXECUTION_STAGES.GUARD,
+      gate?.reason || "Armed-proof R15 approval gate blocked.",
+      { failures: gate?.failures || [] }
+    );
+  }
+  const raw = loadMicroLiveApprovalRecordRaw();
+  if (!raw) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.MICRO_LIVE_APPROVAL_BLOCKED,
+      EXECUTION_STAGES.GUARD,
+      "R15 armed-proof approval record missing."
+    );
+  }
+  try {
+    const r15Validator = require("./r15_approval_validator");
+    r15Validator.assertR15ApprovalRecord(
+      raw,
+      buildR15ValidationContext(cfg, r15Validator.APPROVAL_PURPOSES.ARMED_PROOF, false)
+    );
+  } catch (error) {
+    mapR15ValidationError(error, "Armed-proof session approval not granted.");
+  }
+}
+
+function resolveCapitalExposureForLiveGate(cfg) {
+  if (capitalExposureProviderForTest) return capitalExposureProviderForTest(cfg);
+  if (cfg?.capitalExposure && cfg.capitalExposure !== "none") return cfg.capitalExposure;
+  const openLive = openPositions().filter(p => p.status === "OPEN" && p.dryRun !== true);
+  return openLive.length > 0 ? "active" : "none";
+}
+
+function countPendingReconciliationEntries() {
+  if (!fs.existsSync(PENDING_RECONCILIATION_FILE)) return 0;
+  return fs.readFileSync(PENDING_RECONCILIATION_FILE, "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(line => { try { return JSON.parse(line); } catch { return null; } })
+    .filter(row => row && row.operatorActionRequired === true).length;
+}
+
+function buildLiveSubmitIntentKey({ kind, tokenAddress, pairAddress, positionSizeSol }) {
+  return [
+    kind || "UNKNOWN",
+    tokenAddress || "",
+    pairAddress || "",
+    String(positionSizeSol ?? "")
+  ].join("|");
+}
+
+function registerLiveSubmitInFlight(context) {
+  const key = buildLiveSubmitIntentKey(context);
+  if (liveSubmitInFlightKeys.has(key)) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.DUPLICATE_SUBMIT_IN_FLIGHT,
+      EXECUTION_STAGES.GUARD,
+      "Duplicate LIVE submit intent blocked while prior submit is in flight.",
+      { intentKey: key }
+    );
+  }
+  liveSubmitInFlightKeys.add(key);
+  return key;
+}
+
+function clearLiveSubmitInFlight(key) {
+  if (key) liveSubmitInFlightKeys.delete(key);
+}
+
+function clearAllLiveSubmitInFlightForTest() {
+  liveSubmitInFlightKeys.clear();
+}
+
+function assertLivePathPreSubmit(cfg, context = {}) {
+  if (cfg?.emergencyStop === true) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.EMERGENCY_STOP_ACTIVE,
+      EXECUTION_STAGES.GUARD,
+      "Emergency stop is active — LIVE submit blocked."
+    );
+  }
+
+  assertLiveSubmissionArmed({ ...cfg, positionSizeSol: context.positionSizeSol ?? cfg?.positionSizeSol });
+
+  const capitalExposure = resolveCapitalExposureForLiveGate(cfg);
+  logExecutionStage(EXECUTION_STAGES.GUARD, {
+    capitalExposure,
+    liveArmed: computeLiveArmedStatus(cfg).liveArmed,
+    executionMode: resolveExecutionMode(cfg),
+    dryRunMode: cfg?.dryRunMode === true,
+    kind: context.kind || null
+  });
+  if (capitalExposure !== "none") {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.CAPITAL_EXPOSURE_BLOCKED,
+      EXECUTION_STAGES.GUARD,
+      "Capital exposure must be none before LIVE submit.",
+      { capitalExposure }
+    );
+  }
+
+  if (context.kind === "BUY") {
+    if (countPendingReconciliationEntries() > 0) {
+      throw makeExecutionError(
+        EXECUTION_ABORT_CODES.PENDING_RECONCILIATION_BLOCKS_ENTRY,
+        EXECUTION_STAGES.GUARD,
+        "Pending reconciliation blocks new LIVE entries until operator review."
+      );
+    }
+    assertMicroLiveApprovalRecord(cfg);
+  }
+
+  return registerLiveSubmitInFlight(context);
+}
+
 async function fetchJsonRpc(fetcher, endpoint, body, timeoutMs, failureCode, failureStage, networkMessage) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -1861,7 +2523,8 @@ async function submitRawTransaction(signedBytes, cfg, context = {}) {
           txSig: txSig.slice(0, 8),
           rpcErrorCode: json?.error?.code ?? null,
           httpStatus: response?.status ?? null,
-          endpoint: redactSecrets(endpoint)
+          endpoint: redactSecrets(endpoint),
+          retriable: true
         }
       );
     }
@@ -2113,7 +2776,7 @@ async function parseFillFromTransaction(txSig, cfg, kind, builtSwap, context = {
   );
 }
 
-function buildPipelineDryRunResult({ kind, quote, priorityFee, builtSwap, simulation, args, pipelineStartedAt }) {
+function buildPipelineDryRunResult({ kind, quote, priorityFee, builtSwap, simulation, args, pipelineStartedAt, r14Metadata = null }) {
   const fill = deriveFillFromQuoteApproachA(quote);
   const fee = computeFeeBreakdownSol({ builtSwap, priorityFee, simulation });
   const feeSol = fee.feeSol;
@@ -2132,7 +2795,8 @@ function buildPipelineDryRunResult({ kind, quote, priorityFee, builtSwap, simula
     quotedSlippageBps: fill.quotedSlippageBps,
     fillDerivationReason: fill.reason,
     filledPriceUnavailable: fill.filledPriceUnavailable,
-    feeBreakdown
+    feeBreakdown,
+    ...(r14Metadata && typeof r14Metadata === "object" ? r14Metadata : {})
   };
   logExecutionStage(EXECUTION_STAGES.PIPELINE_DRY_RUN, {
     kind,
@@ -2175,62 +2839,19 @@ function buildPipelineDryRunResult({ kind, quote, priorityFee, builtSwap, simula
 }
 
 // DRY RUN: synthetic intent. PIPELINE DRY RUN: Steps 4-8. LIVE: blocked.
-async function submitSwap(kind, { cfg, tokenAddress, pairAddress, expectedPrice, positionSizeSol, sellAmountTokenUnits }) {
-  const mode = resolveExecutionMode(cfg);
-  if (mode === "DRY_RUN") {
-    return {
-      txSig: null,
-      filledPrice: expectedPrice,
-      slippagePct: 0,
-      feeSol: 0,
-      latencyMs: 0,
-      isDryRun: true,
-      intent: { kind, tokenAddress, pairAddress, expectedPrice, positionSizeSol },
-      note: "DRY_RUN — transaction intent generated, nothing submitted."
-    };
-  }
+async function completeLiveSwapFromPipeline({
+  kind, cfg, signer, pipeline, pipelineStartedAt,
+  tokenAddress, pairAddress, expectedPrice, positionSizeSol
+}) {
+  const { quote, builtSwap, simulation, mints, mevPosture, quoteAgeMs } = pipeline;
 
-  const pipelineStartedAt = Date.now();
-  let signer;
-  if (mode === "LIVE") {
-    signer = loadSignerFromEnvForRealExecution(cfg);
-  } else {
-    // PIPELINE_DRY_RUN uses an identity-only signer surface. It may identify the
-    // configured wallet for quote/build/simulation guards, but it cannot sign
-    // and exposes no secret material.
-    if (!cfg?.walletPublicAddress) {
-      throw makeExecutionError(
-        EXECUTION_ABORT_CODES.WALLET_MISMATCH,
-        EXECUTION_STAGES.WALLET_MATCH,
-        "walletPublicAddress missing from config for PIPELINE_DRY_RUN."
-      );
-    }
-    signer = Object.defineProperties(
-      { publicKey: Object.freeze({ toBase58: () => cfg.walletPublicAddress }) },
-      {
-        sign: { get() { throw new Error("PIPELINE_DRY_RUN signer is identity-only and cannot sign."); } },
-        secretKey: { get() { throw new Error("PIPELINE_DRY_RUN signer has no secret material."); } },
-        privateKey: { get() { throw new Error("PIPELINE_DRY_RUN signer has no secret material."); } }
-      }
+  if (cfg?.emergencyStop === true) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.EMERGENCY_STOP_ACTIVE,
+      EXECUTION_STAGES.GUARD,
+      "Emergency stop activated before sign — LIVE submit aborted."
     );
   }
-  const mints = resolveSwapMints(kind, tokenAddress);
-  const quoteAmount = kind === "BUY"
-    ? Math.round(Number(positionSizeSol) * 1e9)
-    : Number(sellAmountTokenUnits);
-  const quote = await getJupiterQuote(kind, cfg, mints, quoteAmount);
-  validateJupiterRoute(quote, kind, cfg, mints);
-  const priorityFee = await resolvePriorityFee(cfg, { accountKeys: [mints.inputMint, mints.outputMint] });
-  const builtSwap = await buildSwapTx(quote, signer, priorityFee, cfg);
-  const simulation = await simulateSwapTx(builtSwap, cfg);
-  if (mode === "PIPELINE_DRY_RUN") {
-    return buildPipelineDryRunResult({
-      kind, quote, priorityFee, builtSwap, simulation, pipelineStartedAt,
-      args: { tokenAddress, pairAddress, expectedPrice, positionSizeSol }
-    });
-  }
-
-  assertLiveSubmissionArmed({ ...cfg, positionSizeSol });
 
   // Step 9a - Sign the full versioned transaction locally.
   // This produces a real Ed25519 signature using the configured signer.
@@ -2376,6 +2997,24 @@ async function submitSwap(kind, { cfg, tokenAddress, pairAddress, expectedPrice,
     );
   }
 
+  const expectedMinOut = quote.otherAmountThreshold ?? quote.outAmount;
+  const fillOutAmount = kind === "BUY" ? fill.outputAmount : fill.outputAmount;
+  detectPartialFill({
+    actualOutAmount: fillOutAmount,
+    expectedMinOut,
+    partialFillSupported: false
+  });
+  const realizedSlippage = evaluateRealizedSlippage(expectedMinOut, fillOutAmount, cfg);
+  if (realizedSlippage.warn) {
+    logExecutionStage(EXECUTION_STAGES.FILL_PARSE, {
+      txSig: submission.txSig.slice(0, 8),
+      realizedSlippageBps: realizedSlippage.realizedSlippageBps,
+      quoteAgeMs,
+      mevRouteMode: mevPosture.mode,
+      realizedSlippageWarn: true
+    });
+  }
+
   const filledPrice = Number.isFinite(fill.actualFillPriceUsdPerToken) ? fill.actualFillPriceUsdPerToken : null;
   // Pre-submit Jupiter route validation is the protective slippage control.
   // Post-fill USD slippage is diagnostic only, and unavailable until a trusted
@@ -2415,11 +3054,117 @@ async function submitSwap(kind, { cfg, tokenAddress, pairAddress, expectedPrice,
       slot: confirmation.slot,
       confirmationStatus: confirmation.confirmationStatus,
       actualFillPriceSolPerToken: fill.actualFillPriceSolPerToken,
-      actualFillPriceUsdPerToken: fill.actualFillPriceUsdPerToken
+      actualFillPriceUsdPerToken: fill.actualFillPriceUsdPerToken,
+      quoteAgeMs,
+      mevRouteMode: mevPosture.mode,
+      realizedSlippageBps: realizedSlippage.realizedSlippageBps
     },
     intent: { kind, tokenAddress, pairAddress, expectedPrice, positionSizeSol },
     note: "LIVE - transaction submitted and confirmed."
   };
+}
+
+async function submitSwap(kind, {
+  cfg, tokenAddress, pairAddress, expectedPrice, positionSizeSol,
+  sellAmountTokenUnits, poolLiquidityUsd, manualSlippageApproved
+}) {
+  const mode = resolveExecutionMode(cfg);
+  if (mode === "DRY_RUN") {
+    return {
+      txSig: null,
+      filledPrice: expectedPrice,
+      slippagePct: 0,
+      feeSol: 0,
+      latencyMs: 0,
+      isDryRun: true,
+      intent: { kind, tokenAddress, pairAddress, expectedPrice, positionSizeSol },
+      note: "DRY_RUN — transaction intent generated, nothing submitted."
+    };
+  }
+
+  const pipelineStartedAt = Date.now();
+  let pipelineDryRunSigner = null;
+  if (mode !== "LIVE") {
+    if (!cfg?.walletPublicAddress) {
+      throw makeExecutionError(
+        EXECUTION_ABORT_CODES.WALLET_MISMATCH,
+        EXECUTION_STAGES.WALLET_MATCH,
+        "walletPublicAddress missing from config for PIPELINE_DRY_RUN."
+      );
+    }
+    pipelineDryRunSigner = Object.defineProperties(
+      { publicKey: Object.freeze({ toBase58: () => cfg.walletPublicAddress }) },
+      {
+        sign: { get() { throw new Error("PIPELINE_DRY_RUN signer is identity-only and cannot sign."); } },
+        secretKey: { get() { throw new Error("PIPELINE_DRY_RUN signer has no secret material."); } },
+        privateKey: { get() { throw new Error("PIPELINE_DRY_RUN signer has no secret material."); } }
+      }
+    );
+  }
+
+  const attempts = maxSubmitAttempts(cfg);
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    let inFlightKey = null;
+    try {
+      if (mode === "LIVE") {
+        inFlightKey = assertLivePathPreSubmit(cfg, {
+          kind, tokenAddress, pairAddress, positionSizeSol
+        });
+      }
+      const signer = mode === "LIVE"
+        ? loadSignerFromEnvForRealExecution(cfg)
+        : pipelineDryRunSigner;
+      const pipeline = await executeQuotedSwapAttempt(kind, {
+        cfg,
+        tokenAddress,
+        positionSizeSol,
+        sellAmountTokenUnits,
+        signer,
+        mode,
+        poolLiquidityUsd,
+        manualSlippageApproved: manualSlippageApproved === true,
+        attempt
+      });
+      if (mode === "PIPELINE_DRY_RUN") {
+        return buildPipelineDryRunResult({
+          kind,
+          quote: pipeline.quote,
+          priorityFee: pipeline.priorityFee,
+          builtSwap: pipeline.builtSwap,
+          simulation: pipeline.simulation,
+          pipelineStartedAt,
+          args: { tokenAddress, pairAddress, expectedPrice, positionSizeSol },
+          r14Metadata: {
+            quoteAgeMs: pipeline.quoteAgeMs,
+            mevRouteMode: pipeline.mevPosture.mode
+          }
+        });
+      }
+      return await completeLiveSwapFromPipeline({
+        kind, cfg, signer, pipeline, pipelineStartedAt,
+        tokenAddress, pairAddress, expectedPrice, positionSizeSol
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isRetriableSubmitError(error) || attempt >= attempts - 1) throw error;
+      logExecutionStage(EXECUTION_STAGES.QUOTE, {
+        kind,
+        retryAttempt: attempt + 1,
+        maxAttempts: attempts,
+        retryReasonCode: error.code,
+        note: "Re-quote before retry; no blind rebroadcast."
+      });
+    } finally {
+      if (inFlightKey) clearLiveSubmitInFlight(inFlightKey);
+    }
+  }
+  throw lastError || makeExecutionError(
+    EXECUTION_ABORT_CODES.RETRY_LIMIT_EXCEEDED,
+    EXECUTION_STAGES.SUBMIT,
+    "Quote/submit retry limit exceeded.",
+    { maxAttempts: attempts }
+  );
 }
 
 // ─── Pre-trade abort checks ───────────────────────────────────────────────────
@@ -2498,7 +3243,8 @@ async function enterPosition(cfg, candidate) {
   try {
     res = await submitSwap("BUY", {
       cfg, tokenAddress: candidate.address, pairAddress: candidate.pairAddress,
-      expectedPrice: candidate.entryPrice, positionSizeSol: cfg.positionSizeSol
+      expectedPrice: candidate.entryPrice, positionSizeSol: cfg.positionSizeSol,
+      poolLiquidityUsd: candidate.liquidity
     });
   } catch (err) {
     logError("submitSwap.BUY", err.message, { liveTradeId, symbol: candidate.symbol });
@@ -2506,6 +3252,19 @@ async function enterPosition(cfg, candidate) {
       eventType: "EXECUTION_FAILURE", liveTradeId, timestamp: nowIso(),
       symbol: candidate.symbol, failureReason: "BUY_FAILED", failureDetail: err.message,
       anomalyFlags: ["EXECUTION_FAILURE"], status: "FAILED"
+    });
+    return null;
+  }
+
+  if (resolveExecutionMode(cfg) === "LIVE" && (!res?.txSig || res.isDryRun === true)) {
+    logError("enterPosition", "LIVE entry blocked — submit did not return confirmed live result.", {
+      liveTradeId, symbol: candidate.symbol
+    });
+    writeLiveEvent({
+      eventType: "EXECUTION_FAILURE", liveTradeId, timestamp: nowIso(),
+      symbol: candidate.symbol, failureReason: "LIVE_CONFIRM_BEFORE_WRITE_BLOCKED",
+      failureDetail: "Position write blocked until confirmed LIVE fill is available.",
+      anomalyFlags: ["EXECUTION_FAILURE", "NEEDS_REVIEW"], status: "FAILED"
     });
     return null;
   }
@@ -2531,6 +3290,7 @@ async function enterPosition(cfg, candidate) {
     intendedEntryPrice: candidate.entryPrice, actualEntryPrice: entryPrice,
     entrySlippagePct: res.slippagePct, entryFeeSol: res.feeSol || 0,
     entryTxSig: res.txSig, entryLatencyMs, targetPrice, stopPrice,
+    poolLiquidityUsd: Number.isFinite(Number(candidate.liquidity)) ? Number(candidate.liquidity) : null,
     dryRun: !!res.isDryRun, anomalyFlags, status: "OPEN"
   });
 
@@ -2544,9 +3304,34 @@ async function enterPosition(cfg, candidate) {
     entryTime: nowIso(), intendedEntryPrice: candidate.entryPrice, actualEntryPrice: entryPrice,
     entrySlippagePct: res.slippagePct, entryFeeSol: res.feeSol || 0,
     entryTxSig: res.txSig, entryLatencyMs, targetPrice, stopPrice,
+    poolLiquidityUsd: Number.isFinite(Number(candidate.liquidity)) ? Number(candidate.liquidity) : null,
     dryRun: !!res.isDryRun, anomalyFlags, status: "OPEN"
   });
-  writePositions(positions);
+  try {
+    writePositions(positions);
+  } catch (err) {
+    logError("enterPosition.writePositions", err.message, { liveTradeId, symbol: candidate.symbol });
+    writeLiveEvent({
+      eventType: "EXECUTION_FAILURE", liveTradeId, timestamp: nowIso(),
+      symbol: candidate.symbol, failureReason: "POSITION_WRITE_FAILED",
+      failureDetail: safeErrorMessage(err),
+      entryTxSig: res.txSig || null,
+      anomalyFlags: ["EXECUTION_FAILURE", "NEEDS_REVIEW"], status: "FAILED"
+    });
+    if (resolveExecutionMode(cfg) === "LIVE" && res.txSig) {
+      writePendingReconciliation(buildReconciliationContext({
+        action: "POSITION_WRITE_FAILED",
+        txSig: res.txSig,
+        kind: "BUY",
+        tokenAddress: candidate.address,
+        pairAddress: candidate.pairAddress,
+        expectedPrice: candidate.entryPrice,
+        positionSizeSol: cfg.positionSizeSol,
+        reason: "Confirmed LIVE entry could not be persisted atomically; operator review required."
+      }));
+    }
+    return null;
+  }
 
   console.log(`[executor] ENTRY ${candidate.symbol} @ ${entryPrice === null ? "fill unavailable" : "$" + entryPrice} | ${res.isDryRun ? "DRY_RUN intent" : "txSig " + res.txSig} | latency ${entryLatencyMs}ms`);
   return liveTradeId;
@@ -2571,7 +3356,18 @@ async function getCurrentPrice(pairAddress) {
 // ─── Exit ─────────────────────────────────────────────────────────────────────
 
 // Exit by liveTradeId with an explicit trigger (used by monitor mirror and loop).
-async function executeLiveExit(liveTradeId, trigger) {
+// Vulcan Stage 3 — optional invocation context. When a caller (e.g. the monitor
+// live-exit mirror bridge) supplies context, the entire exit runs inside the
+// AsyncLocalStorage so every audit row produced by submitSwap() etc. is tagged
+// with WHY the path was invoked. Existing callers pass no context and behave
+// exactly as before (context = null → no store, unknown/none defaults).
+async function executeLiveExit(liveTradeId, trigger, context = null) {
+  const ctx = normalizeInvocationContext(context);
+  if (!ctx) return executeLiveExitImpl(liveTradeId, trigger);
+  return invocationContextStore.run(ctx, () => executeLiveExitImpl(liveTradeId, trigger));
+}
+
+async function executeLiveExitImpl(liveTradeId, trigger) {
   const exitStart = Date.now();
   let cfg;
   try { cfg = loadConfig(); } catch (err) { logError("exit.loadConfig", err.message, { liveTradeId }); throw err; }
@@ -2594,7 +3390,8 @@ async function executeLiveExit(liveTradeId, trigger) {
   try {
     res = await submitSwap("SELL", {
       cfg, tokenAddress: pos.address, pairAddress: pos.pairAddress,
-      expectedPrice: trigger.triggerPrice, positionSizeSol: pos.positionSizeSol
+      expectedPrice: trigger.triggerPrice, positionSizeSol: pos.positionSizeSol,
+      poolLiquidityUsd: pos.poolLiquidityUsd
     });
   } catch (err) {
     logError("submitSwap.SELL", err.message, { liveTradeId, symbol: pos.symbol });
@@ -2661,11 +3458,16 @@ async function executeLiveExit(liveTradeId, trigger) {
 
   console.log(`[executor] EXIT ${pos.symbol} | ${status} | net ${pnlAvailable ? netPnlSol.toFixed(4) + " SOL" : "PnL unavailable"} | ${res.isDryRun ? "DRY_RUN" : "txSig " + res.txSig}`);
 
-  // Daily stop notice.
+  // Daily + session stop notices.
   const stop = dailyStopHit(cfg);
   if (stop.hit) {
     writeLiveEvent({ eventType: "DAILY_STOP_TRIGGERED", timestamp: nowIso(), ...todayStats() });
     console.log("[executor] ⚠ DAILY STOP TRIGGERED — no new entries today.");
+  }
+  const sessionStop = sessionStopHit(cfg);
+  if (sessionStop.hit) {
+    writeLiveEvent({ eventType: "SESSION_STOP_TRIGGERED", timestamp: nowIso(), ...sessionStats(cfg) });
+    console.log("[executor] ⚠ SESSION STOP TRIGGERED — no new entries this session.");
   }
   return status;
 }
@@ -2820,6 +3622,7 @@ function readinessChecks(cfg = loadConfig()) {
   add("No compounding/averaging/martingale",
       !cfg.compoundingEnabled && !cfg.averagingDownEnabled && !cfg.martingaleEnabled);
   add("Daily stop not already hit", !dailyStopHit(cfg).hit);
+  add("Session stop not already hit", !sessionStopHit(cfg).hit);
   add("live_trades.jsonl valid", readLiveTrades().every(e => !e._parseError));
   const executionMode = resolveExecutionMode(cfg);
   add("Execution mode valid", ["DRY_RUN", "PIPELINE_DRY_RUN", "LIVE"].includes(executionMode), executionMode);
@@ -2867,8 +3670,10 @@ function startAutomation(reason = "Manual START from dashboard") {
   cfg.automationEnabled = true;
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
+  cfg.sessionStartedAt = cfg.lastAutomationToggleAt;
   saveConfig(cfg);
   auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.startAutomation", reason });
+  writeLiveEvent({ eventType: "SESSION_STARTED", timestamp: cfg.sessionStartedAt, reason });
   logControl("START", reason, { dryRunMode: cfg.dryRunMode });
   return { ok: true, dryRunMode: cfg.dryRunMode };
 }
@@ -2951,6 +3756,8 @@ function liveStats() {
 
   const daily = todayStats();
   const stop = dailyStopHit(cfg, daily);
+  const session = sessionStats(cfg);
+  const sessionStop = sessionStopHit(cfg, session);
   const parseErrors = readLiveTrades().filter(e => e._parseError).length;
 
   return {
@@ -2973,12 +3780,16 @@ function liveStats() {
     liveAvgPnlPct: liveAvgPct !== null ? Number(liveAvgPct.toFixed(2)) : null,
     dailyStopActive: stop.hit, lossesToday: daily.lossesToday,
     realizedPnlSolToday: Number(daily.realizedPnlSol.toFixed(6)),
+    sessionStopActive: sessionStop.hit, lossesInSession: session.lossesInSession,
+    realizedPnlSolSession: Number(session.realizedPnlSol.toFixed(6)),
+    sessionStartedAt: session.sessionStartedAt,
     parseErrors,
     config: {
       automationEnabled: cfg.automationEnabled, dryRunMode: isAnyDryRun(cfg),
       executionMode: resolveExecutionMode(cfg),
       emergencyStop: cfg.emergencyStop, positionSizeSol: cfg.positionSizeSol,
-      maxDailyLossSol: cfg.maxDailyLossSol, maxDailyLossCount: cfg.maxDailyLossCount,
+      maxDailyLossSol: cfg.maxDailyLossSol, maxSessionLossSol: cfg.maxSessionLossSol,
+      maxDailyLossCount: cfg.maxDailyLossCount,
       maxDrawdownPercent: cfg.maxDrawdownPercent, walletPublicAddress: cfg.walletPublicAddress || null,
       lastAutomationToggleAt: cfg.lastAutomationToggleAt, lastAutomationToggleReason: cfg.lastAutomationToggleReason,
       lastError: cfg.lastError
@@ -3044,79 +3855,85 @@ function liveLoopAllowed(cfg = loadConfig()) {
 if (require.main === module) {
   const arg = process.argv[2];
   if (arg === "--loop") {
-    try {
-      const cfg = loadConfig();
-      if (!liveLoopAllowed(cfg)) {
-        console.error("LIVE --loop blocked: FOMO_ALLOW_LOOP_LIVE is not YES.");
-        console.error("First live execution-validation trade requires --cycle only.");
+    runWithExecutorInvocationContext(EXECUTOR_CLI_INVOCATION.LOOP, () => {
+      try {
+        const cfg = loadConfig();
+        if (!liveLoopAllowed(cfg)) {
+          console.error("LIVE --loop blocked: FOMO_ALLOW_LOOP_LIVE is not YES.");
+          console.error("First live execution-validation trade requires --cycle only.");
+          process.exit(1);
+        }
+        const armed = computeLiveArmedStatus(cfg);
+        const acquire = executorSingletonGuard.acquireExecutorSingletonGuard({
+          file: EXECUTOR_LOCK_FILE,
+          command: "live_executor.js --loop",
+          posture: {
+            mode: resolveExecutionMode(cfg),
+            dryRunMode: isAnyDryRun(cfg),
+            liveArmed: armed.liveArmed === true
+          }
+        });
+        if (!acquire.ok || acquire.blocked) {
+          console.error(acquire.reason || "Executor singleton lock active; refusing to start duplicate loop.");
+          if (acquire.lock?.instanceId) {
+            console.error("  lockOwnerInstanceId:", acquire.lock.instanceId);
+          }
+          if (acquire.lock?.updatedAt) {
+            console.error("  lockUpdatedAt:", acquire.lock.updatedAt);
+          }
+          process.exit(1);
+        }
+        executorSingletonGuard.registerExecutorSingletonRelease(acquire.instanceId, EXECUTOR_LOCK_FILE);
+        autonomousLoop(60000, { instanceId: acquire.instanceId, lockFile: EXECUTOR_LOCK_FILE });
+      } catch (err) {
+        console.error("[executor] error:", err.message);
         process.exit(1);
       }
-      const armed = computeLiveArmedStatus(cfg);
-      const acquire = executorSingletonGuard.acquireExecutorSingletonGuard({
-        file: EXECUTOR_LOCK_FILE,
-        command: "live_executor.js --loop",
-        posture: {
-          mode: resolveExecutionMode(cfg),
-          dryRunMode: isAnyDryRun(cfg),
-          liveArmed: armed.liveArmed === true
-        }
-      });
-      if (!acquire.ok || acquire.blocked) {
-        console.error(acquire.reason || "Executor singleton lock active; refusing to start duplicate loop.");
-        if (acquire.lock?.instanceId) {
-          console.error("  lockOwnerInstanceId:", acquire.lock.instanceId);
-        }
-        if (acquire.lock?.updatedAt) {
-          console.error("  lockUpdatedAt:", acquire.lock.updatedAt);
-        }
-        process.exit(1);
-      }
-      executorSingletonGuard.registerExecutorSingletonRelease(acquire.instanceId, EXECUTOR_LOCK_FILE);
-      autonomousLoop(60000, { instanceId: acquire.instanceId, lockFile: EXECUTOR_LOCK_FILE });
-    } catch (err) {
-      console.error("[executor] error:", err.message);
-      process.exit(1);
-    }
+    });
   } else if (arg === "--cycle") {
-    runCycle({ cycleMode: true }).then(r => { console.log(JSON.stringify(r, null, 2)); process.exit(0); });
+    runWithExecutorInvocationContext(EXECUTOR_CLI_INVOCATION.CYCLE, () => {
+      runCycle({ cycleMode: true }).then(r => { console.log(JSON.stringify(r, null, 2)); process.exit(0); });
+    });
   } else {
     // Default: status only, no execution.
-    try {
-      const cfg = loadConfig();
-      console.log("[executor] Status (no execution).");
-      console.log("  executionMode:", resolveExecutionMode(cfg), "| dryRunMode:", isAnyDryRun(cfg), "| automationEnabled:", cfg.automationEnabled, "| emergencyStop:", cfg.emergencyStop);
-      console.log("  LIVE loop allowed:", liveLoopAllowed(cfg), resolveExecutionMode(cfg) === "LIVE" ? "| FOMO_ALLOW_LOOP_LIVE required for --loop" : "| non-LIVE loop unchanged");
-      const gate = safetyCheck(cfg);
-      console.log("  Entries allowed:", gate.allowed, gate.allowed ? "" : "— " + gate.reasons.join("; "));
-      const r = readinessChecks(cfg);
-      console.log("  Readiness:", r.allPassed ? "ALL PASS" : "FAILS: " + r.checks.filter(c => !c.ok).map(c => c.label).join(", "));
-      const armed = computeLiveArmedStatus(cfg);
-      console.log("  liveArmed:", armed.liveArmed, armed.liveArmed ? "⚠ LIVE SUBMISSION GATES SATISFIED" : "");
-      console.log("  operationalPosture:", armed.operationalPosture);
-      console.log("  liveSubmission:", armed.summary);
-      if (!armed.liveArmed) {
-        console.log("  liveSubmission blocked:", armed.failures.join("; "));
+    runWithExecutorInvocationContext(EXECUTOR_CLI_INVOCATION.STATUS, () => {
+      try {
+        const cfg = loadConfig();
+        console.log("[executor] Status (no execution).");
+        console.log("  executionMode:", resolveExecutionMode(cfg), "| dryRunMode:", isAnyDryRun(cfg), "| automationEnabled:", cfg.automationEnabled, "| emergencyStop:", cfg.emergencyStop);
+        console.log("  LIVE loop allowed:", liveLoopAllowed(cfg), resolveExecutionMode(cfg) === "LIVE" ? "| FOMO_ALLOW_LOOP_LIVE required for --loop" : "| non-LIVE loop unchanged");
+        const gate = safetyCheck(cfg);
+        console.log("  Entries allowed:", gate.allowed, gate.allowed ? "" : "— " + gate.reasons.join("; "));
+        const r = readinessChecks(cfg);
+        console.log("  Readiness:", r.allPassed ? "ALL PASS" : "FAILS: " + r.checks.filter(c => !c.ok).map(c => c.label).join(", "));
+        const armed = computeLiveArmedStatus(cfg);
+        console.log("  liveArmed:", armed.liveArmed, armed.liveArmed ? "⚠ LIVE SUBMISSION GATES SATISFIED" : "");
+        console.log("  operationalPosture:", armed.operationalPosture);
+        console.log("  liveSubmission:", armed.summary);
+        if (!armed.liveArmed) {
+          console.log("  liveSubmission blocked:", armed.failures.join("; "));
+        }
+        const gateLine = Object.values(armed.gates)
+          .map(g => `${g.ok ? "ok" : "blocked"}: ${g.label} (${g.detail})`)
+          .join("; ");
+        console.log("  liveSubmissionGates:", gateLine);
+        if (!armed.liveArmed && gate.allowed) {
+          console.log("  Note: Entries allowed and Readiness ALL PASS do not mean liveArmed — pipeline observation may still run.");
+        }
+        const lockStatus = executorSingletonGuard.describeExecutorLockStatus(EXECUTOR_LOCK_FILE);
+        console.log("  executorSingletonLock:", lockStatus.executorSingletonLock);
+        if (lockStatus.lockOwnerInstanceId) {
+          console.log("  lockOwnerInstanceId:", lockStatus.lockOwnerInstanceId);
+        }
+        if (lockStatus.lockUpdatedAt) {
+          console.log("  lockUpdatedAt:", lockStatus.lockUpdatedAt);
+        }
+        console.log("\nUsage: node live_executor.js [--loop | --cycle]");
+      } catch (err) {
+        console.error("[executor] error:", err.message);
+        process.exit(1);
       }
-      const gateLine = Object.values(armed.gates)
-        .map(g => `${g.ok ? "ok" : "blocked"}: ${g.label} (${g.detail})`)
-        .join("; ");
-      console.log("  liveSubmissionGates:", gateLine);
-      if (!armed.liveArmed && gate.allowed) {
-        console.log("  Note: Entries allowed and Readiness ALL PASS do not mean liveArmed — pipeline observation may still run.");
-      }
-      const lockStatus = executorSingletonGuard.describeExecutorLockStatus(EXECUTOR_LOCK_FILE);
-      console.log("  executorSingletonLock:", lockStatus.executorSingletonLock);
-      if (lockStatus.lockOwnerInstanceId) {
-        console.log("  lockOwnerInstanceId:", lockStatus.lockOwnerInstanceId);
-      }
-      if (lockStatus.lockUpdatedAt) {
-        console.log("  lockUpdatedAt:", lockStatus.lockUpdatedAt);
-      }
-      console.log("\nUsage: node live_executor.js [--loop | --cycle]");
-    } catch (err) {
-      console.error("[executor] error:", err.message);
-      process.exit(1);
-    }
+    });
   }
 }
 
@@ -3132,17 +3949,40 @@ module.exports = {
   resolveExecutionMode, isAnyDryRun, computeLiveArmedStatus,
   // data / stats
   loadConfig, saveConfig, liveStats, safetyCheck, todayStats, dailyStopHit,
+  getSessionStartIso, sessionStats, sessionStopHit,
   readLiveTrades, readPositions, openPositions, findOpenLiveTradeByAddress,
   groupLiveTrades, getWalletBalanceSol, writeLiveEvent, logControl, readPipelineCandidates,
   // config audit (A3)
   auditConfigChange, classifyConfigFieldRisk,
+  // Vulcan Stage 10 — public invocation-context surface. `runWithInvocationContext`
+  // runs a callback inside a normalized AsyncLocalStorage invocation context so
+  // downstream audit rows are attributed to the CALLER's declared context (e.g.
+  // dashboard-originated status reads). Tagging-only: it does not alter trade,
+  // gate, A4, or strategy logic. `DASHBOARD_INVOCATION` is the dashboard's
+  // declared read/status context.
+  runWithInvocationContext: runWithExecutorInvocationContext,
+  DASHBOARD_INVOCATION,
+  // A4.11 — narrow additive export of the existing safe RPC resolver so the
+  // standalone read-only RPC proof module (a4_rpc_proof.js) can reuse the exact
+  // same dedicated-provider precedence and fail-closed public-fallback refusal.
+  // This is a reference to the unchanged resolver; it alters no resolver, audit,
+  // execution, or refusal behavior. It returns a raw endpoint that callers MUST
+  // NOT print/return; the proof module consumes it internally only.
+  resolveRpcEndpoint,
   // meta
   EXECUTOR_VERSION, PHASE,
   FILES: { LIVE_TRADES_FILE, LIVE_POSITIONS_FILE, CONTROL_EVENTS_FILE, ERRORS_FILE, EXECUTION_AUDIT_FILE, PENDING_RECONCILIATION_FILE, PIPELINE_CANDIDATES_FILE, OBSERVATION_DEDUP_FILE, CONFIG_AUDIT_FILE, EXECUTOR_LOCK_FILE },
   // Test-only logging surface. It exposes no signer, swap, or transaction methods.
   __executionLoggingTest: {
     EXECUTION_ABORT_CODES, EXECUTION_STAGES,
-    makeExecutionError, safeErrorMessage, logExecutionStage, logExecutionFailure, redactSecrets
+    makeExecutionError, safeErrorMessage, logExecutionStage, logExecutionFailure, redactSecrets,
+    // Vulcan Stage 3 — test-only: run a callback inside a normalized invocation
+    // context so audit-row propagation can be verified without execution paths.
+    runWithInvocationContext: (context, fn) => invocationContextStore.run(normalizeInvocationContext(context) || {}, fn),
+    normalizeInvocationContext,
+    // Vulcan Stage 8 — CLI entry contexts (same objects used by require.main branches).
+    EXECUTOR_CLI_INVOCATION,
+    runWithExecutorInvocationContext
   },
   // Test-only signer-guard surface. It exposes no signer object or transaction methods.
   __signerGuardTest: {
@@ -3152,8 +3992,12 @@ module.exports = {
   },
   // Test-only quote-validation surface. It exposes no swap transaction methods.
   __jupiterQuoteTest: {
-    SOL_MINT, JUPITER_QUOTE_ENDPOINT,
+    SOL_MINT,
+    JUPITER_SWAP_BASE_DEFAULT,
+    JUPITER_SWAP_BASE_PRO,
+    jupiterClient,
     resolveSwapMints, getJupiterQuote, validateJupiterRoute,
+    isQuoteFresh, getQuoteAgeMs, assertQuoteFresh, quoteRouteFingerprint,
     submitSwapForTest: submitSwap,
     setQuoteFetchForTest: fn => { quoteFetch = fn; },
     resetQuoteFetchForTest: () => { quoteFetch = (...args) => fetch(...args); }
@@ -3167,7 +4011,10 @@ module.exports = {
   },
   // Test-only transaction-build surface. It exposes no signing/submission methods.
   __txBuildTest: {
-    JUPITER_SWAP_ENDPOINT, buildSwapTx,
+    JUPITER_SWAP_BASE_DEFAULT,
+    JUPITER_SWAP_BASE_PRO,
+    jupiterClient,
+    buildSwapTx,
     submitSwapForTest: submitSwap,
     setSwapBuildFetchForTest: fn => { swapBuildFetch = fn; },
     resetSwapBuildFetchForTest: () => { swapBuildFetch = (...args) => fetch(...args); }
@@ -3199,6 +4046,68 @@ module.exports = {
     submitSwapForTest: submitSwap,
     setSignerLoaderForTest: fn => { signerLoaderForTest = fn; },
     resetSignerLoaderForTest: () => { signerLoaderForTest = null; }
+  },
+  __r16LivePathTest: {
+    EXECUTION_ABORT_CODES,
+    assertLivePathPreSubmit,
+    assertMicroLiveApprovalRecord,
+    assertArmedProofApprovalRecord,
+    loadMicroLiveApprovalRecordRaw,
+    assertLiveSubmissionArmed,
+    buildLiveSubmitIntentKey,
+    clearAllLiveSubmitInFlightForTest,
+    clearLiveSubmitInFlight,
+    countPendingReconciliationEntries,
+    resolveCapitalExposureForLiveGate,
+    computeLiveArmedStatus,
+    submitSwapForTest: submitSwap,
+    enterPositionForTest: enterPosition,
+    executeLiveExitForTest: executeLiveExit,
+    safetyCheckForTest: safetyCheck,
+    setMicroLiveApprovalGateForTest: fn => { microLiveApprovalGateForTest = fn; },
+    resetMicroLiveApprovalGateForTest: () => { microLiveApprovalGateForTest = null; },
+    setArmedProofApprovalGateForTest: fn => { armedProofApprovalGateForTest = fn; },
+    resetArmedProofApprovalGateForTest: () => { armedProofApprovalGateForTest = null; },
+    setApprovalRecordProviderForTest: fn => { approvalRecordProviderForTest = fn; },
+    resetApprovalRecordProviderForTest: () => { approvalRecordProviderForTest = null; },
+    setCapitalExposureProviderForTest: fn => { capitalExposureProviderForTest = fn; },
+    resetCapitalExposureProviderForTest: () => { capitalExposureProviderForTest = null; },
+    setWritePositionsForTest: fn => { writePositionsForTest = fn; },
+    resetWritePositionsForTest: () => { writePositionsForTest = null; },
+    setWalletBalanceForTest: value => { walletBalanceForTest = value; },
+    resetWalletBalanceForTest: () => { walletBalanceForTest = null; },
+    setSignerLoaderForTest: fn => { signerLoaderForTest = fn; },
+    resetSignerLoaderForTest: () => { signerLoaderForTest = null; }
+  },
+  __r14EnforcementTest: {
+    EXECUTION_ABORT_CODES,
+    getQuoteAgeMs,
+    isQuoteFresh,
+    assertQuoteFresh,
+    quoteRouteFingerprint,
+    assertRouteUnchangedSinceQuote,
+    checkExecutionTimeLiquidity,
+    resolveMevRouteMode,
+    capPriorityFeeToTradeSize,
+    evaluateRealizedSlippage,
+    detectPartialFill,
+    maxSubmitAttempts,
+    isRetriableSubmitError,
+    executeQuotedSwapAttempt,
+    executeQuotedSwapWithRetries,
+    validateJupiterRoute,
+    getJupiterQuote,
+    resolveSwapMints,
+    resolvePriorityFee,
+    setQuoteFetchForTest: fn => { quoteFetch = fn; },
+    resetQuoteFetchForTest: () => { quoteFetch = (...args) => fetch(...args); },
+    setPriorityFeeFetchForTest: fn => { priorityFeeFetch = fn; },
+    resetPriorityFeeFetchForTest: () => { priorityFeeFetch = (...args) => fetch(...args); }
+  },
+  __feeAccountingTest: {
+    computeFeeBreakdownSol,
+    estimateSingleEntryFeeBudget: args => jupiterClient.estimateSingleEntryFeeBudget(args),
+    estimateSingleEntryNonRentCostSol: args => jupiterClient.estimateSingleEntryNonRentCostSol(args)
   },
   __observationPoolTest: {
     findCandidates, findStrictThesisCandidates, findPipelineObservationCandidates,

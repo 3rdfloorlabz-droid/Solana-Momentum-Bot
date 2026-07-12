@@ -73,7 +73,7 @@ function installMocks() {
     outAmount: "50000000",
     otherAmountThreshold: "48500000",
     priceImpactPct: "1",
-    slippageBps: 300,
+    slippageBps: 100,
     routePlan: [{ swapInfo: { label: "MOCK" }, percent: 100 }]
   }) }));
   feeTest.setPriorityFeeFetchForTest(async () => ({ ok: true, json: async () => ({ result: { totalPriorityFeeLamports: 250000 } }) }));
@@ -130,7 +130,7 @@ async function expectCode(code, fn) {
     assert(result.filledPrice === null && result.slippagePct === null && result.filledPriceUnavailable === true, "unavailable fill/slippage contract invalid");
     assert(result.reason === "Approach A: raw ratio only, no USD/token basis available", "unavailable fill reason missing");
     assert(result.pipelineMetadata.rawOutputPerInput === 0.5, "raw quote ratio contract invalid");
-    assert(result.pipelineMetadata.quotedSlippageBps === 300, "quoted slippage BPS missing");
+    assert(result.pipelineMetadata.quotedSlippageBps === 100, "quoted slippage BPS missing");
     assert(result.pipelineMetadata.fillDerivationReason === result.reason, "fill derivation reason mismatch");
     assert(result.feeSol === 0.000255 && result.pipelineMetadata.simulationSuccess === true, "pipeline fee/metadata invalid");
     assert(result.pipelineMetadata.feeBreakdown.baseFeeLamports === 5000, "base fee estimate missing");
@@ -152,7 +152,7 @@ async function expectCode(code, fn) {
     const pipelineAudit = rows.find(row => row.stage === "PIPELINE_DRY_RUN");
     assert(pipelineAudit.payload.derivedFilledPrice === null && pipelineAudit.payload.derivedSlippagePct === null, "audit fabricated fill/slippage");
     assert(pipelineAudit.payload.filledPriceUnavailable === true, "audit unavailable-fill marker missing");
-    assert(pipelineAudit.payload.rawOutputPerInput === 0.5 && pipelineAudit.payload.quotedSlippageBps === 300, "audit Approach A fields invalid");
+    assert(pipelineAudit.payload.rawOutputPerInput === 0.5 && pipelineAudit.payload.quotedSlippageBps === 100, "audit Approach A fields invalid");
     assert(pipelineAudit.payload.fillDerivationReason === result.reason, "audit fill reason mismatch");
     assert(!JSON.stringify(rows).includes("fake-pipeline-key"), "pipeline audit leaked API key");
 
@@ -196,11 +196,14 @@ async function expectCode(code, fn) {
     }
     const signerSignMatches = [...source.matchAll(/signer\.sign\(/g)];
     assert(signerSignMatches.length === 1, `expected exactly one signer.sign( call site, found ${signerSignMatches.length}`);
+    const completeLiveMatch = source.match(/async function completeLiveSwapFromPipeline[\s\S]*?\n}\n\nasync function submitSwap/);
+    assert(completeLiveMatch && completeLiveMatch[0].includes("signature = signer.sign(messageBytes)"),
+      "signer.sign( is not inside completeLiveSwapFromPipeline LIVE terminus");
     const submitSwapMatch = source.match(/async function submitSwap[\s\S]*?\n}\n\n\/\/ ─── Pre-trade abort checks/);
-    assert(submitSwapMatch && submitSwapMatch[0].includes("signature = signer.sign(messageBytes)"), "signer.sign( is not inside submitSwap LIVE terminus");
-    assert(submitSwapMatch[0].includes('if (mode === "PIPELINE_DRY_RUN")') &&
-      submitSwapMatch[0].indexOf("signature = signer.sign(messageBytes)") >
-      submitSwapMatch[0].indexOf('if (mode === "PIPELINE_DRY_RUN")'), "signer.sign( appears before PIPELINE_DRY_RUN return");
+    assert(submitSwapMatch && !submitSwapMatch[0].includes("signature = signer.sign(messageBytes)"),
+      "signer.sign( must remain outside submitSwap orchestration");
+    assert(submitSwapMatch[0].includes('if (mode === "PIPELINE_DRY_RUN")'),
+      "submitSwap must preserve PIPELINE_DRY_RUN early return");
     assert(source.includes("sign: { get() { throw new Error(\"PIPELINE_DRY_RUN signer is identity-only and cannot sign.\"); } }"),
       "PIPELINE_DRY_RUN identity-only signer sign getter is not preserved");
     console.log("PIPELINE_DRY_RUN HAPPY-PATH RETURN:");
