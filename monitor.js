@@ -30,7 +30,17 @@ async function mirrorLiveExit(trade) {
   try {
     const live = liveExecutor.findOpenLiveTradeByAddress(trade.address);
     if (!live) return; // no open live position for this token — nothing to do
-    await liveExecutor.executeLiveExit(live.liveTradeId, trade);
+    // Vulcan Stage 3 — explicit invocation context so the resulting execution
+    // audit rows record WHY this executor path ran: a monitor-driven live-exit
+    // mirror, NOT the canonical executor --loop. Producer identity remains
+    // "live_executor" (the writer), while this context distinguishes the caller.
+    // We deliberately do not assert runtime/authority/capital here — prefer
+    // "unknown" over overstatement.
+    await liveExecutor.executeLiveExit(live.liveTradeId, trade, {
+      invocationContext: "monitor_mirror",
+      invocationSource: "monitor",
+      bridgeMode: "monitor_live_exit_mirror"
+    });
   } catch (err) {
     console.error(`[monitor] Live exit mirror failed for ${trade.symbol}: ${err.message}`);
   }

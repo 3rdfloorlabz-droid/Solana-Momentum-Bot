@@ -1,3 +1,6 @@
+// A4.8 — load local `.env` before any module reads process.env (never prints values).
+require("./local_env").loadLocalEnv();
+
 const express = require("express");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -9,6 +12,29 @@ try {
   liveExecutor = require("./live_executor");
 } catch {
   // If live_executor.js is not present, dashboard still works.
+}
+
+// Vulcan Stage 10 — dashboard-originated status/observation context.
+// Dashboard read paths (HTML render, recovery posture snapshot) invoke
+// audit-producing executor readiness/status helpers (readinessChecks,
+// computeLiveArmedStatus → resolveRpcEndpoint). Wrapping those reads in the
+// executor's shared AsyncLocalStorage context tags any resulting audit rows as
+// `dashboard_status` / `dashboard` / `dashboard_status_read`, so dashboard
+// observation is never mistaken for executor loop/cycle/status or monitor
+// mirror activity. This is attribution only: it changes NO rendering, readiness,
+// gate, A4, control-route, or trading behavior. If live_executor (or the helper)
+// is unavailable, it degrades to calling the function directly.
+//
+// NOTE: control mutation routes (POST /control/*) are intentionally NOT wrapped.
+function withDashboardStatusContext(fn) {
+  if (
+    liveExecutor &&
+    typeof liveExecutor.runWithInvocationContext === "function" &&
+    liveExecutor.DASHBOARD_INVOCATION
+  ) {
+    return liveExecutor.runWithInvocationContext(liveExecutor.DASHBOARD_INVOCATION, fn);
+  }
+  return fn();
 }
 
 let scannerHealthModule = null;
@@ -26,6 +52,25 @@ try {
   paperStore = require("./paper_positions_store");
 } catch {
   // If unavailable, dashboard falls back to reading paper_trades.json directly.
+}
+
+// Vulcan Stage 6 — read-only runtime health surface. The dashboard consumes the
+// shared evidence collector + classifier instead of inventing its own health
+// logic. Display only: never triggers trades, never mutates runtime state, never
+// starts/stops processes. Both modules are optional; if either is missing the
+// dashboard degrades to a conservative "needs review" verdict.
+let runtimeEvidence = null;
+try {
+  runtimeEvidence = require("./runtime_evidence");
+} catch {
+  // Evidence collector optional; runtime health falls back to needs-review.
+}
+
+let runtimeHealthClassifier = null;
+try {
+  runtimeHealthClassifier = require("./runtime_health");
+} catch {
+  // Health classifier optional; runtime health falls back to needs-review.
 }
 
 const app = express();
@@ -4315,7 +4360,8 @@ app.get("/", (req, res) => {
       positionSizeSol: Number.isFinite(requestedPosition) && requestedPosition > 0 ? requestedPosition : 1,
       feePercent: Number.isFinite(requestedFee) && requestedFee >= 0 ? requestedFee : 1
     };
-    res.type("html").send(renderDashboard(settings));
+    // Stage 10 — tag dashboard-originated readiness/status audit rows.
+    res.type("html").send(withDashboardStatusContext(() => renderDashboard(settings)));
   } catch (err) {
     res.status(500).type("text").send(`Dashboard error: ${err.message}`);
   }
@@ -4394,14 +4440,17 @@ function getRecoveryPostureSnapshot() {
       emergencyStop: false
     };
   }
-  const cfg = liveExecutor.loadConfig();
-  const armed = liveExecutor.computeLiveArmedStatus(cfg);
-  return {
-    executionMode: liveExecutor.resolveExecutionMode(cfg),
-    dryRunMode: cfg.dryRunMode === true,
-    liveArmed: armed.liveArmed === true,
-    emergencyStop: cfg.emergencyStop === true
-  };
+  // Stage 10 — recovery posture read is dashboard-originated observation.
+  return withDashboardStatusContext(() => {
+    const cfg = liveExecutor.loadConfig();
+    const armed = liveExecutor.computeLiveArmedStatus(cfg);
+    return {
+      executionMode: liveExecutor.resolveExecutionMode(cfg),
+      dryRunMode: cfg.dryRunMode === true,
+      liveArmed: armed.liveArmed === true,
+      emergencyStop: cfg.emergencyStop === true
+    };
+  });
 }
 
 function getRecoveryTargetState(heartbeatKey) {
@@ -4452,6 +4501,435 @@ app.post("/control/emergency", (req, res) => {
   handleControl(() => liveExecutor.emergencyStopControl("EMERGENCY STOP button (dashboard)"), res, "emergency");
 });
 
+// ─── Vulcan Stage 6 — read-only runtime health display ───────────────────────
+// Consumes runtime_evidence.js (collector) + runtime_health.js (classifier) to
+// produce conservative, display-only status wording. This surface NEVER claims
+// live readiness, NEVER performs runtime control, and NEVER mutates state. On
+// any failure it degrades to UNKNOWN_NEEDS_REVIEW rather than crashing.
+
+// Summarize producer / invocation attribution from collected audit rows, for
+// display only. Uses the classifier's normalizer so legacy rows read as
+// `unknown_legacy` rather than being overstated.
+function summarizeProducersAndInvocation(auditEvents) {
+  if (!Array.isArray(auditEvents) || auditEvents.length === 0) return null;
+  const normalize = runtimeHealthClassifier && runtimeHealthClassifier.normalizeAuditEvent;
+  const producers = {};
+  const invocationContexts = {};
+  const invocationSources = {};
+  for (const row of auditEvents) {
+    const n = typeof normalize === "function" ? normalize(row) : (row || {});
+    const p = n.producer || "unknown_legacy";
+    const ic = n.invocationContext || "unknown";
+    const is = n.invocationSource || "unknown";
+    producers[p] = (producers[p] || 0) + 1;
+    invocationContexts[ic] = (invocationContexts[ic] || 0) + 1;
+    invocationSources[is] = (invocationSources[is] || 0) + 1;
+  }
+  return { rowsConsidered: auditEvents.length, producers, invocationContexts, invocationSources };
+}
+
+// Reduce collector meta to a display-safe shape. File paths are trimmed to base
+// names so the API never leaks absolute filesystem layout.
+function sanitizeRuntimeHealthMeta(meta) {
+  if (!meta || typeof meta !== "object") return null;
+  const sources = {};
+  if (meta.sources && typeof meta.sources === "object") {
+    for (const [k, v] of Object.entries(meta.sources)) {
+      sources[k] = typeof v === "string" ? path.basename(v) : null;
+    }
+  }
+  return {
+    warnings: Array.isArray(meta.warnings) ? meta.warnings : [],
+    uncertainties: Array.isArray(meta.uncertainties) ? meta.uncertainties : [],
+    sources
+  };
+}
+
+// ─── A4.4 — dedicated-RPC (A4) display helpers ───────────────────────────────
+// Display-only surface for the A4.3 `a4Health` classifier field. This block:
+//   - NEVER recomputes A4 from raw sources (env/audit); it only re-shapes the
+//     already-secret-safe classifier output for display,
+//   - re-sanitizes every field against fixed allowlists (defense-in-depth) so a
+//     raw URL/key/token can never escape even if one reached a4Health,
+//   - is warning-only: supportsLiveReadiness / supportsSoakClaim are hard false,
+//   - grants no authority: it changes no arming state, wires no control route,
+//     and performs no process or file I/O.
+// Principle: Visibility is not authority.
+const A4_DISPLAY_STATUSES = new Set([
+  "A4_UNKNOWN", "A4_NOT_CONFIGURED", "A4_REFUSAL_ACTIVE",
+  "A4_CONFIGURED_UNVERIFIED", "A4_FALLBACK_DETECTED",
+  "A4_READ_ONLY_RPC_VERIFIED", "A4_PROOF_FAILED", "A4_PROOF_STALE",
+  "A4_STABILITY_PROOF_OBSERVED",
+  "A4_VERIFIED_DEDICATED"
+]);
+const A4_DISPLAY_SEVERITIES = new Set(["info", "warning", "blocked"]);
+const A4_DISPLAY_PROVIDER_LABELS = new Set([
+  "helius_rpc_url_configured", "solana_rpc_url_configured",
+  "helius_api_key_configured", "helius_api_key_derived_configured",
+  "public_fallback_detected", "legacy_rpc_url_ignored", "not_configured", "unknown"
+]);
+const A4_DISPLAY_ENDPOINT_CLASSES = new Set(["dedicated", "public", "not_configured", "unknown"]);
+const A4_DISPLAY_REFUSAL_REASONS = new Set(["dedicated_rpc_required_not_satisfied"]);
+const A4_DISPLAY_CONFIDENCE = new Set(["low", "medium", "high"]);
+const A4_DISPLAY_WARNINGS = new Set([
+  "A4_UNKNOWN", "A4_NOT_CONFIGURED", "A4_REFUSAL_ACTIVE",
+  "A4_CONFIGURED_UNVERIFIED", "A4_FALLBACK_DETECTED",
+  "A4_READ_ONLY_RPC_VERIFIED", "A4_PROOF_FAILED", "A4_PROOF_STALE",
+  "A4_STABILITY_PROOF_OBSERVED"
+]);
+// A4.13 — safe proof display allowlists (metadata only, never raw values).
+const A4_DISPLAY_PROOF_STATUSES = new Set(["READ_ONLY_RPC_OK", "READ_ONLY_RPC_FAILED", "UNVERIFIED"]);
+const A4_DISPLAY_PROOF_METHODS = new Set(["getSlot", "unknown"]);
+const A4_DISPLAY_PROOF_LATENCY_BUCKETS = new Set(["<250ms", "250-1000ms", ">1000ms", "unknown"]);
+const A4_DISPLAY_PROOF_FRESHNESS = new Set(["fresh", "stale", "unknown"]);
+// A4.18 — safe stability display allowlist.
+const A4_DISPLAY_SEPARATION_BUCKETS = new Set(["<15m", ">=15m", "unknown"]);
+// A4.21 — safe proof-scan error-code display allowlist.
+const A4_DISPLAY_PROOF_SCAN_ERROR_CODES = new Set([
+  "A4_PROOF_SCAN_UNAVAILABLE",
+  "A4_PROOF_SCAN_READ_ERROR",
+  "A4_PROOF_SCAN_PARSE_ERROR",
+  "A4_PROOF_SCAN_UNKNOWN_ERROR"
+]);
+const A4_DISPLAY_APPROVAL_STATUSES = new Set([
+  "approved", "approved_with_conditions", "revoked", "pending_review", "not_approved"
+]);
+const A4_DISPLAY_APPROVAL_FRESHNESS = new Set(["fresh", "stale", "expired", "unknown"]);
+const A4_DISPLAY_APPROVAL_SCAN_ERROR_CODES = new Set([
+  "A4_APPROVAL_SCAN_UNAVAILABLE",
+  "A4_APPROVAL_SCAN_READ_ERROR",
+  "A4_APPROVAL_SCAN_PARSE_ERROR",
+  "A4_APPROVAL_SCAN_UNKNOWN_ERROR"
+]);
+
+// Safe, status-derived operator guidance and messaging (never sourced from raw
+// evidence, so no secret can leak through the display text).
+const A4_RECOMMENDED_ACTION = {
+  A4_UNKNOWN: "Collect safe A4 evidence or review A4 configuration.",
+  A4_NOT_CONFIGURED: "Configure an approved dedicated RPC using the A4.1 config contract.",
+  A4_REFUSAL_ACTIVE: "Satisfy the dedicated-RPC proof requirement; preserve fail-closed refusal behavior.",
+  A4_CONFIGURED_UNVERIFIED: "Verify the runtime dedicated endpoint class without exposing secrets.",
+  A4_FALLBACK_DETECTED: "Stop relying on public fallback; verify the dedicated RPC path.",
+  A4_READ_ONLY_RPC_VERIFIED: "One read-only RPC proof observed; stability proof and human approval still required before A4_VERIFIED_DEDICATED.",
+  A4_PROOF_FAILED: "Read-only RPC proof failed; investigate the dedicated provider path without exposing secrets.",
+  A4_PROOF_STALE: "Read-only RPC proof is stale; re-run an authorized read-only proof to refresh evidence.",
+  A4_STABILITY_PROOF_OBSERVED: "Record explicit human approval decision before any A4_VERIFIED_DEDICATED consideration.",
+  A4_VERIFIED_DEDICATED: "A4 dedicated RPC verified by explicit human approval; not live readiness. A1/execution/capital gates remain."
+};
+const A4_OPERATOR_MESSAGES = {
+  A4_UNKNOWN: {
+    label: "A4 dedicated RPC posture unknown",
+    operatorMessage: "A4 dedicated RPC posture is unknown. Review safe runtime evidence."
+  },
+  A4_NOT_CONFIGURED: {
+    label: "A4 dedicated RPC not configured",
+    operatorMessage: "A4 dedicated RPC is not configured. Fail-closed refusal remains active."
+  },
+  A4_REFUSAL_ACTIVE: {
+    label: "A4 dedicated RPC requirement not satisfied",
+    operatorMessage: "A4 dedicated RPC requirement is not satisfied. System is correctly refusing trust-critical RPC use."
+  },
+  A4_CONFIGURED_UNVERIFIED: {
+    label: "A4 RPC configured but not runtime-verified",
+    operatorMessage: "A4 RPC configuration is present but not runtime-verified. Configuration is not proof."
+  },
+  A4_FALLBACK_DETECTED: {
+    label: "Public fallback detected",
+    operatorMessage: "Public fallback detected. Dedicated RPC trust boundary is not satisfied."
+  },
+  A4_READ_ONLY_RPC_VERIFIED: {
+    label: "A4 read-only RPC proof observed",
+    operatorMessage: "One read-only RPC proof observed. This is not live readiness; stability proof and human approval are still required."
+  },
+  A4_PROOF_FAILED: {
+    label: "A4 read-only RPC proof failed",
+    operatorMessage: "Read-only RPC proof failed. The dedicated RPC path is not verified."
+  },
+  A4_PROOF_STALE: {
+    label: "A4 read-only RPC proof stale",
+    operatorMessage: "The last read-only RPC proof is stale. Re-run an authorized read-only proof to refresh evidence."
+  },
+  A4_STABILITY_PROOF_OBSERVED: {
+    label: "A4 stability proof observed",
+    operatorMessage: "Repeated safe read-only RPC proofs observed. This is not live readiness; explicit human approval is required before A4_VERIFIED_DEDICATED."
+  },
+  A4_VERIFIED_DEDICATED: {
+    label: "A4 verified dedicated (stability evidence approved)",
+    operatorMessage: "A4 dedicated RPC verified by explicit human approval. This is not live readiness, human soak authorization, or capital permission."
+  }
+};
+
+function a4TriBool(value) {
+  return value === true ? true : (value === false ? false : null);
+}
+
+// Re-shape a4Health for display. Any field outside its allowlist collapses to a
+// safe sentinel. supportsLiveReadiness / supportsSoakClaim are always false.
+function sanitizeA4HealthForDisplay(raw) {
+  const src = (raw && typeof raw === "object") ? raw : null;
+  const status = src && A4_DISPLAY_STATUSES.has(src.status) ? src.status : "A4_UNKNOWN";
+  const warnings = Array.isArray(src && src.warnings)
+    ? src.warnings.filter((w) => A4_DISPLAY_WARNINGS.has(w))
+    : [];
+  return {
+    status,
+    severity: src && A4_DISPLAY_SEVERITIES.has(src.severity) ? src.severity : "warning",
+    blockerActive: src ? src.blockerActive === true : true,
+    rpcRequired: src ? a4TriBool(src.rpcRequired) : null,
+    rpcConfigured: src ? a4TriBool(src.rpcConfigured) : null,
+    publicFallbackDetected: src ? src.publicFallbackDetected === true : false,
+    refusalActive: src ? src.refusalActive === true : false,
+    refusalReason: src && A4_DISPLAY_REFUSAL_REASONS.has(src.refusalReason) ? src.refusalReason : null,
+    providerLabel: src && A4_DISPLAY_PROVIDER_LABELS.has(src.providerLabel) ? src.providerLabel : "unknown",
+    endpointClass: src && A4_DISPLAY_ENDPOINT_CLASSES.has(src.endpointClass) ? src.endpointClass : "unknown",
+    confidence: src && A4_DISPLAY_CONFIDENCE.has(src.confidence) ? src.confidence : "low",
+    warnings,
+    // A4.13 — safe, allowlisted proof summary for display (null when absent).
+    proof: sanitizeA4ProofForDisplay(src && src.proof),
+    // A4.18 — safe, allowlisted stability summary for display (null when absent).
+    proofStability: sanitizeA4ProofStabilityForDisplay(src && src.proofStability),
+    // A4.21 — safe, allowlisted proof-scan availability (null when absent).
+    proofScan: sanitizeA4ProofScanForDisplay(src && src.proofScan),
+    // A4.25 — safe, allowlisted approval summary (null when absent).
+    approval: sanitizeA4ApprovalForDisplay(src && src.approval),
+    approvalScan: sanitizeA4ApprovalScanForDisplay(src && src.approvalScan),
+    // Derived from status only — never from raw evidence text.
+    recommendedAction: A4_RECOMMENDED_ACTION[status] || A4_RECOMMENDED_ACTION.A4_UNKNOWN,
+    supportsLiveReadiness: false,
+    supportsSoakClaim: false
+  };
+}
+
+// A4.18 — re-shape stability metadata for display through a positive allowlist.
+// Only safe booleans, small counts, and enumerated buckets survive. null when
+// absent. No raw endpoint/key/slot/error can pass.
+function sanitizeA4ProofStabilityForDisplay(raw) {
+  const s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : null;
+  if (!s) return null;
+  return {
+    successCount: Number.isFinite(s.successCount) ? s.successCount : 0,
+    freshSuccessCount: Number.isFinite(s.freshSuccessCount) ? s.freshSuccessCount : 0,
+    separationBucket: A4_DISPLAY_SEPARATION_BUCKETS.has(s.separationBucket) ? s.separationBucket : "unknown",
+    providerConsistent: s.providerConsistent === true,
+    endpointClassConsistent: s.endpointClassConsistent === true,
+    providerLabel: A4_DISPLAY_PROVIDER_LABELS.has(s.providerLabel) ? s.providerLabel : "unknown",
+    endpointClass: A4_DISPLAY_ENDPOINT_CLASSES.has(s.endpointClass) ? s.endpointClass : "unknown",
+    fallbackObserved: s.fallbackObserved === true,
+    failureObserved: s.failureObserved === true,
+    secretSafe: s.secretSafe === true,
+    withinFreshnessWindow: s.withinFreshnessWindow === true,
+    stabilityCandidate: s.stabilityCandidate === true
+  };
+}
+
+// A4.21 — re-shape proof-scan availability metadata for display. Only a safe
+// boolean, a bounded numeric limit, and an enumerated error code survive. No
+// raw error message, file path, or line content can pass. null when absent.
+function sanitizeA4ProofScanForDisplay(raw) {
+  const s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : null;
+  if (!s) return null;
+  return {
+    available: s.available === true,
+    limit: Number.isFinite(s.limit) ? s.limit : null,
+    errorCode: (typeof s.errorCode === "string" && A4_DISPLAY_PROOF_SCAN_ERROR_CODES.has(s.errorCode))
+      ? s.errorCode
+      : null
+  };
+}
+
+// A4.25 — re-shape approval metadata for display through a positive allowlist.
+function sanitizeA4ApprovalForDisplay(raw) {
+  const a = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : null;
+  if (!a) return null;
+  const refPattern = /^[A-Za-z0-9._:-]+$/;
+  const approver = (typeof a.approver === "string" && /^[A-Za-z .'-]+$/.test(a.approver.trim()))
+    ? a.approver.trim()
+    : null;
+  const decisionRef = (typeof a.decisionRef === "string" && refPattern.test(a.decisionRef.trim()))
+    ? a.decisionRef.trim()
+    : null;
+  const evidenceRef = (typeof a.evidenceRef === "string" && refPattern.test(a.evidenceRef.trim()))
+    ? a.evidenceRef.trim()
+    : null;
+  return {
+    present: a.present === true,
+    approved: a.approved === true,
+    status: A4_DISPLAY_APPROVAL_STATUSES.has(a.status) ? a.status : null,
+    approver,
+    decisionRef,
+    evidenceRef,
+    approvedAtIso: (typeof a.approvedAtIso === "string" && a.approvedAtIso) ? a.approvedAtIso : null,
+    expiresAtIso: (typeof a.expiresAtIso === "string" && a.expiresAtIso) ? a.expiresAtIso : null,
+    freshness: A4_DISPLAY_APPROVAL_FRESHNESS.has(a.freshness) ? a.freshness : "unknown"
+  };
+}
+
+// A4.25 — re-shape approval-scan availability metadata for display.
+function sanitizeA4ApprovalScanForDisplay(raw) {
+  const s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : null;
+  if (!s) return null;
+  return {
+    available: s.available === true,
+    limit: Number.isFinite(s.limit) ? s.limit : null,
+    errorCode: (typeof s.errorCode === "string" && A4_DISPLAY_APPROVAL_SCAN_ERROR_CODES.has(s.errorCode))
+      ? s.errorCode
+      : null
+  };
+}
+
+// Re-shape proof metadata for display. Every field passes through a positive
+// allowlist so no raw endpoint/key/slot/signature can leak. null when absent.
+function sanitizeA4ProofForDisplay(raw) {
+  const p = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : null;
+  if (!p) return null;
+  return {
+    proofStatus: A4_DISPLAY_PROOF_STATUSES.has(p.proofStatus) ? p.proofStatus : "UNVERIFIED",
+    method: A4_DISPLAY_PROOF_METHODS.has(p.method) ? p.method : "unknown",
+    providerLabel: A4_DISPLAY_PROVIDER_LABELS.has(p.providerLabel) ? p.providerLabel : "unknown",
+    endpointClass: A4_DISPLAY_ENDPOINT_CLASSES.has(p.endpointClass) ? p.endpointClass : "unknown",
+    freshness: A4_DISPLAY_PROOF_FRESHNESS.has(p.freshness) ? p.freshness : "unknown",
+    latencyMsBucket: A4_DISPLAY_PROOF_LATENCY_BUCKETS.has(p.latencyMsBucket) ? p.latencyMsBucket : "unknown",
+    publicFallbackUsed: p.publicFallbackUsed === true,
+    secretSafe: p.secretSafe === true,
+    slotObserved: p.slotObserved === true,
+    slotValuePresent: p.slotValuePresent === true
+  };
+}
+
+// Concise, human-facing companion derived purely from the sanitized status.
+function buildA4Summary(a4Health) {
+  const status = a4Health && A4_DISPLAY_STATUSES.has(a4Health.status) ? a4Health.status : "A4_UNKNOWN";
+  const severity = a4Health && A4_DISPLAY_SEVERITIES.has(a4Health.severity) ? a4Health.severity : "warning";
+  const msg = A4_OPERATOR_MESSAGES[status] || A4_OPERATOR_MESSAGES.A4_UNKNOWN;
+  return { status, severity, label: msg.label, operatorMessage: msg.operatorMessage };
+}
+
+// Conservative default used when the classifier omits a4Health or fails. Must
+// never imply A4 is clear.
+function conservativeA4Health() {
+  return {
+    status: "A4_UNKNOWN",
+    severity: "warning",
+    blockerActive: true,
+    rpcRequired: null,
+    rpcConfigured: null,
+    publicFallbackDetected: false,
+    refusalActive: false,
+    refusalReason: null,
+    providerLabel: "unknown",
+    endpointClass: "unknown",
+    confidence: "low",
+    warnings: ["A4_UNKNOWN"],
+    proof: null,
+    proofStability: null,
+    proofScan: null,
+    recommendedAction: "Review safe A4 runtime evidence.",
+    supportsLiveReadiness: false,
+    supportsSoakClaim: false
+  };
+}
+// ─── end A4.4 display helpers ─────────────────────────────────────────────────
+
+function buildRuntimeHealthFallback(errorSummary) {
+  return {
+    classification: "UNKNOWN_NEEDS_REVIEW",
+    severity: "warning",
+    summary: "Runtime health could not be determined from evidence; needs review.",
+    evidenceUsed: [],
+    missingEvidence: ["runtime_evidence_collection"],
+    warnings: ["RUNTIME_HEALTH_UNAVAILABLE"],
+    recommendedOperatorAction: "Review runtime evidence manually; do not assume health.",
+    dashboardWording: "Runtime health classification: needs review. Evidence collected read-only; live readiness not supported.",
+    supportsSoakClaim: false,
+    supportsLiveReadiness: false,
+    scannerFreshness: null,
+    scannerAgeMs: null,
+    lockState: null,
+    heartbeatState: null,
+    capitalExposure: "unknown",
+    executorLoopConfirmed: false,
+    monitorDriven: false,
+    producerInvocationSummary: null,
+    collectionMeta: null,
+    collectedAt: new Date().toISOString(),
+    evidenceReadOnly: true,
+    // A4.4 — conservative A4 posture on the failure path; never implies A4 clear.
+    a4Health: conservativeA4Health(),
+    a4Summary: buildA4Summary(conservativeA4Health()),
+    ...(errorSummary ? { errorSummary: String(errorSummary) } : {})
+  };
+}
+
+// Pure, read-only builder. Exported for testing so no server needs to start.
+function buildVulcanRuntimeHealth(options = {}) {
+  if (!runtimeEvidence || !runtimeHealthClassifier) {
+    return buildRuntimeHealthFallback("runtime_evidence/runtime_health module unavailable");
+  }
+
+  try {
+    const runtimeRoot = options.runtimeRoot || DATA_ROOT;
+    const collection = runtimeEvidence.collectRuntimeEvidence({
+      runtimeRoot,
+      now: options.now,
+      auditTailLimit: Number.isFinite(options.auditTailLimit) ? options.auditTailLimit : 50
+      // expectExecutorLoop intentionally left unset: the dashboard does not
+      // assert that an executor loop is expected, so lock absence stays
+      // ambiguous rather than being read as an unexpected-missing warning.
+    });
+    const evidence = (collection && collection.evidence) || {};
+    const result = runtimeHealthClassifier.classifyRuntimeHealth(evidence);
+    const details = (result && result.details) || {};
+
+    // A4.4 — expose the already-computed, secret-safe A4 health from the
+    // classifier (re-sanitized for display). Fall back to a conservative
+    // A4_UNKNOWN if the classifier did not provide a4Health.
+    const a4Health = (result && result.a4Health)
+      ? sanitizeA4HealthForDisplay(result.a4Health)
+      : conservativeA4Health();
+    const a4Summary = buildA4Summary(a4Health);
+
+    return {
+      classification: result.classification,
+      severity: result.severity,
+      summary: result.summary,
+      evidenceUsed: Array.isArray(result.evidenceUsed) ? result.evidenceUsed : [],
+      missingEvidence: Array.isArray(result.missingEvidence) ? result.missingEvidence : [],
+      warnings: Array.isArray(result.warnings) ? result.warnings : [],
+      recommendedOperatorAction: result.recommendedOperatorAction,
+      dashboardWording: result.dashboardWording,
+      supportsSoakClaim: result.supportsSoakClaim === true,
+      // Stage 6 never surfaces live readiness as true, regardless of classification.
+      supportsLiveReadiness: false,
+      scannerFreshness: details.scannerFreshness ?? null,
+      scannerAgeMs: details.scannerAgeMs ?? null,
+      lockState: details.lockState ?? null,
+      heartbeatState: details.heartbeatState ?? null,
+      capitalExposure: details.exposure ?? "unknown",
+      executorLoopConfirmed: details.executorLoopConfirmed === true,
+      monitorDriven: details.monitorDriven === true,
+      producerInvocationSummary: summarizeProducersAndInvocation(evidence.auditEvents),
+      collectionMeta: sanitizeRuntimeHealthMeta(collection && collection.meta),
+      collectedAt: (collection && collection.meta && collection.meta.now) || new Date().toISOString(),
+      evidenceReadOnly: true,
+      // A4.4 — warning-only dedicated-RPC visibility (display only, no authority).
+      a4Health,
+      a4Summary
+    };
+  } catch (err) {
+    return buildRuntimeHealthFallback((err && err.message) || String(err));
+  }
+}
+
+// Smallest safe read-only status endpoint. Returns 200 with a conservative
+// verdict even on failure so the dashboard never crashes.
+app.get("/api/runtime-health", (req, res) => {
+  try {
+    res.json({ runtimeHealth: buildVulcanRuntimeHealth({}) });
+  } catch (err) {
+    res.status(200).json({ runtimeHealth: buildRuntimeHealthFallback((err && err.message) || String(err)) });
+  }
+});
+
 if (require.main === module) {
   app.listen(PORT, "127.0.0.1", () => {
     console.log(`Dashboard running at http://localhost:${PORT}`);
@@ -4461,5 +4939,9 @@ if (require.main === module) {
 module.exports = {
   app,
   validateDashboardControlToken,
-  requireDashboardControlAuth
+  requireDashboardControlAuth,
+  buildVulcanRuntimeHealth,
+  // Vulcan Stage 10 — exported for tests only; wraps a callback in the
+  // dashboard-originated invocation context. No server needs to start.
+  withDashboardStatusContext
 };
