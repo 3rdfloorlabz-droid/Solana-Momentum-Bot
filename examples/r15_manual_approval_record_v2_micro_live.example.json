@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "approvalPurpose": "micro_live_execution",
+  "finalApprovalStatus": "APPROVED FOR ONE MICRO-LIVE SESSION ONLY",
+  "purpose": "micro_live_execution",
+  "approvalId": "R15-EXAMPLE-V2-MICRO-LIVE",
+  "operatorName": "EXAMPLE_OPERATOR",
+  "dateTime": "2026-07-09T00:00:00.000Z",
+  "sessionStartTime": null,
+  "sessionEndTime": null,
+  "expiresAt": null,
+  "researchWalletPublicAddress": "SIMULATED_RESEARCH_WALLET_DO_NOT_USE",
+  "operatorSignaturePresent": false,
+  "simulationExampleOnly": true,
+  "commonAcknowledgments": {
+    "strategyNotReadyAcknowledged": false,
+    "noProfitabilityClaimAcknowledged": false,
+    "oneSessionOnlyAcknowledged": false,
+    "signerAndSessionBindingAcknowledged": false
+  },
+  "microLiveAcknowledgments": {
+    "totalLossRiskAcknowledged": false,
+    "slippageCapAcknowledged": false,
+    "mevProtectionPlanAcknowledged": false,
+    "emergencyStopPolicyAcknowledged": false,
+    "noAutoCompoundingAcknowledged": false,
+    "noAveragingDownAcknowledged": false,
+    "noUnattendedExecutionAcknowledged": false,
+    "liveTradingNotForIncomeAcknowledged": false
+  },
+  "_note": "EXAMPLE ONLY — schemaVersion 2 micro-live shape. Not a valid approval. Non-canonical."
+}

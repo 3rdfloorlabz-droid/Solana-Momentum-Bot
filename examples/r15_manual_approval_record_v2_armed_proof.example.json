@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "approvalPurpose": "armed_no_submit_proof_only",
+  "finalApprovalStatus": "APPROVED FOR ONE ARMED NO-SUBMIT PROOF SESSION ONLY",
+  "purpose": "armed_no_submit_proof_only",
+  "approvalId": "R15-EXAMPLE-V2-ARMED-PROOF",
+  "operatorName": "EXAMPLE_OPERATOR",
+  "dateTime": "2026-07-09T00:00:00.000Z",
+  "sessionStartTime": null,
+  "sessionEndTime": null,
+  "expiresAt": null,
+  "researchWalletPublicAddress": "SIMULATED_RESEARCH_WALLET_DO_NOT_USE",
+  "operatorSignaturePresent": false,
+  "simulationExampleOnly": true,
+  "commonAcknowledgments": {
+    "strategyNotReadyAcknowledged": false,
+    "noProfitabilityClaimAcknowledged": false,
+    "oneSessionOnlyAcknowledged": false,
+    "signerAndSessionBindingAcknowledged": false
+  },
+  "armedProofAcknowledgments": {
+    "noCandidateSelectionAcknowledged": false,
+    "noExecutionQuoteAcknowledged": false,
+    "noSubmitAcknowledged": false,
+    "noSigningAcknowledged": false,
+    "noBroadcastAcknowledged": false,
+    "noPositionAcknowledged": false,
+    "noCapitalExposureAcknowledged": false,
+    "immediateDisarmAcknowledged": false,
+    "abortWithoutCompletionAcknowledged": false
+  },
+  "_note": "EXAMPLE ONLY — schemaVersion 2 armed-proof shape. Not a valid authorization. Non-canonical."
+}
