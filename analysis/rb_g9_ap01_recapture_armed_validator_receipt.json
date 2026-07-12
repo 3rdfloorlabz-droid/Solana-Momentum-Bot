@@ -1,0 +1,74 @@
+{
+  "checks": [],
+  "completedAt": "2026-07-10T19:12:00.850Z",
+  "context": "armed-preflight",
+  "evidence": {
+    "checkCount": 0
+  },
+  "failures": [
+    "wrong posture — requires LIVE_ARMED"
+  ],
+  "fingerprints": {
+    "authorizationChainMode": "unconfigured",
+    "authorizationDocuments": {},
+    "authorizationLinkage": null,
+    "cliInputs": null,
+    "codeFingerprint": {
+      "aggregate": "6b689c26624cab981002cc69b52ce1177734d0dee39b151ab347e44e6fa906b2",
+      "algorithm": "sha256",
+      "files": {
+        "armed_preflight_checks.js": "d2d0fe942ec3644199330d15388366add24133c35e7bb9a2629c980ea48732c2",
+        "armed_preflight_manifest.js": "763c3055e52228f7a3b7216c7aea3f5d2218e9756442158c04ff4f0fe0c02b87",
+        "armed_preflight_session.js": "dac6b404e33b3ec2d3914603c74ece4f26c6d56e2c6371e203b05a3fe84af0e3",
+        "live_validation_common.js": "8ff051dedc8f724cff74d5847335933b5e8fed51756558a843a9552513b2e2d6",
+        "run_armed_preflight_manifest.js": "2c86c1749934470e9a8d95c7444c030ebd9912821a1581bdf09c16d0e2c0bc93",
+        "test_n6_armed_estop_probe.js": "a3b3176ca748418cb0d790fc00f28af367b58f0aff30ff4bb0e66ccce16a06e3",
+        "validate_armed_preflight.js": "2271fd98d839b95379b4ee6cbd828aa518bcf89f55173dbce09efd6e76c680be"
+      }
+    },
+    "envGateBooleans": {
+      "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+      "FOMO_ALLOW_LOOP_LIVE": "unset",
+      "FOMO_ENABLE_LIVE_SUBMISSION": "unset"
+    },
+    "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "manifestVersion": "ap-manifest/1.0.0",
+    "posture": {
+      "dryRunMode": true,
+      "executionMode": "PIPELINE_DRY_RUN",
+      "liveArmed": false
+    },
+    "processSet": {
+      "count": 0,
+      "executorLoopCount": 0,
+      "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "proofContext": null,
+    "runtimeStub": {
+      "fingerprint": null,
+      "present": false
+    }
+  },
+  "overallStatus": "WRONG_POSTURE",
+  "posture": {
+    "dryRunMode": true,
+    "envGates": {
+      "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+      "FOMO_ALLOW_LOOP_LIVE": "unset",
+      "FOMO_ENABLE_LIVE_SUBMISSION": "unset",
+      "SOLANA_SIGNER_SECRET": "present"
+    },
+    "executionMode": "PIPELINE_DRY_RUN",
+    "failures": [
+      "executionMode must be LIVE",
+      "dryRunMode must be false",
+      "FOMO_ENABLE_LIVE_SUBMISSION must equal YES"
+    ],
+    "liveArmed": false,
+    "ok": false,
+    "operationalPosture": "PIPELINE_OBSERVING"
+  },
+  "schemaVersion": "armed-preflight-receipt/1.0.0",
+  "startedAt": "2026-07-10T19:12:00.842Z",
+  "toolName": "validate_armed_preflight"
+}

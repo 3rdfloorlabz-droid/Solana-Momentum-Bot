@@ -1,0 +1,96 @@
+{
+  "ap01ChainClosed": true,
+  "ap01ChainClosureUtc": "2026-07-11T01:54:42Z",
+  "armingBaselineHashSha256": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+  "authorizedProcessStopList": [
+    "monitor.js",
+    "dashboard_server.js",
+    "scanner_gmgn_trending.js"
+  ],
+  "baselineFreshnessExpiryUtc": "2026-07-10T18:16:56.268Z",
+  "baselinePreservation": {
+    "authorizationChainFingerprint": "4813507a978c2678c13c2b1fa6b79402322e7cfe28c6e2d3406c4c000874acee",
+    "codeFingerprint": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+    "environmentGateFingerprint": "52cc3c3a3499ecf5e6dedf492315666fb3001bf11110c5fd95a2e2e52e7e5d4b",
+    "liveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "posture": {
+      "dryRunMode": true,
+      "executionMode": "PIPELINE_DRY_RUN",
+      "liveArmed": false,
+      "operationalPosture": "PIPELINE_OBSERVING"
+    },
+    "runtimeStubAbsent": true,
+    "sessionFolderAbsent": true
+  },
+  "controlledProcessDelta": {
+    "expectedRemovals": [
+      "monitor.js",
+      "dashboard_server.js",
+      "scanner_gmgn_trending.js"
+    ],
+    "note": "No process stops — gate failed closed before isolation",
+    "performed": false
+  },
+  "failReasons": [
+    "ARMING_BASELINE_EXPIRED",
+    "AP01_AUTHORIZATION_CHAIN_CLOSED",
+    "G1_AUTHORIZATION_EXPIRED"
+  ],
+  "gateAttempt": "STALE-HANDOFF-after-AP01-closure",
+  "gateCompletionTimestampUtc": "2026-07-11T19:09:37.582Z",
+  "gateStartTimestampUtc": "2026-07-11T19:07:47.723Z",
+  "isolatedProcessSetHashSha256": null,
+  "isolationPerformed": false,
+  "observationPeriod": null,
+  "originalDomainAProofCompletionUtc": "2026-07-10T17:46:56.268Z",
+  "postIsolation": null,
+  "powershellWrapperRule": {
+    "terminationAuthorized": "not-evaluated-isolation-not-performed",
+    "wrapperPid34856": null
+  },
+  "preIsolation": {
+    "autoRestartEvidence": [],
+    "baselineProcessSetFingerprintExpected": "19e5589cbacc6eb125fc894c13cae0e86a5f0ddafa94950dd107301d40e9b0a4",
+    "counts": {
+      "dashboardServerJs": 1,
+      "liveExecutorJs": 0,
+      "monitorJs": 0,
+      "scannerGmgn": 2
+    },
+    "processFingerprintMatch": false,
+    "processInventory": [
+      {
+        "commandIdentity": "scanner_gmgn_trending.js",
+        "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" scanner_gmgn_trending.js --watch",
+        "isExecutorLoop": false,
+        "parentPid": 45808,
+        "pid": 9896,
+        "processKind": "node",
+        "scriptIdentity": "scanner_gmgn_trending.js"
+      },
+      {
+        "commandIdentity": "dashboard_server.js",
+        "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" dashboard_server.js ",
+        "isExecutorLoop": false,
+        "parentPid": 45148,
+        "pid": 40392,
+        "processKind": "node",
+        "scriptIdentity": "dashboard_server.js"
+      },
+      {
+        "commandIdentity": "scanner_gmgn_trending.js",
+        "commandLineRedacted": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'monitor\\.js|dashboard_server\\.js|scanner_gmgn|live_executor\\.js|b2a_24h' } | Select-Object ProcessId,ParentProcessId,C",
+        "isExecutorLoop": false,
+        "parentPid": 9868,
+        "pid": 46064,
+        "processKind": "shell-wrapper",
+        "scriptIdentity": "scanner_gmgn_trending.js"
+      }
+    ],
+    "processSetFingerprint": "8cbb5ceb741a61ae95b033d081387015f3e7da161bfc6e7f02b9ea2aa42f40fc",
+    "timestampUtc": "2026-07-11T19:07:47.723Z"
+  },
+  "processesStopped": [],
+  "schemaVersion": "rb-g9-isolated-process-manifest/1.2.0-stale-handoff",
+  "sessionId": "RB-G9-20260709-AP01"
+}

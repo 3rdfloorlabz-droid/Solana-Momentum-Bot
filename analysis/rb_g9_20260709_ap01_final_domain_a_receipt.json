@@ -1,0 +1,127 @@
+{
+  "armingBaselineHashSha256": "3b19a92f4f49affa9cd3ab6575b8e6f5703dab57eae6d0bf879499f996f9ebe9",
+  "artifacts": {
+    "armedManifestReceipt": "analysis/rb_g9_ap01_recapture_armed_manifest_receipt.json",
+    "armedN6ProbeOutput": "analysis/rb_g9_ap01_recapture_n6_armed_probe.out.txt",
+    "armedValidatorReceipt": "analysis/rb_g9_ap01_recapture_armed_validator_receipt.json",
+    "priorIsolationReceipt": "analysis/rb_g9_20260709_ap01_process_isolation_receipt.json",
+    "safetyTestsOutput": "analysis/rb_g9_ap01_recapture_safety_tests.out.txt",
+    "validateLiveSystemOutput": "analysis/rb_g9_ap01_recapture_validate_live_system.out.txt"
+  },
+  "authorizationChainValidation": {
+    "gates": {
+      "g1": {
+        "consumed": false,
+        "documentClass": "fresh-r15",
+        "fingerprint": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "g2": {
+        "consumed": false,
+        "documentClass": "arming",
+        "fingerprint": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "g3": {
+        "consumed": false,
+        "documentClass": "stub-creation",
+        "fingerprint": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "g4": {
+        "consumed": false,
+        "documentClass": "armed-no-submit-proof",
+        "fingerprint": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      }
+    },
+    "ok": true
+  },
+  "authorizationValidation": {
+    "g1": {
+      "expected": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+      "fingerprint": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+      "pass": true
+    },
+    "g2": {
+      "expected": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+      "fingerprint": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+      "pass": true
+    },
+    "g3": {
+      "expected": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+      "fingerprint": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+      "pass": true
+    },
+    "g4": {
+      "expected": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+      "fingerprint": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+      "pass": true
+    }
+  },
+  "baselineManifestPath": "analysis/rb_g9_20260709_ap01_arming_baseline_manifest.json",
+  "driftFromPriorBaseline": {
+    "armingBaseline": {
+      "prior": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+      "priorExpiredAt": "2026-07-10T18:16:56.268Z",
+      "supersessionReason": "ARMING_BASELINE_EXPIRED_AND_STATE_DRIFT"
+    },
+    "environmentGate": {
+      "changed": false,
+      "classification": "benign-but-baseline-invalidating",
+      "current": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "prior": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "rationale": "Gate-process env boolean snapshot differs (EXPECTED_WALLET/SOLANA_SIGNER present vs unset in prior proof shell); live_config and .env files not mutated by this gate"
+    },
+    "processSet": {
+      "changed": true,
+      "classification": "benign-but-baseline-invalidating",
+      "current": "59ca35f43809d983273d3593d2f2a44cc20267e56ccd699a30cf2e46f9e6c1a1",
+      "prior": "19e5589cbacc6eb125fc894c13cae0e86a5f0ddafa94950dd107301d40e9b0a4",
+      "rationale": "Operational process inventory evolved (PID set/count) between first proof and post-isolation-fail recapture; documented restart loops; executor count remains 0; no unexplained submit-capable process"
+    }
+  },
+  "freshnessExpiryTimestampUtc": "2026-07-10T19:43:04.489Z",
+  "g1ExpiryUtc": "2026-07-11T03:25:11Z",
+  "g1SchemaVersion2ProofPurpose": true,
+  "g1Unexpired": true,
+  "gate": "Final Fresh Domain A Proof for RB-G9-20260709-AP01 (Recapture)",
+  "postProofLiveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "priorArmingBaselineHashSha256": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+  "priorFreshnessExpiryTimestampUtc": "2026-07-10T18:16:56.268Z",
+  "productionChangedDuringGate": {
+    "code": false,
+    "config": false,
+    "environment": false,
+    "processInventory": false,
+    "tests": false
+  },
+  "proofCompletionTimestampUtc": "2026-07-10T19:13:04.489Z",
+  "proofStartLocal": "Fri Jul 10 2026 13:07:56 GMT-0600 (Mountain Daylight Time)",
+  "proofStartTimestampUtc": "2026-07-10T19:07:56.437Z",
+  "recommendedNextGate": "RB-G9-20260709-AP01 Process Isolation Gate",
+  "remainingG1AuthorizationLifetimeMs": 29834563,
+  "safeTimeSufficiency": {
+    "minimumRequiredMs": 3900000,
+    "pass": true,
+    "remainingMs": 29834563
+  },
+  "schemaVersion": "rb-g9-final-domain-a-proof/1.1.0-recapture",
+  "sessionId": "RB-G9-20260709-AP01",
+  "status": "PASS",
+  "supersedesPreviousBaseline": true,
+  "supersessionReason": "ARMING_BASELINE_EXPIRED_AND_STATE_DRIFT",
+  "timezone": "America/Denver (MDT, UTC-6)"
+}

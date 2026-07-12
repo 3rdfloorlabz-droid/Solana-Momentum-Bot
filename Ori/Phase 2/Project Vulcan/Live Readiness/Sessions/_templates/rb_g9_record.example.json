@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "recordType": "RB-G9_POST_SESSION",
+  "templateOnly": true,
+  "sessionId": "RB-G9-YYYYMMDD-EXAMPLE",
+  "gateId": "example-gate-id",
+  "reviewState": "NO_TRADE_EXECUTED",
+  "sessionDateUtc": "YYYY-MM-DD",
+  "operator": "Taylor Cheaney",
+  "reviewCompletedAt": null,
+  "linkedRecords": {
+    "r13SignOff": "../../R13 SIGN-OFF GATE — 2026-07-06.md",
+    "r15Authorization": null,
+    "armingAuthorization": null,
+    "microLiveExecutionAuthorization": null,
+    "executionReceipt": null,
+    "signerPlacement": "../../SIGNER SECRET PLACEMENT EXECUTION — 2026-07-06.md",
+    "realRpcNoBroadcast": "../../REAL RPC NO-BROADCAST READINESS CHECK — 2026-07-06.md"
+  },
+  "trade": {
+    "tokenMint": null,
+    "pairLabel": null,
+    "entryTimestampUtc": null,
+    "exitTimestampUtc": null,
+    "transactionSignatures": [],
+    "routeQuoteMetadata": {
+      "providerLabel": null,
+      "quoteAgeMs": null,
+      "redactedRouteSummary": null
+    },
+    "positionSizeSol": null,
+    "realizedSlippageBps": null,
+    "priceImpactPct": null,
+    "feesLamports": null,
+    "pnlSol": null
+  },
+  "operational": {
+    "reconciliationStatus": "clean",
+    "ambiguityStatus": "none",
+    "ambiguityClasses": [],
+    "estopStatus": "not_triggered",
+    "stopHaltReason": null,
+    "positionWriteConfirmed": null
+  },
+  "governance": {
+    "or20260630008": "not_promoted",
+    "liveReadinessClaimed": false,
+    "strategyReadinessClaimed": false,
+    "profitabilityClaimed": false,
+    "capitalExposureStatus": "none"
+  },
+  "r15OneSessionOnly": {
+    "authorizationExpiredByReview": false,
+    "secondSessionAuthorized": false,
+    "continueOrHalt": null
+  },
+  "operatorNotes": null,
+  "runtimeCrossRefs": {
+    "executionAuditTailRef": null,
+    "pendingReconciliationRef": null
+  },
+  "secretSafe": true
+}

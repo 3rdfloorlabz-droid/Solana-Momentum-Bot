@@ -1,0 +1,132 @@
+{
+  "armingBaselineHashSha256": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0",
+  "authorizedProcessStopList": [
+    "monitor_restart_wrapper (pre-authorized exact identity)",
+    "monitor.js",
+    "dashboard_server.js",
+    "scanner_gmgn_trending.js"
+  ],
+  "baselinePreservation": {
+    "codeFingerprint": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+    "environmentGateFingerprint": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+    "liveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "posture": {
+      "dryRunMode": true,
+      "executionMode": "PIPELINE_DRY_RUN",
+      "liveArmed": false,
+      "operationalPosture": "PIPELINE_OBSERVING"
+    },
+    "runtimeStubAbsent": true,
+    "sessionFolderAbsent": true
+  },
+  "controlledProcessDelta": {
+    "afterProcessSetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "beforeProcessSetFingerprint": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+    "expectedRemovals": [
+      "dashboard_server.js",
+      "scanner_gmgn_trending.js"
+    ],
+    "performed": true,
+    "result": "PASS"
+  },
+  "dashboardPassiveLauncher": {
+    "excludedCount": 0,
+    "note": "Passive launcher explicitly excluded — not stopped",
+    "targeted": false
+  },
+  "failReasons": [],
+  "fomoWalletMonitor": {
+    "note": "Explicitly excluded — not stopped",
+    "targeted": false
+  },
+  "gateCompletionTimestampUtc": "2026-07-11T20:12:53.217Z",
+  "gateStartTimestampUtc": "2026-07-11T20:12:33.660Z",
+  "isolatedProcessSetHashSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "isolationPerformed": true,
+  "observationPeriod": {
+    "durationMs": 10000,
+    "performed": true,
+    "respawnDetected": false
+  },
+  "postIsolation": {
+    "counts": {
+      "dashboardServerJs": 0,
+      "liveExecutorJs": 0,
+      "monitorJs": 0,
+      "scannerGmgn": 0
+    },
+    "observationLoops": [],
+    "processInventory": [],
+    "wrappers": []
+  },
+  "preIsolation": {
+    "baselineProcessSetFingerprintExpected": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+    "counts": {
+      "dashboardServerJs": 1,
+      "liveExecutorJs": 0,
+      "monitorJs": 0,
+      "scannerGmgn": 1
+    },
+    "excludedPassiveLaunchers": [],
+    "processFingerprintMatch": true,
+    "processInventory": [
+      {
+        "commandIdentity": "scanner_gmgn_trending.js",
+        "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" scanner_gmgn_trending.js --watch",
+        "isExecutorLoop": false,
+        "isObservationLoop": false,
+        "name": "node.exe",
+        "parentPid": 45808,
+        "pid": 9896,
+        "processKind": "node",
+        "scriptIdentity": "scanner_gmgn_trending.js"
+      },
+      {
+        "commandIdentity": "dashboard_server.js",
+        "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" dashboard_server.js ",
+        "isExecutorLoop": false,
+        "isObservationLoop": false,
+        "name": "node.exe",
+        "parentPid": 45148,
+        "pid": 40392,
+        "processKind": "node",
+        "scriptIdentity": "dashboard_server.js"
+      }
+    ],
+    "processSetFingerprint": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+    "timestampUtc": "2026-07-11T20:12:33.660Z",
+    "wrappers": []
+  },
+  "processesStopped": [
+    {
+      "kind": "node",
+      "pid": 40392,
+      "scriptIdentity": "dashboard_server.js"
+    },
+    {
+      "kind": "node",
+      "pid": 9896,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    }
+  ],
+  "schemaVersion": "rb-g9-isolated-process-manifest/1.0.0-ap03",
+  "sessionId": "RB-G9-20260711-AP03",
+  "terminationRecords": [
+    {
+      "exitCode": 0,
+      "kind": "node",
+      "method": "graceful",
+      "phase": "graceful",
+      "pid": 40392,
+      "scriptIdentity": "dashboard_server.js"
+    },
+    {
+      "exitCode": 0,
+      "kind": "node",
+      "method": "graceful",
+      "phase": "graceful",
+      "pid": 9896,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    }
+  ]
+}

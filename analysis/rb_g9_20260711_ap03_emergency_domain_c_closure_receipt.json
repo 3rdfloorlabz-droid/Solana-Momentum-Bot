@@ -1,0 +1,112 @@
+{
+  "ap03RetryProhibited": true,
+  "authorizationFinalStates": {
+    "g1": "CLOSED — UNUSED / SESSION TERMINATED",
+    "g2": "USED/CONSUMED — NON-REUSABLE",
+    "g3": "USED/CONSUMED — NON-REUSABLE",
+    "g4": "CLOSED — UNUSED / PROOF NOT INVOKED / NON-REUSABLE",
+    "isolation": "USED/CONSUMED — NON-REUSABLE"
+  },
+  "capitalExposureOccurred": false,
+  "closureGateCompletionTimestampLocalMdt": "07/11/2026, 14:31:25 MDT",
+  "closureGateCompletionTimestampUtc": "2026-07-11T20:31:25.939Z",
+  "closureGateStartTimestampLocalMdt": "07/11/2026, 14:28:02 MDT",
+  "closureGateStartTimestampUtc": "2026-07-11T20:28:02.945Z",
+  "domainC": {
+    "pass": true,
+    "safetySuite": {
+      "exitCode": 0,
+      "pass": true,
+      "passed": 85,
+      "total": 85
+    },
+    "validator": {
+      "exitCode": 0,
+      "pass": true
+    }
+  },
+  "executionActivity": {
+    "broadcastInvoked": false,
+    "candidateSelected": false,
+    "capitalExposure": "none",
+    "position": "none",
+    "quoteRequested": false,
+    "reconciliation": "none",
+    "recovery": "none",
+    "signingInvoked": false,
+    "submitInvoked": false,
+    "transactionConstructed": false,
+    "transactionSignatures": "none"
+  },
+  "failReason": null,
+  "failReasons": [],
+  "finalAp03Disposition": "FAIL_CLOSED_TIMING — PROOF_NOT_EXECUTED",
+  "fomoWalletMonitorUntouched": true,
+  "gate": "RB-G9-20260711-AP03 Emergency Domain C Closure",
+  "linkedReceipts": {
+    "armedNoSubmitProof": "analysis/rb_g9_20260711_ap03_armed_no_submit_proof_receipt.json",
+    "armingTransition": "analysis/rb_g9_20260711_ap03_arming_transition_receipt.json",
+    "domainA": "analysis/rb_g9_20260711_ap03_final_domain_a_receipt.json",
+    "processIsolation": "analysis/rb_g9_20260711_ap03_process_isolation_receipt.json",
+    "runtimeStubCreation": "analysis/rb_g9_20260711_ap03_runtime_stub_creation_receipt.json"
+  },
+  "liveArmedResult": false,
+  "liveConfigHashMatchesDisarmedBaseline": true,
+  "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "monitorRestored": false,
+  "monitorSkippedReason": "monitor absent at AP03 isolation pre-stop inventory — not restored",
+  "orStatus": "not_promoted",
+  "postureResult": "PIPELINE_OBSERVING",
+  "processCounts": {
+    "dashboard": 1,
+    "executor": 0,
+    "monitor": 0,
+    "scanner": 1
+  },
+  "processesRestored": [
+    {
+      "identity": "dashboard_server.js",
+      "pid": 21360,
+      "restored": true
+    },
+    {
+      "identity": "scanner_gmgn_trending.js --watch",
+      "pid": 27204,
+      "restored": true
+    }
+  ],
+  "proofClassification": {
+    "abortReason": "INSUFFICIENT_ARMED_WINDOW",
+    "apInvoked": false,
+    "disposition": "FAIL_CLOSED_TIMING — PROOF_NOT_EXECUTED",
+    "g4Consumed": false,
+    "n6Invoked": false
+  },
+  "proofPassClaim": false,
+  "readinessOrProfitabilityClaims": false,
+  "recommendedNextGate": "RB-G9 AP04 Timing Remediation and Proof Retry Planning",
+  "reuseProhibitions": {
+    "armingBaselineHash": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0 — expired — non-reusable",
+    "freshDomainARequired": true,
+    "freshG1ThroughG4Required": true,
+    "freshIsolatedProcessSetHashRequired": true,
+    "freshSessionRequired": true,
+    "g1ThroughG4": "non-reusable",
+    "isolatedProcessSetHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945 — session-bound — non-reusable",
+    "isolationAuthorization": "non-reusable",
+    "sessionId": "RB-G9-20260711-AP03"
+  },
+  "rollbackValidation": {
+    "d1": true,
+    "d2": true,
+    "d3": true,
+    "pass": true
+  },
+  "runtimeStubAbsent": true,
+  "schemaVersion": "rb-g9-emergency-domain-c-closure-receipt/1.0.0-ap03",
+  "sessionId": "RB-G9-20260711-AP03",
+  "status": "PASS",
+  "strategyReadiness": "NOT READY",
+  "systemFullyDisarmed": true,
+  "temporaryStubAbsent": true
+}

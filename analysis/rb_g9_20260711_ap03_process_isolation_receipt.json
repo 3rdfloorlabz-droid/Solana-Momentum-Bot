@@ -1,0 +1,191 @@
+{
+  "armingBaselineHashSha256": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0",
+  "baselineFreshAtCompletion": true,
+  "baselineFreshAtGateStart": true,
+  "baselineFreshnessExpiryUtc": "2026-07-11T20:37:42.223Z",
+  "baselineProcessFingerprintMatch": true,
+  "bindingValidation": {
+    "actual": {
+      "armingBaselineHash": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0",
+      "authorizationFingerprints": {
+        "g1": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+        "g2": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+        "g3": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+        "g4": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+        "isolation": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3"
+      },
+      "codeFingerprint": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+      "environmentGateFingerprint": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "liveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef"
+    },
+    "expected": {
+      "code": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+      "env": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "g1": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+      "g2": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+      "g3": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+      "g4": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+      "isolation": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+      "liveConfig": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+      "process": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38"
+    },
+    "match": {
+      "code": true,
+      "env": true,
+      "g1": true,
+      "g2": true,
+      "g3": true,
+      "g4": true,
+      "isolation": true,
+      "liveConfig": true
+    }
+  },
+  "c1Performed": false,
+  "c2Performed": false,
+  "c3Performed": false,
+  "controlledProcessDeltaResult": "PASS",
+  "failReason": null,
+  "failReasons": [],
+  "freshEnoughForArmingTransitionGate": true,
+  "g1ExpiryUtc": "2026-07-12T07:00:00Z",
+  "g1ThroughG4Validation": {
+    "g1": {
+      "fingerprint": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+      "pass": true,
+      "unused": true
+    },
+    "g2": {
+      "fingerprint": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+      "pass": true,
+      "unused": true
+    },
+    "g3": {
+      "fingerprint": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+      "pass": true,
+      "unused": true
+    },
+    "g4": {
+      "fingerprint": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+      "pass": true,
+      "unused": true
+    },
+    "isolation": {
+      "consumedAtUtc": "2026-07-11T20:12:33.660Z",
+      "fingerprint": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+      "finalStatus": "CONSUMED/USED",
+      "pass": true,
+      "unused": false
+    }
+  },
+  "g1UnexpiredAtGateStart": true,
+  "gate": "RB-G9-20260711-AP03 Process Isolation Gate",
+  "gateCompletionTimestampUtc": "2026-07-11T20:12:53.217Z",
+  "gateStartTimestampUtc": "2026-07-11T20:12:33.660Z",
+  "isolatedProcessSetHashSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "isolationPerformed": true,
+  "observationPeriod": {
+    "durationMs": 10000,
+    "performed": true,
+    "respawnDetected": false
+  },
+  "orStatus": "not_promoted",
+  "processIsolationAuthorizationFinalStatus": "CONSUMED/USED",
+  "processIsolationAuthorizationConsumedAtUtc": "2026-07-11T20:12:33.660Z",
+  "postIsolation": {
+    "counts": {
+      "dashboardServerJs": 0,
+      "liveExecutorJs": 0,
+      "monitorJs": 0,
+      "scannerGmgn": 0
+    },
+    "observationLoops": [],
+    "processInventory": [],
+    "wrappers": []
+  },
+  "postIsolationProcessSetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "preIsolationExcludedPassiveLaunchers": [],
+  "preIsolationObservationLoops": [],
+  "preIsolationProcessInventory": [
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" scanner_gmgn_trending.js --watch",
+      "isExecutorLoop": false,
+      "isObservationLoop": false,
+      "name": "node.exe",
+      "parentPid": 45808,
+      "pid": 9896,
+      "processKind": "node",
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" dashboard_server.js ",
+      "isExecutorLoop": false,
+      "isObservationLoop": false,
+      "name": "node.exe",
+      "parentPid": 45148,
+      "pid": 40392,
+      "processKind": "node",
+      "scriptIdentity": "dashboard_server.js"
+    }
+  ],
+  "preIsolationProcessSetFingerprint": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+  "preIsolationWrappers": [],
+  "processesActuallyStopped": [
+    {
+      "kind": "node",
+      "pid": 40392,
+      "scriptIdentity": "dashboard_server.js"
+    },
+    {
+      "kind": "node",
+      "pid": 9896,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    }
+  ],
+  "processesAuthorizedForStop": [
+    "monitor_restart_wrapper (exact identity only)",
+    "monitor.js",
+    "dashboard_server.js",
+    "scanner_gmgn_trending.js",
+    "scanner_restart_wrapper (conditional positive ID only)"
+  ],
+  "productionChanged": {
+    "code": false,
+    "config": false,
+    "environment": false,
+    "processes": true,
+    "tests": false
+  },
+  "recommendedNextGate": "RB-G9-20260711-AP03 Arming Transition Gate",
+  "remainingFreshnessWindowMsAtCompletion": 1489006,
+  "remainingFreshnessWindowMsAtStart": 1508563,
+  "remainingG1AuthorizationLifetimeMs": 38846340,
+  "safeTimeSufficiency": {
+    "pass": true,
+    "remainingG1Ms": 38846340
+  },
+  "schemaVersion": "rb-g9-process-isolation-receipt/1.0.0-ap03",
+  "sessionId": "RB-G9-20260711-AP03",
+  "status": "PASS",
+  "strategyReadiness": "NOT READY",
+  "systemRemainsDisarmed": true,
+  "terminationRecords": [
+    {
+      "exitCode": 0,
+      "kind": "node",
+      "method": "graceful",
+      "phase": "graceful",
+      "pid": 40392,
+      "scriptIdentity": "dashboard_server.js"
+    },
+    {
+      "exitCode": 0,
+      "kind": "node",
+      "method": "graceful",
+      "phase": "graceful",
+      "pid": 9896,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    }
+  ]
+}

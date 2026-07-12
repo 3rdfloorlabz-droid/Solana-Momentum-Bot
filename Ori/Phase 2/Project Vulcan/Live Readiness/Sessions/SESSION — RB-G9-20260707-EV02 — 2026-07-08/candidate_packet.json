@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "recordType": "MICRO_LIVE_CANDIDATE_PACKET",
+  "status": "PREPARATION_ONLY_NOT_EXECUTABLE",
+  "sessionId": "RB-G9-20260707-EV02",
+  "packetDateUtc": "2026-07-08",
+  "preparedAtUtc": "2026-07-09T01:35:51.605Z",
+  "authorizationSignedUtc": "2026-07-09T01:28:00.000Z",
+  "authorizationExpiryUtc": "2026-07-09T05:28:00.000Z",
+  "finalPerTradeConfirmationReceived": false,
+  "preparationQuoteDisclaimer": "NON_EXECUTABLE_PREPARATION_QUOTE_FRESH_QUOTE_REQUIRED_AT_EXECUTION",
+  "linkedAuthorizations": {
+    "microLiveExecutionAuthorization": "../../Authorizations/AUTHORIZATION — Micro-Live Execution — RB-G9-20260707-EV02 — 2026-07-08.md",
+    "r15Authorization": "../../Authorizations/AUTHORIZATION — R15 ENGINEERING-VALIDATION ONE_SESSION_ONLY — RB-G9-20260707-EV02 — 2026-07-07.md",
+    "armingAuthorization": "../../Authorizations/AUTHORIZATION — Arming — RB-G9-20260707-EV02 — 2026-07-07.md",
+    "stubCreationAuthorization": "../../Authorizations/AUTHORIZATION — Runtime R15 Approval Stub Creation — RB-G9-20260707-EV02 — 2026-07-07.md"
+  },
+  "candidate": {
+    "name": "Jupiter",
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "chain": "solana",
+    "referenceVenue": "meteora",
+    "selectionRationale": "Engineering-validation routability baseline; deep liquidity; not momentum-selected; first bounded-list pass"
+  },
+  "liquidity": {
+    "source": "dexscreener",
+    "liquidityUsd": 210646524.17,
+    "priceUsdReference": 1.05836,
+    "pairUrl": "https://dexscreener.com/solana/3xngdc58axytrj64stqz5trdqwvthlrr888irbbwznee",
+    "note": "Dexscreener display price for top pair may not match spot; liquidity floor is authoritative for CS4"
+  },
+  "jupiterExecutionPath": {
+    "adapter": "jupiter_swap_client.js",
+    "quoteBaseUrl": "https://lite-api.jup.ag/swap/v1",
+    "quotePath": "/swap/v1/quote",
+    "swapBuildPath": "/swap/v1/swap",
+    "quoteBuildHostMatch": true,
+    "deprecatedV6Blocked": true,
+    "splitHostBlocked": true,
+    "preparationEvidenceOnly": true
+  },
+  "entryQuotePreparation": {
+    "api": "lite-api.jup.ag/swap/v1/quote",
+    "timestampUtc": "2026-07-09T01:35:51.197Z",
+    "quoteAgeMsAtCapture": 408,
+    "inputLamports": 5000000,
+    "positionSizeSol": 0.005,
+    "outAmountRaw": "1819554",
+    "otherAmountThresholdRaw": "1801359",
+    "expectedHumanUnits": "1.819554 JUP at 6 decimals",
+    "priceImpactPct": 0,
+    "slippageBps": 100,
+    "routeFingerprint": "[{\"label\":\"Raydium CLMM\",\"percent\":100,\"ammKey\":\"EZVkeboWeXygtq8LMyENHyXdF5wpYrtExRNH9UwB1qYw\"}]",
+    "route": [
+      {
+        "label": "Raydium CLMM",
+        "ammKey": "EZVkeboWeXygtq8LMyENHyXdF5wpYrtExRNH9UwB1qYw",
+        "percent": 100
+      }
+    ]
+  },
+  "exitQuotePreparation": {
+    "api": "lite-api.jup.ag/swap/v1/quote",
+    "timestampUtc": "2026-07-09T01:35:51.413Z",
+    "inAmountRaw": "1819554",
+    "outAmountLamports": "4998198",
+    "otherAmountThresholdLamports": "4948217",
+    "priceImpactPct": 0.0002224486078548187382066635,
+    "slippageBps": 100,
+    "route": [
+      {
+        "label": "ZeroFi",
+        "ammKey": "Et6HnPjetV8AzmxNAfzKJ6ax5VM82ZB7phY465Ns5iZW",
+        "percent": 100
+      },
+      {
+        "label": "Deriverse",
+        "ammKey": "8Wk2L1yDovBJifCN1o86X7g7pDcqLau39m6tEsJ9Sheh",
+        "percent": 100
+      }
+    ],
+    "sellRouteVerifiedPreparation": true,
+    "routeAsymmetryNote": "BUY and SELL prep routes differ via Jupiter aggregation; both legs returned quotes at preparation time"
+  },
+  "tokenSafety": {
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "decimals": 6,
+    "token2022": false,
+    "transferRestrictionDetected": false,
+    "unsupportedTokenExtensionDetected": false,
+    "honeypotIndicatorPreparation": "none_observed_sell_quote_ok"
+  },
+  "fees": {
+    "tradeNotionalSol": 0.005,
+    "baseFeeSol": 0.000005,
+    "priorityFeeSolAppliedPlanning": 0.0002,
+    "priorityFeeCapSol": 0.001,
+    "platformOrRouteFeeSol": null,
+    "ataRentSolIfCreated": 0.00203928,
+    "ataRentRefundable": true,
+    "nonRentSingleEntryUpperBoundSol": 0.000205,
+    "walletDebitUpperBoundSolNoAta": 0.005205,
+    "walletDebitUpperBoundSolWithAta": 0.00724428,
+    "doubleCountPriorityFee": false,
+    "exitFeesExcludedFromEntryBound": true,
+    "minWalletBalanceSolConfig": 0.12,
+    "feePolicyVerdict": "PASS_FOR_ENGINEERING_TEST"
+  },
+  "executionBounds": {
+    "targetPct": 10,
+    "stopPct": 5,
+    "timeoutMinutes": 20,
+    "confirmationTimeoutMs": 30000,
+    "realizedSlippageHaltBps": 200,
+    "sessionLossStopSol": 0.03,
+    "dailyLossStopSol": 0.03,
+    "maxDailyLossCount": 2,
+    "mevRouteMode": "public_micro_live_only"
+  },
+  "csResults": {
+    "CS1": "PASS",
+    "CS2": "PASS",
+    "CS3": "PASS",
+    "CS4": "PASS",
+    "CS5": "PASS",
+    "CS6": "PASS_AT_CAPTURE_REFETCH_REQUIRED",
+    "CS7": "PASS",
+    "CS8": "PASS",
+    "CS9": "PASS",
+    "CS10": "PASS_PREPARATION_QUOTE",
+    "CS11": "PASS_PREPARATION_QUOTE",
+    "CS12": "PASS_WITH_ROUTE_ASYMMETRY_NOTE",
+    "CS13": "PASS"
+  },
+  "unresolvedRisks": [
+    "preparation quotes are evidence only; execution gate must obtain fresh quote <= 10s",
+    "route fingerprint may change at execution",
+    "real broadcast / confirmation / reconciliation / exit unproven",
+    "production-root e-stop and reconciliation proofs deferred",
+    "strategy NOT READY — engineering validation only",
+    "total loss, slippage, MEV, RPC, exit failure within signed caps",
+    "entry/exit route asymmetry at preparation time"
+  ],
+  "rejectedCandidates": [],
+  "boundedListHaltedAfterFirstPass": true,
+  "candidatesInBoundedList": 4,
+  "candidatesFullyEvaluated": 1,
+  "confirmationStringExact": "CONFIRM RB-G9-20260707-EV02 FOR JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN AT 3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe — ONE 0.005 SOL ENTRY AND MANDATORY EXIT",
+  "governance": {
+    "or20260630008": "not_promoted",
+    "strategyReady": false,
+    "profitabilityClaim": false,
+    "liveReadinessClaim": false
+  },
+  "secretSafe": true
+}

@@ -1,0 +1,344 @@
+{
+  "armingBaselineHashSha256": "3b19a92f4f49affa9cd3ab6575b8e6f5703dab57eae6d0bf879499f996f9ebe9",
+  "authorizationFingerprints": {
+    "combinedAuthorizationChainSha256": "4813507a978c2678c13c2b1fa6b79402322e7cfe28c6e2d3406c4c000874acee",
+    "g1": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+    "g2": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+    "g3": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+    "g4": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c"
+  },
+  "authorizationPaths": {
+    "g1": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260709-AP01 — 2026-07-09.md",
+    "g2": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Arming — RB-G9-20260709-AP01 — 2026-07-09.md",
+    "g3": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Runtime Stub Creation — RB-G9-20260709-AP01 — 2026-07-09.md",
+    "g4": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260709-AP01 — 2026-07-09.md"
+  },
+  "codeFingerprint": {
+    "approvedFiles": {
+      "armed_preflight_checks.js": "d2d0fe942ec3644199330d15388366add24133c35e7bb9a2629c980ea48732c2",
+      "armed_preflight_manifest.js": "763c3055e52228f7a3b7216c7aea3f5d2218e9756442158c04ff4f0fe0c02b87",
+      "armed_preflight_session.js": "dac6b404e33b3ec2d3914603c74ece4f26c6d56e2c6371e203b05a3fe84af0e3",
+      "live_executor.js": "ee818ec7a8e2277ed30c152c9a18fe1ceb98dec2ccea5ed3cfe6a2f96e26fdd0",
+      "live_validation_common.js": "8ff051dedc8f724cff74d5847335933b5e8fed51756558a843a9552513b2e2d6",
+      "r15_approval_validator.js": "d0bc6e27bd5feb4b8e15884be9d7ab141a1ef66ebd910a76598a16695f347629",
+      "run_armed_preflight_manifest.js": "2c86c1749934470e9a8d95c7444c030ebd9912821a1581bdf09c16d0e2c0bc93",
+      "test_n6_armed_estop_probe.js": "a3b3176ca748418cb0d790fc00f28af367b58f0aff30ff4bb0e66ccce16a06e3",
+      "validate_armed_preflight.js": "2271fd98d839b95379b4ee6cbd828aa518bcf89f55173dbce09efd6e76c680be",
+      "validate_live_system.js": "b76494184739626aa4c5c5d5dc246c9d6d6722fefd902d6f9d5c72a48f6257e5"
+    },
+    "armedPreflightAggregate": "6b689c26624cab981002cc69b52ce1177734d0dee39b151ab347e44e6fa906b2",
+    "extendedAggregate": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042"
+  },
+  "controlledProcessDeltaRule": {
+    "authorizedLaterStops": [
+      "monitor.js",
+      "dashboard_server.js",
+      "scanner_gmgn_trending.js"
+    ],
+    "beforeProcessSetFingerprint": "59ca35f43809d983273d3593d2f2a44cc20267e56ccd699a30cf2e46f9e6c1a1",
+    "futureArmingMustBind": [
+      "armingBaselineHashSha256",
+      "isolatedProcessSetHash"
+    ],
+    "isolatedProcessSetHash": null,
+    "optionalExplicitScope": "PowerShell restart/watchdog loops whose sole purpose is restarting those three processes — only if separately authorized",
+    "recorded": true
+  },
+  "domainA": {
+    "n6DryDrill": {
+      "pass": true,
+      "source": "run_safety_tests.js includes test_n6_estop_drill.js"
+    },
+    "safetySuite": {
+      "pass": true,
+      "passed": 85,
+      "total": 85
+    },
+    "validator": {
+      "exitCode": 0,
+      "failures": 0,
+      "pass": true,
+      "warnings": 5
+    }
+  },
+  "domainBWrongContext": {
+    "armedManifest": {
+      "exitCode": 2,
+      "overallStatus": "WRONG_POSTURE",
+      "pass": true
+    },
+    "armedSafeN6": {
+      "exitCode": 1,
+      "pass": true,
+      "reason": "production posture not LIVE_ARMED"
+    },
+    "armedValidator": {
+      "exitCode": 2,
+      "overallStatus": "WRONG_POSTURE",
+      "pass": true
+    }
+  },
+  "driftFromPriorBaseline": {
+    "armingBaseline": {
+      "prior": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+      "priorExpiredAt": "2026-07-10T18:16:56.268Z",
+      "supersessionReason": "ARMING_BASELINE_EXPIRED_AND_STATE_DRIFT"
+    },
+    "environmentGate": {
+      "changed": false,
+      "classification": "benign-but-baseline-invalidating",
+      "current": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "prior": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "rationale": "Gate-process env boolean snapshot differs (EXPECTED_WALLET/SOLANA_SIGNER present vs unset in prior proof shell); live_config and .env files not mutated by this gate"
+    },
+    "processSet": {
+      "changed": true,
+      "classification": "benign-but-baseline-invalidating",
+      "current": "59ca35f43809d983273d3593d2f2a44cc20267e56ccd699a30cf2e46f9e6c1a1",
+      "prior": "19e5589cbacc6eb125fc894c13cae0e86a5f0ddafa94950dd107301d40e9b0a4",
+      "rationale": "Operational process inventory evolved (PID set/count) between first proof and post-isolation-fail recapture; documented restart loops; executor count remains 0; no unexplained submit-capable process"
+    }
+  },
+  "environmentGateBooleans": {
+    "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+    "FOMO_ALLOW_LOOP_LIVE": "unset",
+    "FOMO_ENABLE_LIVE_SUBMISSION": "unset",
+    "SOLANA_SIGNER_SECRET": "present"
+  },
+  "environmentGateFingerprintSha256": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+  "flatCapitalState": {
+    "capitalExposure": "none",
+    "executionCallCountGate": 0,
+    "openPositions": 0,
+    "pendingReconciliation": 0,
+    "recoveryLines": 0,
+    "transactionSignaturesGate": "none"
+  },
+  "freshnessExpiryTimestampUtc": "2026-07-10T19:43:04.489Z",
+  "g1ExpiryUtc": "2026-07-11T03:25:11Z",
+  "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "orStatus": "not_promoted",
+  "posture": {
+    "dryRunMode": true,
+    "executionMode": "PIPELINE_DRY_RUN",
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING"
+  },
+  "priorArmingBaselineHashSha256": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+  "priorFreshnessExpiryTimestampUtc": "2026-07-10T18:16:56.268Z",
+  "processInventory": [
+    {
+      "commandIdentity": "monitor.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" monitor.js",
+      "isExecutorLoop": false,
+      "parentPid": 34856,
+      "pid": 6568,
+      "processKind": "node",
+      "scriptIdentity": "monitor.js"
+    },
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" scanner_gmgn_trending.js --watch",
+      "isExecutorLoop": false,
+      "parentPid": 45808,
+      "pid": 9896,
+      "processKind": "node",
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "commandLineRedacted": "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoExit -Command cd C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot; node dashboard_server.js ",
+      "isExecutorLoop": false,
+      "parentPid": 32660,
+      "pid": 20188,
+      "processKind": "shell-wrapper",
+      "scriptIdentity": "dashboard_server.js"
+    },
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "commandLineRedacted": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'monitor\\.js|dashboard_server\\.js|scanner_gmgn|live_executor\\.js|b2a_24h' } | Select-Object ProcessId,ParentProcessId,C",
+      "isExecutorLoop": false,
+      "parentPid": 30248,
+      "pid": 31912,
+      "processKind": "shell-wrapper",
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "monitor.js",
+      "commandLineRedacted": "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoExit -Command cd C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot; while ($true) { Get-Date; node monitor.js; Start-Sleep -Seconds 60 } ",
+      "isExecutorLoop": false,
+      "parentPid": 32660,
+      "pid": 34856,
+      "processKind": "shell-wrapper",
+      "scriptIdentity": "monitor.js"
+    },
+    {
+      "commandIdentity": "live_executor.js",
+      "commandLineRedacted": "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoExit -Command cd C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot; while ($true) { Get-Date; node b2a_24h_observation_status.js; Test-Path recovery_actions.j",
+      "isExecutorLoop": false,
+      "parentPid": 32660,
+      "pid": 37868,
+      "processKind": "shell-wrapper",
+      "scriptIdentity": "live_executor.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" dashboard_server.js ",
+      "isExecutorLoop": false,
+      "parentPid": 45148,
+      "pid": 40392,
+      "processKind": "node",
+      "scriptIdentity": "dashboard_server.js"
+    }
+  ],
+  "processSetFingerprint": "59ca35f43809d983273d3593d2f2a44cc20267e56ccd699a30cf2e46f9e6c1a1",
+  "processSetSummary": {
+    "count": 7,
+    "dashboardServerJs": 2,
+    "executorLoopCount": 0,
+    "liveExecutorJs": 1,
+    "monitorJs": 2,
+    "scannerGmgn": 2
+  },
+  "proofCompletionTimestampUtc": "2026-07-10T19:13:04.489Z",
+  "proofStartTimestampUtc": "2026-07-10T19:07:56.437Z",
+  "remainingG1AuthorizationLifetimeMs": 29834563,
+  "repositoryCommitSha256": "0d97d5bd89276977db16f18f048243e33dd8270b",
+  "restartWatchdogEvidence": {
+    "note": "PowerShell loop termination not assumed authorized unless explicitly documented in isolation scope",
+    "powershellLoops": [
+      {
+        "commandLineRedacted": "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoExit -Command cd C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot; while ($true) { Get-Date; node monitor.js; Start-Sleep -Seconds 60 } ",
+        "isolationScopeNote": "Candidate for explicit isolation scope if separately authorized — not assumed authorized by monitor/dashboard/scanner stop alone",
+        "parentPid": 32660,
+        "pid": 34856,
+        "type": "powershell-loop",
+        "wraps": "monitor.js"
+      },
+      {
+        "commandLineRedacted": "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoExit -Command cd C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot; while ($true) { Get-Date; node b2a_24h_observation_status.js; Test-Path recovery_actions.j",
+        "isolationScopeNote": "Observation loop — not in default isolation stop list",
+        "parentPid": 32660,
+        "pid": 37868,
+        "type": "powershell-loop",
+        "wraps": "live_executor.js"
+      }
+    ],
+    "scheduledTasks": [
+      {
+        "State": 3,
+        "TaskName": "FOMO Wallet Monitor"
+      },
+      {
+        "State": 3,
+        "TaskName": "Office ClickToRun Service Monitor"
+      },
+      {
+        "State": 3,
+        "TaskName": "Office Performance Monitor"
+      },
+      {
+        "State": 3,
+        "TaskName": "RecommendedTroubleshootingScanner"
+      },
+      {
+        "State": 3,
+        "TaskName": "Monitoring"
+      },
+      {
+        "State": 3,
+        "TaskName": "FamilySafetyMonitor"
+      },
+      {
+        "State": 3,
+        "TaskName": "MsCtfMonitor"
+      }
+    ],
+    "services": []
+  },
+  "rpcHealth": {
+    "ok": true,
+    "provider": "HELIUS_RPC_URL"
+  },
+  "rpcHealthFingerprintSha256": "dd102a49eb0cac68a17987915eb9704f46c05143adc707d4420e9398a2fc09f6",
+  "runtimeStubAbsentFingerprintSha256": "f0e6b2e295326f6c0e20c1f6eb88eddd071755c4c00b0b28eabda8790268b533",
+  "runtimeStubAbsentState": {
+    "fingerprint": null,
+    "path": "analysis/r15_manual_approval_record.json",
+    "present": false
+  },
+  "safeTimeSufficiency": {
+    "minimumRequiredMs": 3900000,
+    "pass": true,
+    "remainingMs": 29834563
+  },
+  "schemaVersion": "rb-g9-arming-baseline-manifest/1.1.0-recapture",
+  "sessionFolderAbsentState": {
+    "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Sessions/RB-G9-20260709-AP01",
+    "present": false
+  },
+  "sessionId": "RB-G9-20260709-AP01",
+  "sessionWiring": {
+    "ap02ProofChainPresent": true,
+    "ap15Rationale": "armed-no-submit-proof-scope",
+    "ap15Status": "NOT_APPLICABLE_WITH_REPLACEMENT_EVIDENCE",
+    "forbiddenSessionsBlocked": true,
+    "manualAuthorizationChainValidation": {
+      "gates": {
+        "g1": {
+          "consumed": false,
+          "documentClass": "fresh-r15",
+          "fingerprint": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "g2": {
+          "consumed": false,
+          "documentClass": "arming",
+          "fingerprint": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "g3": {
+          "consumed": false,
+          "documentClass": "stub-creation",
+          "fingerprint": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "g4": {
+          "consumed": false,
+          "documentClass": "armed-no-submit-proof",
+          "fingerprint": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        }
+      },
+      "ok": true
+    },
+    "proofContext": "armed-no-submit-proof",
+    "sessionIdPattern": true
+  },
+  "strategyReadiness": "NOT READY",
+  "supersedesPreviousBaseline": true,
+  "supersessionReason": "ARMING_BASELINE_EXPIRED_AND_STATE_DRIFT",
+  "walletPublicAddressBinding": {
+    "configuredPublicAddress": "FXLGxPo4JAv1WGJy728WnZiEzxsP4XvLRF2y6KdoxBH6",
+    "expectedWalletEnv": "present",
+    "match": true
+  },
+  "workingTreeStatus": {
+    "dirty": true,
+    "recordedAt": "2026-07-10T19:13:04.489Z",
+    "trackedModifiedCount": 19,
+    "untrackedCount": 61
+  }
+}

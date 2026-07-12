@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "rb-g9-unused-chain-closure-receipt/1.0.0",
+  "sessionId": "RB-G9-20260709-AP01",
+  "closureTimestampUtc": "2026-07-11T01:54:42.124Z",
+  "gate": "RB-G9-20260709-AP01 Unused Authorization Chain Closure",
+  "finalDisposition": "SUPERSEDED_BEFORE_EXECUTION — EXPIRED_UNUSED",
+  "sessionClassification": "NEVER_ARMED — NEVER_EXECUTED",
+  "replacementSessionPlanned": "RB-G9-{actualFutureExecutionDate}-AP02",
+  "g1ExpiryUtc": "2026-07-11T03:25:11Z",
+  "g1ExpiredAtClosure": false,
+  "neverArmedConfirmed": true,
+  "neverExecutedConfirmed": true,
+  "authorizationClosure": {
+    "g1": {
+      "status": "CLOSED — EXPIRED_UNUSED / SUPERSEDED_BEFORE_EXECUTION",
+      "fingerprintSha256": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+      "signatureTimestampUtc": "2026-07-10T03:25:11Z",
+      "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260709-AP01 — 2026-07-09.md"
+    },
+    "g2": {
+      "status": "CLOSED — UNUSED",
+      "fingerprintSha256": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+      "signatureTimestampUtc": "2026-07-10T03:55:02Z",
+      "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Arming — RB-G9-20260709-AP01 — 2026-07-09.md"
+    },
+    "g3": {
+      "status": "CLOSED — UNUSED",
+      "fingerprintSha256": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+      "signatureTimestampUtc": "2026-07-10T04:31:48Z",
+      "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Runtime Stub Creation — RB-G9-20260709-AP01 — 2026-07-09.md"
+    },
+    "g4": {
+      "status": "CLOSED — UNUSED",
+      "fingerprintSha256": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+      "signatureTimestampUtc": "2026-07-10T15:51:23Z",
+      "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260709-AP01 — 2026-07-09.md"
+    },
+    "processIsolationScopeAmendment": {
+      "status": "CLOSED — UNUSED",
+      "designCarryForwardEligible": true,
+      "authorizationReuseEligible": false,
+      "fingerprintSha256": "ec01c651bd8995ede671a95711377874050b12fa09707801032d25ee7f60b9fd",
+      "signatureTimestampUtc": "2026-07-11T01:35:33Z",
+      "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Process Isolation Scope Amendment — RB-G9-20260709-AP01 — 2026-07-10.md"
+    },
+    "authorizationChainFingerprintSha256": "4813507a978c2678c13c2b1fa6b79402322e7cfe28c6e2d3406c4c000874acee"
+  },
+  "expiredArmingBaselines": {
+    "original": {
+      "armingBaselineHashSha256": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+      "freshnessExpiryUtc": "2026-07-10T18:16:56.268Z",
+      "status": "EXPIRED — NEVER REUSE"
+    },
+    "recapture": {
+      "armingBaselineHashSha256": "3b19a92f4f49affa9cd3ab6575b8e6f5703dab57eae6d0bf879499f996f9ebe9",
+      "freshnessExpiryUtc": "2026-07-10T19:43:04.489Z",
+      "status": "EXPIRED — NEVER REUSE"
+    }
+  },
+  "isolatedProcessSetHashSha256": null,
+  "executionHistory": {
+    "c1Performed": false,
+    "c2Performed": false,
+    "c3Performed": false,
+    "liveArmedEverTrue": false,
+    "postureEverLiveArmed": false,
+    "runtimeStubEverCreated": false,
+    "temporaryStubEverCreated": false,
+    "sessionFolderEverCreated": false,
+    "sessionFolderCreatedAtClosure": false,
+    "apManifestInvokedInArmedPosture": false,
+    "armedSafeN6InvokedInArmedPosture": false,
+    "submitSignBroadcastInvoked": false,
+    "transactionSignatures": [],
+    "positionReconciliationRecoveryCapital": "none"
+  },
+  "processIsolationAttempts": {
+    "count": 2,
+    "bothFailClosed": true,
+    "primaryFailReason": "ARMING_BASELINE_EXPIRED",
+    "processesStopped": false
+  },
+  "reuseProhibition": {
+    "recorded": true,
+    "ap01SessionIdReusable": false,
+    "ap01G1ThroughG4AuthorizeAp02": false,
+    "ap01AmendmentAuthorizesAp02Isolation": false,
+    "ap01RuntimeStubAuthorityValid": false,
+    "ap01ArmingAuthorityValid": false,
+    "ap01ProofAuthorityValid": false,
+    "expiredBaselineHashesReusable": false,
+    "latestAuthorizationFallbackPermitted": false
+  },
+  "ap02SeparationRequirements": {
+    "recorded": true,
+    "sessionIdFormat": "RB-G9-{actualFutureExecutionDate}-AP02",
+    "newG1ThroughG4Required": true,
+    "newIsolationAmendmentOrIncorporatedAuthorityRequired": true,
+    "newFingerprintsRequired": true,
+    "newDomainABaselineRequired": true,
+    "newIsolatedProcessSetHashRequired": true,
+    "newRuntimeStubRequired": true,
+    "noAp01ArtifactSatisfiesAp02RuntimeGuard": true
+  },
+  "lessonsCarriedForward": [
+    "Resolve wrapper identities before fresh Domain A capture",
+    "Stop authorized restart wrappers before Node children",
+    "FOMO Wallet Monitor remains explicitly excluded from isolation",
+    "Baseline-to-isolation handoff must be immediate",
+    "Minimize diagnostic shell/process drift before fresh proof",
+    "Fresh proof and isolation in one coordinated operating block",
+    "No live-armed work near authorization expiry",
+    "Pre-stage rollback commands without executing early"
+  ],
+  "postClosureSystemState": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "fomoEnableLiveSubmissionYes": false,
+    "fomoAllowLoopLiveYes": false,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "runtimeStubAbsent": true,
+    "temporaryStubAbsent": true,
+    "systemRemainsDisarmed": true
+  },
+  "orStatus": "not_promoted",
+  "strategyReadiness": "NOT READY",
+  "recommendedNextGate": "RB-G9 AP02 R15 Authorization Planning",
+  "closureReceiptPath": "Ori/Phase 2/Project Vulcan/Live Readiness/RB-G9-20260709-AP01 UNUSED AUTHORIZATION CHAIN CLOSURE — 2026-07-11.md",
+  "reauthorizationPlanningPath": "Ori/Phase 2/Project Vulcan/Live Readiness/RB-G9 ARMED NO-SUBMIT PROOF REAUTHORIZATION PLANNING — 2026-07-10.md"
+}

@@ -46,7 +46,12 @@ config_change_audit.jsonl
 observation_dedup.json
 executor_singleton.lock.json
 soak_runs/
-analysis/
+analysis/*
+# RB-G9 governance-integrity exception: canonical AP-chain machine receipts
+# are authoritative evidence and are tracked after sensitive-data review.
+# See Ori/Phase 2/Project Vulcan/Live Readiness/RB-G9 Governance Record
+# Integrity Planning — 2026-07-11.md §7 Option D / §9 machine-receipt policy.
+!analysis/rb_g9*.json
 scanner_health.json
 near_misses.json
 near_miss_followups.json
@@ -115,3 +120,11 @@ wallets/
 *.pem
 *private*
 *secret*
+# RB-G9 governance-integrity exceptions: procedural docs about secret
+# *handling policy*, content-screened and confirmed to contain no actual
+# secret values (see governance sensitive-data review, 2026-07-11/12).
+!Ori/**/SIGNER SECRET PLACEMENT EXECUTION*.md
+!Ori/**/SIGNER SECRET PLACEMENT PLANNING*.md
+# RB-G9 governance checkpoint manifests are append-only hash-chain records,
+# not runtime JSONL telemetry — track them despite the blanket *.jsonl rule.
+!Ori/governance/manifests/*.jsonl

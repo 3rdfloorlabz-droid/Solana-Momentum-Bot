@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "recordType": "MICRO_LIVE_CANDIDATE_PACKET",
+  "status": "PREPARATION_ONLY_NOT_EXECUTABLE",
+  "sessionId": "RB-G9-20260706-EV01",
+  "packetDateUtc": "2026-07-07",
+  "preparedAtUtc": "2026-07-07T17:52:17.473Z",
+  "authorizationExpiryUtc": "2026-07-07T21:44:00.000Z",
+  "finalPerTradeConfirmationReceived": false,
+  "preparationQuoteDisclaimer": "NON_EXECUTABLE_PREPARATION_QUOTE_FRESH_QUOTE_REQUIRED_AT_EXECUTION",
+  "linkedAuthorizations": {
+    "microLiveExecutionAuthorization": "../../Authorizations/AUTHORIZATION — Micro-Live Execution — 2026-07-07.md",
+    "r15Authorization": "../../Authorizations/AUTHORIZATION — R15 ENGINEERING-VALIDATION ONE_SESSION_ONLY — 2026-07-06.md"
+  },
+  "candidate": {
+    "name": "Jupiter",
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg",
+    "chain": "solana",
+    "referenceVenue": "meteora",
+    "selectionRationale": "Engineering-validation routability baseline; deep liquidity; not momentum-selected"
+  },
+  "liquidity": {
+    "source": "dexscreener",
+    "liquidityUsd": 1190460.89,
+    "priceUsd": 0.2421,
+    "pairUrl": "https://dexscreener.com/solana/c8gr6auuq9hedsyjzoepncdjpojpzwqg5mtqbeounnwg"
+  },
+  "entryQuotePreparation": {
+    "api": "lite-api.jup.ag/swap/v1/quote",
+    "timestampUtc": "2026-07-07T17:52:01.228Z",
+    "quoteAgeMsAtCapture": 601,
+    "inputLamports": 5000000,
+    "positionSizeSol": 0.005,
+    "outAmountRaw": "1705340",
+    "otherAmountThresholdRaw": "1688287",
+    "expectedHumanUnits": "1.70534 JUP at 6 decimals",
+    "priceImpactPct": 0,
+    "slippageBps": 100,
+    "route": [
+      {
+        "label": "Scorch",
+        "ammKey": "7T5BKFBFLGSgVBKKcBwrrUTHPtpVGvorKfmYuS4TzdfV",
+        "percent": 100
+      }
+    ]
+  },
+  "exitQuotePreparation": {
+    "api": "lite-api.jup.ag/swap/v1/quote",
+    "timestampUtc": "2026-07-07T17:52:01.456Z",
+    "inAmountRaw": "1705340",
+    "outAmountLamports": "4997480",
+    "otherAmountThresholdLamports": "4947506",
+    "priceImpactPct": 0.0008369885171850468,
+    "slippageBps": 100,
+    "route": [
+      {
+        "label": "HumidiFi",
+        "ammKey": "hKgG7iEDRFNsJSwLYqz8ETHuZwzh6qMMLow8VXa8pLm",
+        "percent": 100
+      },
+      {
+        "label": "Riptide",
+        "ammKey": "6Vzx4ASRjUPW2yBxHdBT3hDam2zxB6UmhM2MYYM5k8ci",
+        "percent": 100
+      },
+      {
+        "label": "Raydium CLMM",
+        "ammKey": "C4EHvK6nREQw7GfhmZeZDy5fcGCVX3NsD7D8U4imHWbW",
+        "percent": 100
+      }
+    ],
+    "sellRouteVerifiedPreparation": true
+  },
+  "tokenSafety": {
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "decimals": 6,
+    "token2022": false,
+    "transferRestrictionDetected": false,
+    "honeypotIndicatorPreparation": "none_observed_sell_quote_ok"
+  },
+  "fees": {
+    "fallbackPriorityFeeLamports": 200000,
+    "maxPriorityFeeLamports": 1000000,
+    "estimatedWorstCaseEntryCostSol": 0.007
+  },
+  "executionBounds": {
+    "targetPct": 10,
+    "stopPct": 5,
+    "timeoutMinutes": 20,
+    "confirmationTimeoutMs": 30000,
+    "realizedSlippageHaltBps": 200,
+    "sessionLossStopSol": 0.03,
+    "dailyLossStopSol": 0.03,
+    "mevRouteMode": "public_micro_live_only"
+  },
+  "csResults": {
+    "CS1": "PASS",
+    "CS2": "PASS",
+    "CS3": "PASS",
+    "CS4": "PASS",
+    "CS5": "PASS",
+    "CS6": "PASS_AT_CAPTURE_REFETCH_REQUIRED",
+    "CS7": "PASS",
+    "CS8": "PASS",
+    "CS9": "PASS",
+    "CS10": "PASS_PLANNED",
+    "CS11": "PASS_PLANNED"
+  },
+  "unresolvedRisks": [
+    "live_executor quote-api.jup.ag/v6 unreachable; endpoint migration may block execution without separate fix",
+    "preparation quotes via lite-api.jup.ag only",
+    "route may change at execution",
+    "real broadcast unproven",
+    "prod-root reconciliation/e-stop deferred",
+    "strategy NOT READY"
+  ],
+  "rejectedCandidates": [],
+  "confirmationStringExact": "CONFIRM RB-G9-20260706-EV01 FOR ONE 0.005 SOL ENTRY AND MANDATORY EXIT",
+  "governance": {
+    "or20260630008": "not_promoted",
+    "strategyReady": false,
+    "profitabilityClaim": false,
+    "liveReadinessClaim": false
+  },
+  "secretSafe": true
+}

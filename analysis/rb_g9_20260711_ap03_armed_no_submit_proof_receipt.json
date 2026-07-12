@@ -1,0 +1,115 @@
+{
+  "ap15Rationale": null,
+  "ap15ReplacementEvidence": null,
+  "ap15Status": null,
+  "apCompletionTimestampUtc": null,
+  "apInvocationTimestampUtc": null,
+  "apN6Invoked": false,
+  "apResults": {},
+  "armedDeadlineUtc": "2026-07-11T20:32:50.496Z",
+  "armedSafeN6Result": null,
+  "armedStartUtc": "2026-07-11T20:17:50.496Z",
+  "armedTimeRemainingAtApInvocationMs": null,
+  "armedTimeRemainingAtCompletionMs": 476372,
+  "armedTimeRemainingAtStartMs": 478049,
+  "authorizationValidation": {
+    "g1": {
+      "fingerprint": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+      "pass": true,
+      "status": "SIGNED/UNUSED",
+      "unused": true
+    },
+    "g2": {
+      "c1c2c3Complete": true,
+      "fingerprintAtSignOff": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+      "pass": true,
+      "status": "CONSUMED/USED"
+    },
+    "g3": {
+      "fingerprintAtSignOff": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+      "pass": true,
+      "status": "CONSUMED/USED",
+      "stubCreatedOnce": true
+    },
+    "g4": {
+      "finalStatus": "SIGNED/UNUSED",
+      "fingerprint": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+      "pass": true,
+      "status": "SIGNED/UNUSED",
+      "unused": true
+    },
+    "isolation": {
+      "fingerprintAtSignOff": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+      "pass": true,
+      "status": "CONSUMED/USED"
+    }
+  },
+  "baselineBindings": {
+    "armingBaselineHashSha256": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0",
+    "isolatedProcessSetHashSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "domainCRollbackPerformed": true,
+  "failReason": "INSUFFICIENT_ARMED_WINDOW",
+  "failReasons": [
+    "INSUFFICIENT_ARMED_WINDOW"
+  ],
+  "flatCapitalState": {
+    "openPositions": 0,
+    "pendingReconciliation": 0,
+    "recoveryLines": 0
+  },
+  "g4ConsumedAtUtc": null,
+  "gate": "RB-G9-20260711-AP03 Armed No-Submit Proof Gate",
+  "liveArmedValidationPostDomainC": {
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING"
+  },
+  "minimumArmedBeforeApMs": 600000,
+  "n6CompletionTimestampUtc": null,
+  "n6InvocationTimestampUtc": null,
+  "orStatus": "not_promoted",
+  "preInvocationSafety": {
+    "broadcastCount": 0,
+    "candidateCount": 0,
+    "executorCount": 0,
+    "flatCapitalState": {
+      "openPositions": 0,
+      "pendingReconciliation": 0,
+      "recoveryLines": 0
+    },
+    "quoteCount": 0,
+    "signingCount": 0,
+    "submitCount": 0,
+    "transactionConstructionCount": 0,
+    "transactionSignatures": "none"
+  },
+  "processCountsPostDomainC": {
+    "dashboard": 0,
+    "executor": 0,
+    "monitor": 0,
+    "scanner": 0
+  },
+  "processCountsPreProof": {
+    "dashboard": 0,
+    "executor": 0,
+    "monitor": 0,
+    "scanner": 0
+  },
+  "proofExecuted": false,
+  "proofGateCompletionTimestampUtc": "2026-07-11T20:24:54.124Z",
+  "proofGateStartTimestampUtc": "2026-07-11T20:24:52.447Z",
+  "recommendedNextGate": "RB-G9-20260711-AP03 Emergency Domain C Closure",
+  "runtimeStubAbsentPostDomainC": true,
+  "runtimeStubValidation": {
+    "expectedPurposeValidation": "PASS",
+    "fingerprint": "348b8e9a83fc49b3fbe05a8cbe03b037a37295d3c8ea26fb2846ba43ad0c085f",
+    "microLiveGuardRejects": true,
+    "pass": true
+  },
+  "schemaVersion": "rb-g9-armed-no-submit-proof-receipt/1.0.0-ap03",
+  "sessionId": "RB-G9-20260711-AP03",
+  "status": "FAIL CLOSED",
+  "strategyReadiness": "NOT READY",
+  "submitSignBroadcast": false,
+  "transactionSignatures": "none"
+}

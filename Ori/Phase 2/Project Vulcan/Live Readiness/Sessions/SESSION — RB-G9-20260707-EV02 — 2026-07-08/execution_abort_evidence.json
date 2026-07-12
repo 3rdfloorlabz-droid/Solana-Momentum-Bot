@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "recordType": "EXECUTION_GATE_ABORT_EVIDENCE",
+  "sessionId": "RB-G9-20260707-EV02",
+  "gateStartUtc": "2026-07-09T01:41:19.444Z",
+  "noEntryDeadlineUtc": "2026-07-09T02:41:19.444Z",
+  "authorizationExpiryUtc": "2026-07-09T05:28:00.000Z",
+  "abortAtUtc": "2026-07-09T01:43:30.000Z",
+  "classification": "ABORTED_BEFORE_BROADCAST",
+  "abortPhase": "PHASE_1_PREFLIGHT",
+  "exactConfirmationReceived": false,
+  "confirmationPacketPresented": false,
+  "buySubmitted": false,
+  "sellSubmitted": false,
+  "preflight": {
+    "authorizationValidAtStart": true,
+    "authorizationRemainingMinAtStart": 226,
+    "validateLiveSystem": {
+      "result": "FAIL",
+      "failures": [
+        {
+          "check": "dryRunMode = true (Phase 1 required)",
+          "actual": "dryRunMode false — intentional LIVE armed posture"
+        }
+      ],
+      "warnings": 6
+    },
+    "safetySuite": {
+      "result": "FAIL",
+      "failedAt": "test_n6_estop_drill.js",
+      "reason": "ABORT: production executionMode LIVE"
+    },
+    "r15Guard": "PASS",
+    "buyPreSubmitProbe": "PASS",
+    "executorLoopCount": 0,
+    "openPositions": 0,
+    "pendingReconciliation": 0,
+    "capitalExposure": "none",
+    "walletBalanceSol": 0.970016,
+    "positionSizeSol": 0.005,
+    "liveArmed": true
+  },
+  "candidate": {
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pair": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe"
+  },
+  "freshQuotesObtained": false,
+  "disarmPerformedInGate": false,
+  "stubConsumedInGate": false,
+  "governance": {
+    "or20260630008": "not_promoted",
+    "strategyReady": false,
+    "profitabilityClaim": false
+  },
+  "secretSafe": true
+}

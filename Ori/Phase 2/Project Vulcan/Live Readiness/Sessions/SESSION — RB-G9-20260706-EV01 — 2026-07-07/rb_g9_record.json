@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "recordType": "RB-G9_POST_SESSION",
+  "sessionId": "RB-G9-20260706-EV01",
+  "gateId": "Armed-State No-Trade Disarm and RB-G9 Gate — 2026-07-07",
+  "reviewState": "NO_TRADE_EXECUTED",
+  "sessionDateUtc": "2026-07-07",
+  "operator": "Taylor Cheaney",
+  "reviewCompletedAtUtc": "2026-07-07T17:58:00.000Z",
+  "sessionReuseForbidden": true,
+  "linkedRecords": {
+    "r13SignOff": "../../R13 SIGN-OFF GATE — 2026-07-06.md",
+    "r15Authorization": "../../Authorizations/AUTHORIZATION — R15 ENGINEERING-VALIDATION ONE_SESSION_ONLY — 2026-07-06.md",
+    "armingAuthorization": "../../Authorizations/AUTHORIZATION — Arming — 2026-07-07.md",
+    "armingTransitionGate": "../../ARMING TRANSITION EXECUTION GATE — 2026-07-07.md",
+    "runtimeStubCreationAuth": "../../Authorizations/AUTHORIZATION — Runtime R15 Approval Stub Creation — 2026-07-07.md",
+    "runtimeStubCreationGate": "../../RUNTIME R15 APPROVAL STUB CREATION GATE — 2026-07-07.md",
+    "microLiveExecutionAuthorization": "../../Authorizations/AUTHORIZATION — Micro-Live Execution — 2026-07-07.md",
+    "microLiveExecutionAuthGate": "../../MICRO-LIVE EXECUTION AUTHORIZATION GATE — 2026-07-07.md",
+    "candidatePreparation": "../../MICRO-LIVE CANDIDATE SELECTION AND PER-TRADE CONFIRMATION PREPARATION — 2026-07-07.md",
+    "candidatePacket": "./CANDIDATE PACKET — RB-G9-20260706-EV01 — 2026-07-07.md",
+    "disarmGateReceipt": "../../ARMED-STATE NO-TRADE DISARM AND RB-G9 GATE — 2026-07-07.md",
+    "signerPlacement": "../../SIGNER SECRET PLACEMENT EXECUTION — 2026-07-06.md",
+    "realRpcNoBroadcast": "../../REAL RPC NO-BROADCAST READINESS CHECK — 2026-07-06.md"
+  },
+  "trade": {
+    "tokenMint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "tokenSymbol": "JUP",
+    "pairLabel": "C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg",
+    "executed": false,
+    "entryTimestampUtc": null,
+    "exitTimestampUtc": null,
+    "transactionSignatures": [],
+    "positionSizeSol": null,
+    "authorizedPositionSizeSol": 0.005
+  },
+  "noTradeReason": {
+    "classification": "NO_TRADE_EXECUTED",
+    "finalPerTradeConfirmationReceived": false,
+    "blockers": [
+      {
+        "id": "U1",
+        "summary": "live_executor quote-api.jup.ag/v6 unreachable; preparation used lite-api.jup.ag; paths not proven equivalent"
+      },
+      {
+        "id": "FEE",
+        "summary": "Preparation worst-case entry fee estimate ~0.007 SOL exceeded authorized 0.005 SOL trade size; unresolved"
+      },
+      {
+        "id": "CONFIRM",
+        "summary": "Final per-trade confirmation never given"
+      }
+    ],
+    "executionGateDeclined": "Micro-Live Single-Trade Execution Gate not entered"
+  },
+  "operational": {
+    "reconciliationStatus": "clean",
+    "ambiguityStatus": "none",
+    "estopStatus": "not_triggered",
+    "stopHaltReason": "Intentional no-trade disarm — execution blockers",
+    "positionWriteConfirmed": null,
+    "capitalExposureStatus": "none",
+    "openLivePositions": 0,
+    "pendingReconciliationOperatorAction": 0
+  },
+  "disarm": {
+    "c1Rollback": true,
+    "c2Rollback": true,
+    "c3Rollback": true,
+    "runtimeStubRemoved": true,
+    "before": {
+      "liveArmed": true,
+      "operationalPosture": "LIVE_ARMED",
+      "executionMode": "LIVE",
+      "dryRunMode": false,
+      "fomoEnableLiveSubmission": "YES",
+      "stubPresent": true
+    },
+    "after": {
+      "liveArmed": false,
+      "operationalPosture": "PIPELINE_OBSERVING",
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "fomoEnableLiveSubmission": "unset",
+      "stubPresent": false,
+      "buyGuardBlocked": true
+    }
+  },
+  "governance": {
+    "or20260630008": "not_promoted",
+    "liveReadinessClaimed": false,
+    "strategyReadinessClaimed": false,
+    "profitabilityClaimed": false,
+    "strategyReady": false
+  },
+  "r15OneSessionOnly": {
+    "sessionConsumed": true,
+    "microLiveAuthorizationClosed": true,
+    "secondSessionAuthorized": false,
+    "continueOrHalt": "halt"
+  },
+  "operatorNotes": "Armed session closed without trade. JUP candidate packet was preparation-only. No edge or profitability claim.",
+  "runtimeCrossRefs": {
+    "executionAuditTailRef": "no_new_live_submit_events",
+    "pendingReconciliationRef": "count_0"
+  },
+  "secretSafe": true
+}

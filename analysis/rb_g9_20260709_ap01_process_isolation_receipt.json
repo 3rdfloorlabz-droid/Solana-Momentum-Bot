@@ -1,0 +1,157 @@
+{
+  "ap01AuthorizationChainClosed": true,
+  "ap01ChainClosureUtc": "2026-07-11T01:54:42Z",
+  "armingBaselineHashSha256": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+  "autoRestartEvidence": [],
+  "baselineExpiredByMs": 89451455,
+  "baselineFreshAtCompletion": false,
+  "baselineFreshAtGateStart": false,
+  "baselineFreshnessExpiryUtc": "2026-07-10T18:16:56.268Z",
+  "baselineProcessFingerprintMatch": false,
+  "bindingValidation": {
+    "actual": {
+      "armingBaselineHash": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+      "authorizationChainFingerprint": "4813507a978c2678c13c2b1fa6b79402322e7cfe28c6e2d3406c4c000874acee",
+      "authorizationFingerprints": {
+        "g1": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+        "g2": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+        "g3": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+        "g4": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c"
+      },
+      "codeFingerprint": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+      "environmentGateFingerprint": "52cc3c3a3499ecf5e6dedf492315666fb3001bf11110c5fd95a2e2e52e7e5d4b",
+      "liveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef"
+    },
+    "expected": {
+      "armingBaselineHash": "299b09d5a701657a7031ff04ac40bd8b16459d2af94030a1d1b8f014f5ccfd2d",
+      "chain": "4813507a978c2678c13c2b1fa6b79402322e7cfe28c6e2d3406c4c000874acee",
+      "code": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+      "env": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+      "g1": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+      "g2": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+      "g3": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+      "g4": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+      "liveConfig": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+      "process": "19e5589cbacc6eb125fc894c13cae0e86a5f0ddafa94950dd107301d40e9b0a4"
+    },
+    "match": {
+      "chain": true,
+      "code": true,
+      "env": false,
+      "g1": true,
+      "g2": true,
+      "g3": true,
+      "g4": true,
+      "liveConfig": true
+    }
+  },
+  "c1Performed": false,
+  "c2Performed": false,
+  "c3Performed": false,
+  "controlledProcessDeltaResult": "NOT PERFORMED",
+  "failReason": "ARMING_BASELINE_EXPIRED",
+  "failReasons": [
+    "ARMING_BASELINE_EXPIRED",
+    "AP01_AUTHORIZATION_CHAIN_CLOSED",
+    "G1_AUTHORIZATION_EXPIRED"
+  ],
+  "freshEnoughForArmingTransitionGate": false,
+  "g1ExpiryUtc": "2026-07-11T03:25:11Z",
+  "g1ThroughG4Validation": {
+    "g1": {
+      "closed": true,
+      "fingerprint": "d24fdbe6dbb4febbeb17d1b190776fec653462b61064d00c1c322fb8d15e2a84",
+      "pass": true,
+      "unused": true
+    },
+    "g2": {
+      "closed": true,
+      "fingerprint": "00b8aa79d9fec2d0f1b24370cd3c7453105ab16e5db30806d48e1e9d19cf78a3",
+      "pass": true,
+      "unused": true
+    },
+    "g3": {
+      "closed": true,
+      "fingerprint": "c6fc68c41543b0b82f4080585dfe6613314c153143c34b236803edeb6bc9ddf4",
+      "pass": true,
+      "unused": true
+    },
+    "g4": {
+      "closed": true,
+      "fingerprint": "ecb59808f9f45625a6d2db2a51d98472f81cf8741f088a865d16126445c2397c",
+      "pass": true,
+      "unused": true
+    }
+  },
+  "g1UnexpiredAtGateStart": false,
+  "gate": "RB-G9-20260709-AP01 Process Isolation Gate (Stale Handoff — Post-Closure)",
+  "gateCompletionTimestampUtc": "2026-07-11T19:09:37.582Z",
+  "gateStartTimestampUtc": "2026-07-11T19:07:47.723Z",
+  "isolatedProcessSetHashSha256": null,
+  "observationPeriod": {
+    "performed": false,
+    "reason": "Gate failed closed before process stop"
+  },
+  "orStatus": "not_promoted",
+  "postIsolation": null,
+  "postIsolationCounts": null,
+  "powershellWrapperClassification": null,
+  "preIsolationProcessInventory": [
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" scanner_gmgn_trending.js --watch",
+      "isExecutorLoop": false,
+      "parentPid": 45808,
+      "pid": 9896,
+      "processKind": "node",
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" dashboard_server.js ",
+      "isExecutorLoop": false,
+      "parentPid": 45148,
+      "pid": 40392,
+      "processKind": "node",
+      "scriptIdentity": "dashboard_server.js"
+    },
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "commandLineRedacted": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'monitor\\.js|dashboard_server\\.js|scanner_gmgn|live_executor\\.js|b2a_24h' } | Select-Object ProcessId,ParentProcessId,C",
+      "isExecutorLoop": false,
+      "parentPid": 9868,
+      "pid": 46064,
+      "processKind": "shell-wrapper",
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    }
+  ],
+  "preIsolationProcessSetFingerprint": "8cbb5ceb741a61ae95b033d081387015f3e7da161bfc6e7f02b9ea2aa42f40fc",
+  "processesActuallyStopped": [],
+  "processesAuthorizedForStop": [
+    "monitor.js",
+    "dashboard_server.js",
+    "scanner_gmgn_trending.js"
+  ],
+  "productionChanged": {
+    "code": false,
+    "config": false,
+    "environment": false,
+    "processes": false,
+    "tests": false
+  },
+  "recommendedNextGate": "Final Fresh Domain A Proof for RB-G9-20260709-AP01",
+  "recommendedNextGateOperationalNote": "AP01 authorization chain CLOSED 2026-07-11T01:54:42Z — session non-reusable; active armed-proof track is RB-G9-20260713-AP02",
+  "remainingFreshnessWindowMs": -89561314,
+  "remainingG1AuthorizationLifetimeMs": -56556723,
+  "safeTimeSufficiency": {
+    "note": "G1 expired before gate start",
+    "pass": false,
+    "remainingG1Ms": -56556723
+  },
+  "schemaVersion": "rb-g9-process-isolation-receipt/1.2.0-stale-handoff",
+  "sessionId": "RB-G9-20260709-AP01",
+  "status": "FAIL CLOSED",
+  "strategyReadiness": "NOT READY",
+  "systemRemainsDisarmed": true,
+  "terminationRecords": []
+}

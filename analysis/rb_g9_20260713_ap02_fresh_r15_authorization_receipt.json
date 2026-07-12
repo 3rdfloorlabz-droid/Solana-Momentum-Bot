@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "rb-g9-fresh-r15-authorization-receipt/1.0.0",
+  "gate": "RB-G9-20260713-AP02 Fresh R15 Authorization",
+  "status": "FAIL CLOSED",
+  "failReason": "PROOF_DAY_NOT_REACHED",
+  "gateStartTimestampUtc": "2026-07-11T19:17:19.062Z",
+  "gateStartLocalMdt": "2026-07-11 13:17:19",
+  "gateCompletionTimestampUtc": "2026-07-11T19:17:19.062Z",
+  "sessionId": "RB-G9-20260713-AP02",
+  "requiredProofDateLocalMdt": "2026-07-13",
+  "currentLocalDateMdt": "2026-07-11",
+  "daysUntilProofDay": 2,
+  "proofDayTimingValidation": "FAIL — PROOF_DAY_NOT_REACHED",
+  "operatingWindow": {
+    "reconfirmed": true,
+    "localWindow": "14:00–20:00 MDT",
+    "startUtc": "2026-07-13T20:00:00Z",
+    "endUtc": "2026-07-14T02:00:00Z",
+    "remainingTimeInBlockMs": null,
+    "blockStarted": false
+  },
+  "freshG1": {
+    "reservedPath": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260713-AP02 — 2026-07-13.md",
+    "created": false,
+    "signedByTaylor": false,
+    "authorizationStatus": null,
+    "signatureTimestampUtc": null,
+    "signatureTimestampLocal": null,
+    "authorizationExpiryUtc": null,
+    "remainingG1LifetimeMs": null,
+    "fingerprintSha256": null,
+    "minimumExpiryUtc": "2026-07-14T06:00:00Z",
+    "soleActiveAp02G1": false
+  },
+  "earlyG1ClosureValidation": {
+    "pass": true,
+    "closedPath": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260713-AP02 — 2026-07-11.md",
+    "closedFingerprintSha256": "f2c495ec6784df10d9a211a5d5748a8461f6060b4f646fa369d8fc4ab7ed014a",
+    "closureRecordPath": "Ori/Phase 2/Project Vulcan/Live Readiness/RB-G9-20260713-AP02 EXPIRED G1 CLOSURE — 2026-07-13.md",
+    "disposition": "CLOSED — EXPIRED_UNUSED / SUPERSEDED_BEFORE_EXECUTION"
+  },
+  "sessionValidation": {
+    "sessionId": "RB-G9-20260713-AP02",
+    "dateMatchesProofDate": false,
+    "g2Absent": true,
+    "g3Absent": true,
+    "g4Absent": true
+  },
+  "operatorAccessReadinessEvaluated": false,
+  "operatorAccessReadinessDeferredReason": "Gate failed on proof-day date check before operator block",
+  "artifactsCreated": {
+    "freshG1Authorization": false,
+    "g2": false,
+    "g3": false,
+    "g4": false,
+    "runtimeStub": false,
+    "sessionFolder": false,
+    "sessionManifest": false
+  },
+  "executionHistory": {
+    "domainARun": false,
+    "processIsolationPerformed": false,
+    "c1Performed": false,
+    "c2Performed": false,
+    "c3Performed": false,
+    "submitSignBroadcastInvoked": false,
+    "transactionSignatures": [],
+    "positionReconciliationRecoveryCapital": "none"
+  },
+  "postGateSystemState": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "runtimeStubAbsent": true,
+    "sessionFolderAbsent": true,
+    "processesChanged": false,
+    "configEnvironmentChanged": false,
+    "scheduledTasksModified": false,
+    "systemRemainsDisarmed": true
+  },
+  "indexUpdates": {
+    "authorizationsReadmeFreshG1Added": false,
+    "sessionsReadmeUpdated": false
+  },
+  "orStatus": "not_promoted",
+  "strategyReadiness": "NOT READY",
+  "recommendedNextGate": "RB-G9-20260713-AP02 Fresh R15 Authorization",
+  "gateReceiptPath": "Ori/Phase 2/Project Vulcan/Live Readiness/RB-G9-20260713-AP02 FRESH R15 AUTHORIZATION — 2026-07-11 — FAIL CLOSED.md"
+}

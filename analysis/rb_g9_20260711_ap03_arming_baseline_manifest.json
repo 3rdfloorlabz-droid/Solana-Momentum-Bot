@@ -1,0 +1,369 @@
+{
+  "armingBaselineHashSha256": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0",
+  "authorizationFingerprints": {
+    "combinedAuthorizationChainSha256": "d54ac333b13fedf4778aeff8049e0ef2333a50a6bd9ca0054b0d4d100014f5bd",
+    "g1": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+    "g2": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+    "g3": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+    "g4": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+    "processIsolation": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3"
+  },
+  "authorizationPaths": {
+    "g1": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260711-AP03 — 2026-07-11.md",
+    "g2": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Arming — RB-G9-20260711-AP03 — 2026-07-11.md",
+    "g3": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Runtime Stub Creation — RB-G9-20260711-AP03 — 2026-07-11.md",
+    "g4": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260711-AP03 — 2026-07-11.md",
+    "processIsolation": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION — Process Isolation — RB-G9-20260711-AP03 — 2026-07-11.md"
+  },
+  "c1c2c3Performed": false,
+  "codeFingerprint": {
+    "approvedFiles": {
+      "armed_preflight_checks.js": "d2d0fe942ec3644199330d15388366add24133c35e7bb9a2629c980ea48732c2",
+      "armed_preflight_manifest.js": "763c3055e52228f7a3b7216c7aea3f5d2218e9756442158c04ff4f0fe0c02b87",
+      "armed_preflight_session.js": "dac6b404e33b3ec2d3914603c74ece4f26c6d56e2c6371e203b05a3fe84af0e3",
+      "live_executor.js": "ee818ec7a8e2277ed30c152c9a18fe1ceb98dec2ccea5ed3cfe6a2f96e26fdd0",
+      "live_validation_common.js": "8ff051dedc8f724cff74d5847335933b5e8fed51756558a843a9552513b2e2d6",
+      "r15_approval_validator.js": "d0bc6e27bd5feb4b8e15884be9d7ab141a1ef66ebd910a76598a16695f347629",
+      "run_armed_preflight_manifest.js": "2c86c1749934470e9a8d95c7444c030ebd9912821a1581bdf09c16d0e2c0bc93",
+      "test_n6_armed_estop_probe.js": "a3b3176ca748418cb0d790fc00f28af367b58f0aff30ff4bb0e66ccce16a06e3",
+      "validate_armed_preflight.js": "2271fd98d839b95379b4ee6cbd828aa518bcf89f55173dbce09efd6e76c680be",
+      "validate_live_system.js": "b76494184739626aa4c5c5d5dc246c9d6d6722fefd902d6f9d5c72a48f6257e5"
+    },
+    "armedPreflightAggregate": "6b689c26624cab981002cc69b52ce1177734d0dee39b151ab347e44e6fa906b2",
+    "extendedAggregate": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042"
+  },
+  "controlledProcessDeltaRule": {
+    "beforeProcessSetFingerprint": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+    "isolatedProcessSetHash": null,
+    "note": "Next process-isolation gate expected to stop authorized monitor wrapper/monitor/dashboard/scanner_gmgn only; observation loops must remain absent; FOMO Wallet Monitor and dashboard passive launcher excluded",
+    "recorded": true
+  },
+  "domainA": {
+    "n6DryDrill": {
+      "pass": true,
+      "source": "run_safety_tests.js includes test_n6_estop_drill.js"
+    },
+    "safetySuite": {
+      "pass": true,
+      "passed": 85,
+      "raw": "85/85 safety tests passed",
+      "total": 85
+    },
+    "validator": {
+      "exitCode": 0,
+      "failures": 0,
+      "pass": true,
+      "warnings": 5
+    }
+  },
+  "domainBWrongContext": {
+    "armedManifest": {
+      "exitCode": 2,
+      "overallStatus": "WRONG_POSTURE",
+      "pass": true
+    },
+    "armedSafeN6": {
+      "exitCode": 1,
+      "pass": true,
+      "reason": "production posture not LIVE_ARMED"
+    },
+    "armedValidator": {
+      "exitCode": 2,
+      "overallStatus": "WRONG_POSTURE",
+      "pass": true
+    }
+  },
+  "environmentGateBooleans": {
+    "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+    "FOMO_ALLOW_LOOP_LIVE": "unset",
+    "FOMO_ENABLE_LIVE_SUBMISSION": "unset",
+    "SOLANA_SIGNER_SECRET": "present"
+  },
+  "environmentGateFingerprintSha256": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+  "flatCapitalState": {
+    "capitalExposure": "none",
+    "executionCallCountGate": 0,
+    "openPositions": 0,
+    "pendingReconciliation": 0,
+    "recoveryLines": 0,
+    "transactionSignaturesGate": "none"
+  },
+  "fomoWalletMonitor": {
+    "present": true,
+    "state": "Ready"
+  },
+  "freshnessExpiryTimestampUtc": "2026-07-11T20:37:42.223Z",
+  "freshnessForIsolation": {
+    "minimumRequiredMs": 1200000,
+    "pass": true,
+    "remainingAtCompletionMs": 1800000
+  },
+  "fullProcessInventory": [
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" scanner_gmgn_trending.js --watch",
+      "isExecutorLoop": false,
+      "isObservationLoop": false,
+      "name": "node.exe",
+      "pid": 9896,
+      "ppid": 45808,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "commandLineRedacted": "\"C:\\Program Files\\nodejs\\node.exe\" dashboard_server.js ",
+      "isExecutorLoop": false,
+      "isObservationLoop": false,
+      "name": "node.exe",
+      "pid": 40392,
+      "ppid": 45148,
+      "scriptIdentity": "dashboard_server.js"
+    }
+  ],
+  "g1ExpiryUtc": "2026-07-12T07:00:00Z",
+  "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "observationLoopClosure": {
+    "absent": true,
+    "classifiedAsGovernedIsolation": false,
+    "method": "verified_absent_via_cim_inventory",
+    "note": "Observation loops were already absent at gate start; no ordinary-close stop was required or performed",
+    "presentAtBaseline": [],
+    "processesClosedThisGate": [],
+    "requiredAbsent": [
+      "scanner.js_observation_loop",
+      "b2a_observation_loop"
+    ]
+  },
+  "orStatus": "not_promoted",
+  "posture": {
+    "dryRunMode": true,
+    "executionMode": "PIPELINE_DRY_RUN",
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING"
+  },
+  "processInventory": [
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "isExecutorLoop": false,
+      "pid": 9896,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "isExecutorLoop": false,
+      "pid": 40392,
+      "scriptIdentity": "dashboard_server.js"
+    }
+  ],
+  "processIsolationPerformed": false,
+  "processSetFingerprint": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+  "processSetSummary": {
+    "count": 2,
+    "executorLoopCount": 0
+  },
+  "productionTargetsStoppedThisGate": false,
+  "proofCompletionTimestampUtc": "2026-07-11T20:07:42.223Z",
+  "proofStartTimestampUtc": "2026-07-11T20:01:33.908Z",
+  "remainingG1AuthorizationLifetimeMs": 39506092,
+  "repositoryCommitSha256": "0d97d5bd89276977db16f18f048243e33dd8270b",
+  "rpcHealth": {
+    "ok": true,
+    "provider": "HELIUS_RPC_URL",
+    "reason": null
+  },
+  "rpcHealthFingerprintSha256": "dd102a49eb0cac68a17987915eb9704f46c05143adc707d4420e9398a2fc09f6",
+  "runtimeStubAbsentFingerprintSha256": "f0e6b2e295326f6c0e20c1f6eb88eddd071755c4c00b0b28eabda8790268b533",
+  "runtimeStubAbsentState": {
+    "fingerprint": null,
+    "path": "analysis/r15_manual_approval_record.json",
+    "present": false
+  },
+  "safeTimeSufficiency": {
+    "minimumRequiredMs": 3900000,
+    "pass": true,
+    "remainingMs": 39506092
+  },
+  "schemaVersion": "rb-g9-arming-baseline-manifest/1.0.0",
+  "sessionFolderAbsentState": {
+    "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Sessions/SESSION — RB-G9-20260711-AP03 — 2026-07-11",
+    "present": false
+  },
+  "sessionId": "RB-G9-20260711-AP03",
+  "sessionWiring": {
+    "ap03ProofChainPresent": true,
+    "ap15Rationale": "armed-no-submit-proof-scope",
+    "ap15Status": "NOT_APPLICABLE_WITH_REPLACEMENT_EVIDENCE",
+    "authorizationChainValidation": {
+      "errors": [
+        "G1 authorization consumed or closed",
+        "G1 authorization wrong document type (micro-live-execution)",
+        "G1 authorization session mismatch",
+        "G2 authorization consumed or closed",
+        "G2 authorization wrong document type (armed-no-submit-proof)",
+        "G2 authorization session mismatch",
+        "G3 authorization consumed or closed",
+        "G3 authorization wrong document type (micro-live-execution)",
+        "G3 authorization session mismatch",
+        "G4 authorization wrong document type (micro-live-execution)",
+        "G4 authorization session mismatch"
+      ],
+      "metadata": {
+        "g1": {
+          "basename": "AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "consumed": true,
+          "documentClass": "micro-live-execution",
+          "fingerprintSha256": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+          "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "present": true,
+          "prohibitionsPresent": true,
+          "readable": true,
+          "sessionIds": [
+            "RB-G9-20260711-AP03",
+            "RB-G9-20260706-EV01",
+            "RB-G9-20260707-EV02",
+            "RB-G9-20260709-AP01",
+            "RB-G9-20260713-AP02"
+          ],
+          "signed": true
+        },
+        "g2": {
+          "basename": "AUTHORIZATION — Arming — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "consumed": true,
+          "documentClass": "armed-no-submit-proof",
+          "fingerprintSha256": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+          "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — Arming — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "present": true,
+          "prohibitionsPresent": false,
+          "readable": true,
+          "sessionIds": [
+            "RB-G9-20260711-AP03",
+            "RB-G9-20260706-EV01",
+            "RB-G9-20260707-EV02",
+            "RB-G9-20260709-AP01",
+            "RB-G9-20260713-AP02"
+          ],
+          "signed": true
+        },
+        "g3": {
+          "basename": "AUTHORIZATION — Runtime Stub Creation — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "consumed": true,
+          "documentClass": "micro-live-execution",
+          "fingerprintSha256": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+          "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — Runtime Stub Creation — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "present": true,
+          "prohibitionsPresent": false,
+          "readable": true,
+          "sessionIds": [
+            "RB-G9-20260711-AP03",
+            "RB-G9-20260706-EV01",
+            "RB-G9-20260707-EV02",
+            "RB-G9-20260709-AP01",
+            "RB-G9-20260713-AP02"
+          ],
+          "signed": true
+        },
+        "g4": {
+          "basename": "AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "consumed": false,
+          "documentClass": "micro-live-execution",
+          "fingerprintSha256": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+          "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260711-AP03 — 2026-07-11.md",
+          "present": true,
+          "prohibitionsPresent": true,
+          "readable": true,
+          "sessionIds": [
+            "RB-G9-20260711-AP03",
+            "RB-G9-20260706-EV01",
+            "RB-G9-20260707-EV02",
+            "RB-G9-20260709-AP01",
+            "RB-G9-20260713-AP02"
+          ],
+          "signed": true
+        }
+      },
+      "ok": false
+    },
+    "forbiddenSessionsBlocked": true,
+    "manualAuthorizationChainValidation": {
+      "gates": {
+        "g1": {
+          "consumed": false,
+          "documentClass": "fresh-r15",
+          "fingerprint": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "g2": {
+          "consumed": false,
+          "documentClass": "arming",
+          "fingerprint": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "g3": {
+          "consumed": false,
+          "documentClass": "stub-creation",
+          "fingerprint": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "g4": {
+          "consumed": false,
+          "documentClass": "armed-no-submit-proof",
+          "fingerprint": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        },
+        "isolation": {
+          "consumed": false,
+          "documentClass": "process-isolation",
+          "fingerprint": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+          "linkagePass": true,
+          "pass": true,
+          "sessionBound": true,
+          "signed": true
+        }
+      },
+      "ok": true
+    },
+    "programmaticAuthorizationChainValidation": {
+      "errors": [
+        "G1 authorization consumed or closed",
+        "G1 authorization wrong document type (micro-live-execution)",
+        "G1 authorization session mismatch",
+        "G2 authorization consumed or closed",
+        "G2 authorization wrong document type (armed-no-submit-proof)",
+        "G2 authorization session mismatch",
+        "G3 authorization consumed or closed",
+        "G3 authorization wrong document type (micro-live-execution)",
+        "G3 authorization session mismatch",
+        "G4 authorization wrong document type (micro-live-execution)",
+        "G4 authorization session mismatch"
+      ],
+      "note": "Programmatic validator may false-positive on signed-unused docs containing historical do-not-reuse language; manual validation is authoritative for this gate",
+      "ok": false
+    },
+    "proofContext": "armed-no-submit-proof",
+    "sessionIdPattern": true
+  },
+  "strategyReadiness": "NOT READY",
+  "walletPublicAddressBinding": {
+    "configuredPublicAddress": "FXLGxPo4JAv1WGJy728WnZiEzxsP4XvLRF2y6KdoxBH6",
+    "expectedWalletEnv": "present",
+    "match": true
+  },
+  "workingTreeStatus": {
+    "dirty": true,
+    "recordedAt": "2026-07-11T20:07:42.223Z",
+    "trackedModifiedCount": 19,
+    "untrackedCount": 61
+  }
+}

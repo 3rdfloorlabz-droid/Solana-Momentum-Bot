@@ -1,0 +1,298 @@
+{
+  "apN6Invoked": false,
+  "armingBaselineHashSha256": "900349be9183d545b9993bc75af7346c094653e2d6079792f4be6928259cf5b0",
+  "artifacts": {
+    "armedManifestReceipt": "analysis/rb_g9_ap03_final_armed_manifest_receipt.json",
+    "armedN6ProbeOutput": "analysis/rb_g9_ap03_final_n6_armed_probe.out.txt",
+    "armedValidatorReceipt": "analysis/rb_g9_ap03_final_armed_validator_receipt.json",
+    "safetyTestsOutput": "analysis/rb_g9_ap03_final_safety_tests.out.txt",
+    "validateLiveSystemOutput": "analysis/rb_g9_ap03_final_validate_live_system.out.txt"
+  },
+  "authorizationChainValidation": {
+    "gates": {
+      "g1": {
+        "consumed": false,
+        "documentClass": "fresh-r15",
+        "fingerprint": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "g2": {
+        "consumed": false,
+        "documentClass": "arming",
+        "fingerprint": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "g3": {
+        "consumed": false,
+        "documentClass": "stub-creation",
+        "fingerprint": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "g4": {
+        "consumed": false,
+        "documentClass": "armed-no-submit-proof",
+        "fingerprint": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      },
+      "isolation": {
+        "consumed": false,
+        "documentClass": "process-isolation",
+        "fingerprint": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+        "linkagePass": true,
+        "pass": true,
+        "sessionBound": true,
+        "signed": true
+      }
+    },
+    "ok": true
+  },
+  "authorizationValidation": {
+    "g1": {
+      "expected": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+      "fingerprint": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+      "pass": true
+    },
+    "g2": {
+      "expected": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+      "fingerprint": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+      "pass": true
+    },
+    "g3": {
+      "expected": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+      "fingerprint": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+      "pass": true
+    },
+    "g4": {
+      "expected": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+      "fingerprint": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+      "pass": true
+    },
+    "isolation": {
+      "expected": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+      "fingerprint": "836e413d9da0f8580017e903306e40647aecc7b9866a0a3e828b69c6af545cd3",
+      "pass": true
+    }
+  },
+  "baselineManifestPath": "analysis/rb_g9_20260711_ap03_arming_baseline_manifest.json",
+  "c1c2c3Performed": false,
+  "codeFingerprintExtendedAggregate": "f3c5b20080bdc5a6cfef85863f13448ca8da4cc4a81a2d8434e7707ba83ae042",
+  "domainA": {
+    "n6DryDrill": {
+      "pass": true,
+      "source": "run_safety_tests.js includes test_n6_estop_drill.js"
+    },
+    "safetySuite": {
+      "pass": true,
+      "passed": 85,
+      "raw": "85/85 safety tests passed",
+      "total": 85
+    },
+    "validator": {
+      "exitCode": 0,
+      "failures": 0,
+      "pass": true,
+      "warnings": 5
+    }
+  },
+  "domainBWrongContext": {
+    "armedManifest": {
+      "exitCode": 2,
+      "overallStatus": "WRONG_POSTURE",
+      "pass": true
+    },
+    "armedSafeN6": {
+      "exitCode": 1,
+      "pass": true,
+      "reason": "production posture not LIVE_ARMED"
+    },
+    "armedValidator": {
+      "exitCode": 2,
+      "overallStatus": "WRONG_POSTURE",
+      "pass": true
+    }
+  },
+  "environmentGateFingerprintSha256": "b63bdf5f2a8dc4dfbbc208456c4ac28f1fbb91cbae5ad97112a1995bfc72aa28",
+  "executorLoopCount": 0,
+  "failReason": null,
+  "flatCapitalState": {
+    "capitalExposure": "none",
+    "executionCallCountGate": 0,
+    "openPositions": 0,
+    "pendingReconciliation": 0,
+    "recoveryLines": 0,
+    "transactionSignaturesGate": "none"
+  },
+  "freshEnoughForProcessIsolation": true,
+  "freshnessExpiryTimestampUtc": "2026-07-11T20:37:42.223Z",
+  "freshnessRemainingAtCompletionMs": 1800000,
+  "g1ExpiryUtc": "2026-07-12T07:00:00Z",
+  "g1SchemaVersion2ProofPurpose": true,
+  "g1Unexpired": true,
+  "gate": "Final Fresh Domain A Proof for RB-G9-20260711-AP03",
+  "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "observationLoopClosure": {
+    "absent": true,
+    "classifiedAsGovernedIsolation": false,
+    "method": "verified_absent_via_cim_inventory",
+    "note": "Observation loops were already absent at gate start; no ordinary-close stop was required or performed",
+    "presentAtBaseline": [],
+    "processesClosedThisGate": [],
+    "requiredAbsent": [
+      "scanner.js_observation_loop",
+      "b2a_observation_loop"
+    ]
+  },
+  "orStatus": "not_promoted",
+  "postProofLiveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "processInventory": [
+    {
+      "commandIdentity": "scanner_gmgn_trending.js",
+      "isExecutorLoop": false,
+      "pid": 9896,
+      "scriptIdentity": "scanner_gmgn_trending.js"
+    },
+    {
+      "commandIdentity": "dashboard_server.js",
+      "isExecutorLoop": false,
+      "pid": 40392,
+      "scriptIdentity": "dashboard_server.js"
+    }
+  ],
+  "processIsolationPerformed": false,
+  "processSetFingerprint": "14c814149e769bbe7ef277b5e7ea608da5e27f4113eadf31b1a393a6c30bfd38",
+  "productionChangedDuringGate": {
+    "code": false,
+    "config": false,
+    "envFile": false,
+    "environment": false,
+    "tests": false
+  },
+  "programmaticAuthorizationChainValidation": {
+    "errors": [
+      "G1 authorization consumed or closed",
+      "G1 authorization wrong document type (micro-live-execution)",
+      "G1 authorization session mismatch",
+      "G2 authorization consumed or closed",
+      "G2 authorization wrong document type (armed-no-submit-proof)",
+      "G2 authorization session mismatch",
+      "G3 authorization consumed or closed",
+      "G3 authorization wrong document type (micro-live-execution)",
+      "G3 authorization session mismatch",
+      "G4 authorization wrong document type (micro-live-execution)",
+      "G4 authorization session mismatch"
+    ],
+    "metadata": {
+      "g1": {
+        "basename": "AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "consumed": true,
+        "documentClass": "micro-live-execution",
+        "fingerprintSha256": "2271bfc79a75f798c40adf54f2b25822bd3b7f44f473ba4ed89e6a63eff92e7e",
+        "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "present": true,
+        "prohibitionsPresent": true,
+        "readable": true,
+        "sessionIds": [
+          "RB-G9-20260711-AP03",
+          "RB-G9-20260706-EV01",
+          "RB-G9-20260707-EV02",
+          "RB-G9-20260709-AP01",
+          "RB-G9-20260713-AP02"
+        ],
+        "signed": true
+      },
+      "g2": {
+        "basename": "AUTHORIZATION — Arming — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "consumed": true,
+        "documentClass": "armed-no-submit-proof",
+        "fingerprintSha256": "1d0640d2410cde85f281763e70fc1fcb35d52fa55eee98f23e6c169f5d7659c1",
+        "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — Arming — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "present": true,
+        "prohibitionsPresent": false,
+        "readable": true,
+        "sessionIds": [
+          "RB-G9-20260711-AP03",
+          "RB-G9-20260706-EV01",
+          "RB-G9-20260707-EV02",
+          "RB-G9-20260709-AP01",
+          "RB-G9-20260713-AP02"
+        ],
+        "signed": true
+      },
+      "g3": {
+        "basename": "AUTHORIZATION — Runtime Stub Creation — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "consumed": true,
+        "documentClass": "micro-live-execution",
+        "fingerprintSha256": "7ab18a9e0ad199248b2b9b5865556db15e75a4cacd6067639b250fa970d7a010",
+        "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — Runtime Stub Creation — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "present": true,
+        "prohibitionsPresent": false,
+        "readable": true,
+        "sessionIds": [
+          "RB-G9-20260711-AP03",
+          "RB-G9-20260706-EV01",
+          "RB-G9-20260707-EV02",
+          "RB-G9-20260709-AP01",
+          "RB-G9-20260713-AP02"
+        ],
+        "signed": true
+      },
+      "g4": {
+        "basename": "AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "consumed": false,
+        "documentClass": "micro-live-execution",
+        "fingerprintSha256": "cea4084e77aaa6bd5aece3dd8da7ba9d15112150f164b41d80cac80aac4b801a",
+        "path": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot\\Ori\\Phase 2\\Project Vulcan\\Live Readiness\\Authorizations\\AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260711-AP03 — 2026-07-11.md",
+        "present": true,
+        "prohibitionsPresent": true,
+        "readable": true,
+        "sessionIds": [
+          "RB-G9-20260711-AP03",
+          "RB-G9-20260706-EV01",
+          "RB-G9-20260707-EV02",
+          "RB-G9-20260709-AP01",
+          "RB-G9-20260713-AP02"
+        ],
+        "signed": true
+      }
+    },
+    "ok": false
+  },
+  "proofCompletionTimestampUtc": "2026-07-11T20:07:42.223Z",
+  "proofStartTimestampUtc": "2026-07-11T20:01:33.908Z",
+  "readinessProfitabilityClaims": false,
+  "recommendedNextGate": "RB-G9-20260711-AP03 Process Isolation Gate",
+  "remainingG1AuthorizationLifetimeMs": 39506092,
+  "rpcHealth": {
+    "ok": true,
+    "provider": "HELIUS_RPC_URL",
+    "reason": null
+  },
+  "runtimeStubAbsent": true,
+  "safeTimeSufficiency": {
+    "minimumRequiredMs": 3900000,
+    "pass": true,
+    "remainingMs": 39506092
+  },
+  "schemaVersion": "rb-g9-final-domain-a-proof/1.0.0",
+  "sessionId": "RB-G9-20260711-AP03",
+  "status": "PASS",
+  "submitSignBroadcast": false,
+  "transactionSignatures": "none",
+  "walletPublicAddressBinding": {
+    "configuredPublicAddress": "FXLGxPo4JAv1WGJy728WnZiEzxsP4XvLRF2y6KdoxBH6",
+    "expectedWalletEnv": "present",
+    "match": true
+  }
+}
