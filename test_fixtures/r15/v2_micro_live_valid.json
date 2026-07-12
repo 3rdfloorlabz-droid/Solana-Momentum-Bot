@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "approvalPurpose": "micro_live_execution",
+  "finalApprovalStatus": "APPROVED FOR ONE MICRO-LIVE SESSION ONLY",
+  "purpose": "micro_live_execution",
+  "approvalId": "RB-G9-20260709-ML01",
+  "operatorName": "FIXTURE_OPERATOR",
+  "dateTime": "2026-07-09T12:00:00.000Z",
+  "sessionStartTime": "2026-07-09T12:00:00.000Z",
+  "sessionEndTime": "2099-01-01T00:00:00.000Z",
+  "expiresAt": "2099-01-01T00:00:00.000Z",
+  "consumed": false,
+  "researchWalletPublicAddress": "FakeWallet1111111111111111111111111111111",
+  "operatorSignaturePresent": true,
+  "scope": "ONE_SESSION_ONLY",
+  "commonAcknowledgments": {
+    "strategyNotReadyAcknowledged": true,
+    "noProfitabilityClaimAcknowledged": true,
+    "oneSessionOnlyAcknowledged": true,
+    "signerAndSessionBindingAcknowledged": true
+  },
+  "microLiveAcknowledgments": {
+    "totalLossRiskAcknowledged": true,
+    "slippageCapAcknowledged": true,
+    "mevProtectionPlanAcknowledged": true,
+    "emergencyStopPolicyAcknowledged": true,
+    "noAutoCompoundingAcknowledged": true,
+    "noAveragingDownAcknowledged": true,
+    "noUnattendedExecutionAcknowledged": true,
+    "liveTradingNotForIncomeAcknowledged": true
+  },
+  "oriLinkage": {
+    "sessionId": "RB-G9-20260709-ML01",
+    "purpose": "micro_live_execution"
+  },
+  "_fixtureLabel": "NON-CANONICAL v2 micro-live fixture — not an authorization"
+}

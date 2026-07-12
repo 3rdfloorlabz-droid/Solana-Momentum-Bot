@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 2,
+  "approvalPurpose": "armed_no_submit_proof_only",
+  "finalApprovalStatus": "APPROVED FOR ONE ARMED NO-SUBMIT PROOF SESSION ONLY",
+  "purpose": "armed_no_submit_proof_only",
+  "approvalId": "RB-G9-20260709-AP01",
+  "operatorName": "FIXTURE_OPERATOR",
+  "dateTime": "2026-07-09T12:00:00.000Z",
+  "sessionStartTime": "2026-07-09T12:00:00.000Z",
+  "sessionEndTime": "2099-01-01T00:00:00.000Z",
+  "expiresAt": "2099-01-01T00:00:00.000Z",
+  "consumed": false,
+  "researchWalletPublicAddress": "FakeWallet1111111111111111111111111111111",
+  "operatorSignaturePresent": true,
+  "scope": "ONE_SESSION_ONLY",
+  "commonAcknowledgments": {
+    "strategyNotReadyAcknowledged": true,
+    "noProfitabilityClaimAcknowledged": true,
+    "oneSessionOnlyAcknowledged": true,
+    "signerAndSessionBindingAcknowledged": true
+  },
+  "armedProofAcknowledgments": {
+    "noCandidateSelectionAcknowledged": true,
+    "noExecutionQuoteAcknowledged": true,
+    "noSubmitAcknowledged": true,
+    "noSigningAcknowledged": true,
+    "noBroadcastAcknowledged": true,
+    "noPositionAcknowledged": true,
+    "noCapitalExposureAcknowledged": true,
+    "immediateDisarmAcknowledged": true,
+    "abortWithoutCompletionAcknowledged": true
+  },
+  "oriLinkage": {
+    "sessionId": "RB-G9-20260709-AP01",
+    "purpose": "armed_no_submit_proof_only"
+  },
+  "_fixtureLabel": "NON-CANONICAL v2 armed-proof fixture — not an authorization"
+}

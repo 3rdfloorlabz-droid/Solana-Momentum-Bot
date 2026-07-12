@@ -1,0 +1,25 @@
+{
+  "approvalId": "RB-G9-20260706-EV01",
+  "operatorName": "LEGACY_EV01_OPERATOR",
+  "dateTime": "2026-07-06T12:00:00.000Z",
+  "sessionStartTime": "2026-07-07T12:00:00.000Z",
+  "sessionEndTime": "2099-01-01T00:00:00.000Z",
+  "researchWalletPublicAddress": "FakeWallet1111111111111111111111111111111",
+  "finalApprovalStatus": "APPROVED FOR ONE MICRO-LIVE SESSION ONLY",
+  "operatorSignaturePresent": true,
+  "perTradeApprovalRequired": true,
+  "acknowledgments": {
+    "totalLossRiskAcknowledged": true,
+    "slippageCapAcknowledged": true,
+    "mevProtectionPlanAcknowledged": true,
+    "emergencyStopPolicyAcknowledged": true,
+    "noAutoCompoundingAcknowledged": true,
+    "noAveragingDownAcknowledged": true,
+    "noUnattendedExecutionAcknowledged": true,
+    "liveTradingNotForIncomeAcknowledged": true
+  },
+  "oriLinkage": {
+    "sessionId": "RB-G9-20260706-EV01"
+  },
+  "_fixtureLabel": "LEGACY EV01-style fixture — closed session — non-reusable"
+}

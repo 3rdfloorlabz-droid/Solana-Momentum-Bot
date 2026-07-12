@@ -1,0 +1,10 @@
+{
+  "sessionId": "RB-G9-20260710-AP01",
+  "proofContext": "armed-no-submit-proof",
+  "authorizations": {
+    "g1": "g1-r15.md",
+    "g2": "g2-arming.md",
+    "g3": "g3-stub-creation.md",
+    "g4": "g4-proof-auth.md"
+  }
+}
