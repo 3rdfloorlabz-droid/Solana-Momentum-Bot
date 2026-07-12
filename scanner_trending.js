@@ -1,3 +1,7 @@
+// ⚠ LEGACY — NOT THE ACTIVE SCANNER.
+// The canonical, active scanner is scanner_gmgn_trending.js (see ACTIVE_MANIFEST.md).
+// Kept for reference only — do not run this expecting the live bot to change.
+
 const axios = require("axios");
 const fs = require("fs");
 const { execSync } = require("child_process");

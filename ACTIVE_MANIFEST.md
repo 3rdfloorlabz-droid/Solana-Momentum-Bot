@@ -28,7 +28,65 @@ All active processes run from the **repository root** (`Solana-Momentum-Bot/`). 
 | **Dashboard** | `dashboard_server.js` | `node dashboard_server.js` → `http://localhost:3000` |
 | **Wallet monitor** | `wallet_monitor.js` | `node wallet_monitor.js` |
 
-**Which scanner?** Only `scanner_gmgn_trending.js`. Legacy scanners (`scanner.js`, `scanner_v3.js`, `scanner_trending.js`, backups) are not active.
+**Which scanner?** Only `scanner_gmgn_trending.js`. Legacy scanners (`scanner.js`, `scanner_v3.js`, `scanner_trending.js`, backups) are not active. **Legacy `scanner.js` does not write `scanner_health.json`.**
+
+---
+
+## Runtime health (A4 / Vulcan Stage 7)
+
+Read-only runtime classification for capital-safe posture visibility. **Detail:** `Ori/Phase 2/Project Vulcan/A4 Dedicated RPC/` (A4.26–A4.41; governance boundaries: A4.36; operator brief: A4.38; re-check plan: A4.39; closure receipt: A4.41).
+
+| Component | Role |
+|-----------|------|
+| `runtime_evidence.js` | Collects scanner, lock, heartbeat, audit, positions evidence |
+| `runtime_health.js` | Classifies evidence (`classifyRuntimeHealth`) |
+| `dashboard_server.js` | `GET /api/runtime-health` → `buildVulcanRuntimeHealth()` (port 3000) |
+| `executor_singleton_guard.js` | Lock acquire/refresh/release; ~3 min stale TTL (`isExecutorLockStale`) |
+
+**Evidence files and producers**
+
+| File | Producer | Freshness window |
+|------|----------|------------------|
+| `scanner_health.json` | `scanner_gmgn_trending.js` (single pass or `--watch`) | Fresh if `lastScanAt` < **5 min** |
+| `executor_singleton.lock.json` | `live_executor.js --loop` only (`--status` is read-only) | Current if `updatedAt` ≤ **3 min**; heartbeat inferred from `updatedAt` |
+
+**Not producers for this path:** legacy `scanner.js`; `monitor.js` (observational only — paper monitor, optional audit; does not write scanner health or executor lock).
+
+**Classification semantics (concise)**
+
+| Classification | Operational meaning |
+|----------------|---------------------|
+| `CAPITAL_SAFE_BUT_RUNTIME_AMBIGUOUS` | **Idle-safe** when `capitalExposure` is `none` and no observation window is active — not a failure by itself |
+| `HEALTHY_DRY_RUN` | **Active observation only** — fresh scanner + confirmed executor loop + `liveArmed` false |
+
+- `supportsLiveReadiness`: **hard-coded false** in classifier and dashboard — never live approval.
+- `supportsSoakClaim: true`: **machine classifier flag only** — not human soak authorization.
+
+**A4 additive status (`a4Health.status`) — independent from overall classification**
+
+Overall `runtimeHealth.classification` (e.g. `CAPITAL_SAFE_BUT_RUNTIME_AMBIGUOUS`, `HEALTHY_DRY_RUN`) and A4 additive status are **separate axes**. A valid combined state is branch-6 idle-safe overall **plus** `A4_VERIFIED_DEDICATED`. Full governance boundaries: **A4.36**.
+
+| A4 status (additive) | Meaning (concise) |
+|----------------------|-------------------|
+| `A4_STABILITY_PROOF_OBSERVED` | Repeated safe read-only RPC proof stability evidence visible; explicit human approval still required |
+| `A4_VERIFIED_DEDICATED` | A4.24 stability-evidence approved by Taylor; A4.25 approval coupling live-verified (A4.35); approved stability proof represented in runtime/governance path when all guarded preconditions hold |
+
+**`A4_VERIFIED_DEDICATED` means:** dedicated-RPC **stability evidence** is verified at classification time (approval event + stability proof + proof scan + evidenceRef match). **Verified is current, not permanent** — revocation, expiry, evidence regression, provider/class change, or blocker posture can revert to `A4_STABILITY_PROOF_OBSERVED` or a blocked state.
+
+**`A4_VERIFIED_DEDICATED` does NOT mean:** live readiness; human soak authorization; capital exposure approval; trading authorization; OR-20260630-008 promotion; continuous observation readiness; B2A/R7b observation result; A1 resolved. At verified posture, `supportsLiveReadiness` remains **false**, `capitalExposure` remains **`none`**, and OR-20260630-008 remains **`not_promoted`**.
+
+**Runtime postures**
+
+| Posture | Expectation |
+|---------|-------------|
+| **Idle-safe** | Dashboard/monitor may run; scanner and executor loop **not required**; lock may be absent; branch 6 acceptable |
+| **Active observation** | Intentional `scanner_gmgn_trending.js --watch` + `live_executor.js --loop` in `PIPELINE_DRY_RUN` for deliberate B2A/R7b paper-trading collection — **not** dashboard cosmetics |
+
+Do **not** run scanner + executor continuously merely to preserve `HEALTHY_DRY_RUN`.
+
+**Lock cleanup (operators):** `Stop-Process -Force` bypassing graceful shutdown is normal on Windows. Stale locks self-heal after ~3 min via TTL. Manual removal after confirmed stop is hygiene, not a required unblock. Do not delete the lock while `--loop` is running.
+
+**Tests:** `test_runtime_evidence.js`, `test_runtime_health.js`, `test_dashboard_runtime_health.js`, `test_a4_*` (see safety suite).
 
 ---
 
@@ -116,6 +174,8 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | `r43e_operator_broadcast_deps.js` | R43E-3 operator broadcast dependency adapter (isolated proof path only) |
 | `r43f_post_transaction_audit.js` | R43F post-transaction audit review (`analysis/r43f_post_transaction_audit.json`) |
 | `b2a_24h_observation_status.js` | B2A 24h observation run status — read-only (`analysis/b2a_24h_observation_status.json`) |
+| `runtime_evidence.js` | A4 runtime evidence collector (read-only file/audit reader; used by dashboard) |
+| `runtime_health.js` | A4 runtime health classifier (`classifyRuntimeHealth`) |
 | `r42_final_micro_live_review.js` | R42 final micro-live approval review (`analysis/r42_final_micro_live_review.json`) |
 
 ---
@@ -159,6 +219,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R13 Final Micro-Live Approval Gate** | **DEFINED — FINAL APPROVAL GATE DEFINED BUT BLOCKED** (2026-06-28) — [docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md](./docs/R13_FINAL_MICRO_LIVE_APPROVAL_GATE.md) · **R7b bypass HIGH RISK; wallet liquidity ≠ authorized risk** |
 | **R14 Slippage / MEV Protection Review** | **COMPLETE — SLIPPAGE / MEV REVIEW DEFINED — NOT IMPLEMENTED** (2026-06-28) — [docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md](./docs/R14_SLIPPAGE_MEV_PROTECTION_REVIEW.md) · **policy only** |
 | **R15 Manual Approval Record / Session Runbook** | **DEFINED — MANUAL APPROVAL RUNBOOK DEFINED — LIVE STILL BLOCKED** (2026-06-28) — [docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md](./docs/R15_MANUAL_APPROVAL_RECORD_AND_SESSION_RUNBOOK.md) · **default NOT APPROVED** |
+| **Ori Micro-Live Runbook (consolidated)** | **UPDATED — TABLETOP REHEARSED — NOT EXECUTABLE** (2026-07-06) — [Ori/Phase 2/Project Vulcan/Live Readiness/MICRO-LIVE RUNBOOK CONSOLIDATION — 2026-07-05.md](./Ori/Phase%202/Project%20Vulcan/Live%20Readiness/MICRO-LIVE%20RUNBOOK%20CONSOLIDATION%20%E2%80%94%202026-07-05.md) · canonical operator runbook · RB-G10 tabletop PASS · arming/execution/R13 sign-off still separate |
 | **R16 Micro-Live Implementation Gap Review** | **COMPLETE — IMPLEMENTATION GAPS IDENTIFIED — LIVE BLOCKED** (2026-06-28) — [docs/R16_MICRO_LIVE_IMPLEMENTATION_GAP_REVIEW.md](./docs/R16_MICRO_LIVE_IMPLEMENTATION_GAP_REVIEW.md) |
 | **R17 Simulated Micro-Live Config + Approval Harness** | **BUILT — SIMULATED HARNESS BUILT — LIVE STILL BLOCKED** (2026-06-28) — [docs/R17_SIMULATED_MICRO_LIVE_CONFIG_AND_APPROVAL_HARNESS.md](./docs/R17_SIMULATED_MICRO_LIVE_CONFIG_AND_APPROVAL_HARNESS.md) · **examples fake only** |
 | **R18 Shadow-Quote Design Review** | **COMPLETE — SHADOW-QUOTE DESIGN DEFINED — NOT ACTIVE** (2026-06-28) — [docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md](./docs/R18_SHADOW_QUOTE_DESIGN_REVIEW.md) · **fixture-only** |
@@ -173,7 +234,8 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R27 Shadow Execution Design** | **DEFINED — SHADOW EXECUTION DESIGN DEFINED — NO EXECUTION ACTIVE** (2026-06-28) — [docs/R27_SHADOW_EXECUTION_DESIGN.md](./docs/R27_SHADOW_EXECUTION_DESIGN.md) |
 | **R28 Manual Quote Observation Decision Session** | **DEFINED — MANUAL QUOTE OBSERVATION DECISION SESSION DEFINED — NOT APPROVED** (2026-06-23) — [docs/R28_MANUAL_QUOTE_OBSERVATION_DECISION_SESSION.md](./docs/R28_MANUAL_QUOTE_OBSERVATION_DECISION_SESSION.md) · **default HOLD; polling NOT active** |
 | **R29 Real Quote Observation Activation Implementation** | **IMPLEMENTED — REAL QUOTE OBSERVATION IMPLEMENTED — TRADING STILL BLOCKED** (2026-06-23) — [docs/R29_REAL_QUOTE_OBSERVATION_ACTIVATION_IMPLEMENTATION.md](./docs/R29_REAL_QUOTE_OBSERVATION_ACTIVATION_IMPLEMENTATION.md) · **default DISABLED; `--observe-once` gated** |
-| **R29a Jupiter Quote Endpoint Migration** | **PATCHED** (2026-06-23) — `quote-api.jup.ag` → `https://lite-api.jup.ag/swap/v1/quote` · **QUOTE_ONLY** · trading still blocked |
+| **R29a Jupiter Quote Endpoint Migration** | **PATCHED** (2026-06-23) — observer `quote-api.jup.ag` → `https://lite-api.jup.ag/swap/v1/quote` · **QUOTE_ONLY** · trading still blocked |
+| **Jupiter Execution Path Remediation** | **IMPLEMENTED** (2026-07-07) — shared `jupiter_swap_client.js`; `live_executor.js` quote+build unified on `/swap/v1`; deprecated v6 removed; fee double-count corrected in helpers/tests · **still disarmed / no broadcast** |
 | **R30 Real Quote Observation Results Review** | **COMPLETE — FIRST REAL QUOTE OBSERVATION REVIEWED — ROUTE REJECTED BY POLICY** (2026-06-23) — [docs/R30_REAL_QUOTE_OBSERVATION_RESULTS_REVIEW.md](./docs/R30_REAL_QUOTE_OBSERVATION_RESULTS_REVIEW.md) |
 | **R31 Quote Observation Hardening** | **COMPLETE — QUOTE OBSERVATION HARDENED — TRADING STILL BLOCKED** (2026-06-23) — [docs/R31_QUOTE_OBSERVATION_HARDENING.md](./docs/R31_QUOTE_OBSERVATION_HARDENING.md) |
 | **R32 Additional Observation Batch Plan** | **DEFINED — MANUAL ONLY** (2026-06-23) — [docs/R32_ADDITIONAL_OBSERVATION_BATCH_PLAN.md](./docs/R32_ADDITIONAL_OBSERVATION_BATCH_PLAN.md) |
@@ -184,7 +246,7 @@ All ops scripts accept optional `-ProjectPath`; default is `$PSScriptRoot`. Each
 | **R37 Shadow Results + Wallet Setup Readiness** | **COMPLETE — SHADOW RESULTS REVIEWED — READY FOR WALLET SETUP DESIGN ONLY** (2026-06-23) — [docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md](./docs/R37_SHADOW_RESULTS_AND_WALLET_SETUP_READINESS.md) |
 | **R38 Research Wallet + Secret Storage Design** | **DEFINED — RESEARCH WALLET SECRET STORAGE DESIGN DEFINED — NO KEY HANDLED** (2026-06-23) — [docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md](./docs/R38_RESEARCH_WALLET_SECRET_STORAGE_DESIGN.md) |
 | **Recommended next gate** | Execute **B2A 24h observation run** · then **B2B review** · **B3 smart-wallet scoring model** after B2 sample thresholds · **do not arm** |
-| **Safety suite** | **67/67** (`node run_safety_tests.js`) |
+| **Safety suite** | **85/85 PASS** (`node run_safety_tests.js`) — verified validate_live_system Static Validator Drift Remediation Implementation gate 2026-07-07 |
 | **Posture** | `PIPELINE_DRY_RUN` · `dryRunMode: true` · `liveArmed: false` |
 | **`live_errors.jsonl`** | Rows 1–54 = synthetic `test_execution_logging.js` (tagged `SYNTHETIC_HISTORY_BOUNDARY` line 55) |
 | **`live_trades.json`** | Empty orphan — canonical ledger is `live_trades.jsonl` |
@@ -252,7 +314,8 @@ Additional tests: `test_step9a_signing.js`, `test_step9b_submission.js`, and oth
 | `live_config.json` | **Executor / ops only** (`live_executor.saveConfig`, `emergency_stop.js`, `reset_live_safety.js` via `config_store.writeConfigAtomic`; PowerShell `panic.ps1` / `reset_after_panic.ps1` via their atomic helper) | dashboard, validators, all readers | Atomic replace (temp → fsync → validate → rename) |
 | `live_positions.json` | **Executor** (`live_executor.js` via `live_positions_store.js`) | dashboard, `reset_live_safety.js`, `validate_live_system.js` (read) | Atomic replace (temp → fsync → validate → rename) |
 | `observation_dedup.json` | **Executor** (`live_executor.js` via `observation_dedup_store.js`) | executor only | Atomic replace (temp → fsync → validate → rename) |
-| `executor_singleton.lock.json` | **Executor loop** (`live_executor.js --loop` via `executor_singleton_guard.js`) | dashboard/`--status` (read-only) | Atomic replace (temp → fsync → validate → rename); refreshed each loop cycle |
+| `executor_singleton.lock.json` | **Executor loop** (`live_executor.js --loop` via `executor_singleton_guard.js`) | dashboard, `/api/runtime-health`, `--status` (read-only) | Atomic replace (temp → fsync → validate → rename); refreshed each loop cycle |
+| `scanner_health.json` | **Scanner** (`scanner_gmgn_trending.js`) | dashboard, `/api/runtime-health`, M5 heartbeats | End of each scan; disposable snapshot |
 
 **Rules:**
 - No file may add a second writer without updating this table **and** `test_ownership_guards.js`.
@@ -376,6 +439,7 @@ These files are **runtime artifacts**, not source code. Enforced by root [`.giti
 
 | File | Purpose |
 |------|---------|
+| `scanner_health.json` | Scanner liveness snapshot (`lastScanAt`, scan stats) — **writer:** `scanner_gmgn_trending.js` |
 | `wallet_status.json` | Latest wallet/RPC read |
 | `rpc_health.json` | RPC ping statistics |
 | `simulation_results.json` | `simulate_live_executor.js` output |
@@ -402,7 +466,7 @@ These directories contain **duplicate or historical snapshots**. Changes here do
 
 | Script | Replace with |
 |--------|----------------|
-| `scanner.js` | `scanner_gmgn_trending.js` |
+| `scanner.js` | `scanner_gmgn_trending.js` (legacy does **not** write `scanner_health.json`) |
 | `scanner_v3.js` | `scanner_gmgn_trending.js` |
 | `scanner_trending.js` | `scanner_gmgn_trending.js` |
 | `scanner_gmgn_trending_backup.js` | `scanner_gmgn_trending.js` |
@@ -430,9 +494,10 @@ Update this manifest when:
 - A root script is added, renamed, or retired
 - Canonical ledger filenames change
 - Archive folders are quarantined or removed
+- Runtime-health track components or posture semantics change (A4)
 
 Log structural changes in [docs/DECISIONS.md](./docs/DECISIONS.md).
 
 ---
 
-*Sprint 4 R6a · Active manifest · TracktaOS Module 1 · last status update 2026-06-27*
+*Sprint 4 R6a · Active manifest · TracktaOS Module 1 · A4 runtime-health backfill 2026-07-04*

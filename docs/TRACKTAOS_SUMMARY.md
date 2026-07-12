@@ -325,6 +325,8 @@ Module 1 intentionally uses simple files and separate processes. TracktaOS provi
 
 ## Ecosystem placement
 
+> **Structural taxonomy (2026-07-11):** Canonical component authority classes and permission boundaries live in the Obsidian vault: `Ori/TRACKTAOS_ARCHITECTURE.md` § Component Authority Classes & Permission Model. Module 1 / FOMO Engine 01 is classified as a **Controlled Execution Project under Vulcan**, not a peer operational component. This diagram is retained as historical context.
+
 ```text
 TracktaOS (operating system)
 ├── Module 1: Solana Momentum Bot     ← you are here
@@ -335,6 +337,8 @@ TracktaOS (operating system)
 ```
 
 Module 1 proves the **research → observe → execute-with-gates** lifecycle on one chain. TracktaOS generalizes the lifecycle; FOMO productizes it; Ori coordinates it. None of those layers should weaken Module 1’s default posture: **observe first, arm live last, reconcile when uncertain.**
+
+For authority and component classification, see vault `Ori/TRACKTAOS_ARCHITECTURE.md` § Component Authority Classes & Permission Model; adoption `Ori/Decisions/DECISION — 2026-07-11 — Pillar Classes & Authority Model.md`; terminology amendment `Ori/Decisions/DECISION — 2026-07-11 — Component Authority Classes Terminology Amendment.md`.
 
 ---
 

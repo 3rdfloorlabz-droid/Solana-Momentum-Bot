@@ -34,6 +34,23 @@ The expected safe operating mode is:
 
 Do not put private keys, seed phrases, API keys, or signer byte arrays in source files, docs, screenshots, or commits.
 
+## Dedicated RPC (A4)
+
+A4 is a **reliability gate**, not a convenience setting. Trust-critical executor RPC stages (priority fee, simulation, submission, confirmation, fill parse) **refuse** the public `api.mainnet-beta.solana.com` fallback and require a dedicated (non-public) endpoint. Observation/dry-run may tolerate public fallback where allowed.
+
+Supported variables (executor precedence in `live_executor.js`, first non-public match wins):
+
+1. `HELIUS_RPC_URL` — explicit dedicated Helius endpoint
+2. `SOLANA_RPC_URL` — explicit dedicated RPC endpoint
+3. `HELIUS_API_KEY` — used to derive a Helius endpoint only if the two above are unset
+
+Notes:
+
+- **Configuring an RPC is not the same as verifying A4.** A configured endpoint is `configured`, not `verified dedicated`, until runtime evidence confirms the dedicated class was actually used and no public fallback occurred.
+- `RPC_URL` is **not** consumed by the executor RPC path or the dashboard A4 readiness panel (only `validate_live_preflight.js` references it). Do not rely on it for A4.
+- Never place real keys or private URLs in source, docs, logs, or commits. RPC endpoints must be redacted (no raw URLs/tokens) wherever displayed.
+- A4 remains **unresolved** until runtime evidence confirms a verified dedicated path. Dedicated RPC config does **not** imply live readiness.
+
 ## Setup
 
 Install Node.js 18 or newer, then install dependencies:
