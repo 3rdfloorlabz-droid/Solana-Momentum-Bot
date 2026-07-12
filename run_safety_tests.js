@@ -14,8 +14,27 @@ const PREFLIGHT_FILES = [
 ];
 const TESTS = [
   "test_signer_guard.js",
+  "test_signer_reconciliation_drill.js",
+  "test_r16_live_path_coupling.js",
+  "test_n6_estop_drill.js",
+  "test_a1_d04_reconciliation_drill.js",
+  "test_a1_d03_crash_drill.js",
+  "test_a1_d05_audit_durability_drill.js",
   "test_pipeline_candidate_handoff.js",
   "test_pipeline_dry_run.js",
+  // R14 enforcement regression (mocked quote/fee/build; no live/signing/network secrets).
+  "test_jupiter_quote_validation.js",
+  "test_jupiter_swap_client.js",
+  "test_jupiter_swap_v1_integration.js",
+  "test_validate_live_system_drift.js",
+  "test_priority_fee.js",
+  "test_submit_retry_requote.js",
+  "test_realized_slippage_check.js",
+  "test_partial_fill_detection.js",
+  "test_execution_time_liquidity_floor.js",
+  "test_session_loss_stop.js",
+  "test_daily_loss_count_stop.js",
+  "test_sell_liquidity_parity.js",
   "test_observation_pool.js",
   // Sprint 4 state-ownership regression guards (A1a/A1b/A1c). Static + temp-dir
   // only; they protect single-writer ownership and atomic config writes.

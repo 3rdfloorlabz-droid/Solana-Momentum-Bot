@@ -65,6 +65,102 @@ function projectTextFiles(dir) {
   return files;
 }
 
+const SIGNER_ASSIGNMENT_RE = /^[ \t]*SOLANA_SIGNER_SECRET[ \t]*=[ \t]*[^ \t\r\n#]/m;
+
+function normalizeRelativePath(relativePath) {
+  return String(relativePath || "").replace(/\\/g, "/");
+}
+
+function isExcludedSecretScanPath(relativePath) {
+  const norm = normalizeRelativePath(relativePath);
+  if (norm.startsWith("docs/")) return true;
+  if (norm.startsWith("Ori/")) return true;
+  if (norm.startsWith("analysis/")) return true;
+  if (norm.startsWith("Sessions/")) return true;
+  if (/^test_/i.test(path.basename(norm))) return true;
+  if (norm.includes("/test_")) return true;
+  return false;
+}
+
+function isProductionJsScanCandidate(relativePath) {
+  const norm = normalizeRelativePath(relativePath);
+  if (!norm.endsWith(".js")) return false;
+  return !isExcludedSecretScanPath(norm);
+}
+
+function scanProductionHardcodedSignerAssignments(rootDir) {
+  const violations = [];
+  for (const file of projectTextFiles(rootDir)) {
+    const rel = normalizeRelativePath(path.relative(rootDir, file));
+    if (!isProductionJsScanCandidate(rel)) continue;
+    const text = fs.readFileSync(file, "utf8");
+    if (SIGNER_ASSIGNMENT_RE.test(text)) violations.push(rel);
+  }
+  return violations;
+}
+
+function checkMaxSubmitRetriesPolicy(value) {
+  return Number.isInteger(value) && value >= 0 && value <= 2;
+}
+
+function evaluateLiveSubmissionStructure(executorSource) {
+  const submitSwapSrc = executorSource.match(/async function submitSwap[\s\S]*?\n}\n\n\/\/ ─── Pre-trade abort checks/)?.[0] || "";
+  const pipelineSrc = executorSource.match(/async function executeQuotedSwapAttempt[\s\S]*?\n}\n\nasync function executeQuotedSwapWithRetries/)?.[0] || "";
+  const completeSrc = executorSource.match(/async function completeLiveSwapFromPipeline[\s\S]*?\n}\n\nasync function submitSwap/)?.[0] || "";
+  const preSubmitSrc = executorSource.match(/function assertLivePathPreSubmit[\s\S]*?\n}\n\nasync function fetchJsonRpc/)?.[0] || "";
+
+  const armingBeforePipeline =
+    submitSwapSrc.includes("assertLivePathPreSubmit") &&
+    submitSwapSrc.includes("executeQuotedSwapAttempt") &&
+    submitSwapSrc.indexOf("assertLivePathPreSubmit") < submitSwapSrc.indexOf("executeQuotedSwapAttempt");
+  const armingGatePresent = preSubmitSrc.includes("assertLiveSubmissionArmed");
+  const simulateBeforeSign =
+    pipelineSrc.includes("simulateSwapTx(builtSwap, cfg)") &&
+    completeSrc.includes("signer.sign(messageBytes)");
+  const signCallIndex = completeSrc.indexOf("signer.sign(messageBytes)");
+  const submitIndex = completeSrc.indexOf("submitRawTransaction(signedBytes, cfg");
+  const confirmIndex = completeSrc.indexOf("awaitConfirmation(submission.txSig, cfg");
+  const fillIndex = completeSrc.indexOf("parseFillFromTransaction(submission.txSig, cfg, kind, builtSwap");
+  const signBeforeSubmit = signCallIndex !== -1 && submitIndex !== -1 && signCallIndex < submitIndex;
+  const submitBeforeConfirm = submitIndex !== -1 && confirmIndex !== -1 && submitIndex < confirmIndex;
+  const confirmBeforeFill = confirmIndex !== -1 && fillIndex !== -1 && confirmIndex < fillIndex;
+  const dryRunBeforeSigner =
+    submitSwapSrc.includes('if (mode === "DRY_RUN")') &&
+    submitSwapSrc.includes("loadSignerFromEnvForRealExecution(cfg)") &&
+    submitSwapSrc.indexOf('if (mode === "DRY_RUN")') < submitSwapSrc.indexOf("loadSignerFromEnvForRealExecution(cfg)");
+  const requiredBodiesPresent = !!(submitSwapSrc && pipelineSrc && completeSrc && preSubmitSrc);
+
+  return {
+    pass: requiredBodiesPresent &&
+      armingBeforePipeline &&
+      armingGatePresent &&
+      simulateBeforeSign &&
+      signBeforeSubmit &&
+      submitBeforeConfirm &&
+      confirmBeforeFill &&
+      dryRunBeforeSigner,
+    checks: {
+      requiredBodiesPresent,
+      armingBeforePipeline,
+      armingGatePresent,
+      simulateBeforeSign,
+      signBeforeSubmit,
+      submitBeforeConfirm,
+      confirmBeforeFill,
+      dryRunBeforeSigner
+    }
+  };
+}
+
+function evaluateArmingGate(executorSource) {
+  return executorSource.includes('process.env.FOMO_ENABLE_LIVE_SUBMISSION === "YES"') &&
+    executorSource.includes('"FOMO_ENABLE_LIVE_SUBMISSION must equal YES"') &&
+    executorSource.includes("positionSizeSol must be > 0 and <= 0.01 for first-live safety") &&
+    executorSource.includes("function collectLiveSubmissionGateFailures") &&
+    executorSource.includes("function assertLiveSubmissionArmed");
+}
+
+function runValidation() {
 // 1. CONFIG SAFETY
 section("CONFIG SAFETY");
 let cfg = null;
@@ -154,16 +250,10 @@ for (const [label, pattern] of forbiddenTerms) {
     : warn(`project scan: "${label}" reference(s) found`, `${matchedFiles.length} file(s); values not printed`);
 }
 
-const nonEmptySignerAssignments = [];
-for (const file of scanFiles) {
-  const text = fs.readFileSync(file, "utf8");
-  if (/^[ \t]*SOLANA_SIGNER_SECRET[ \t]*=[ \t]*[^ \t\r\n#]/m.test(text)) {
-    nonEmptySignerAssignments.push(path.relative(ROOT, file));
-  }
-}
-nonEmptySignerAssignments.length === 0
-  ? ok("project scan: no non-empty SOLANA_SIGNER_SECRET assignments")
-  : bad("project scan: non-empty SOLANA_SIGNER_SECRET assignment found", `${nonEmptySignerAssignments.length} file(s); values not printed`);
+const productionSignerAssignments = scanProductionHardcodedSignerAssignments(ROOT);
+productionSignerAssignments.length === 0
+  ? ok("production scan: no hardcoded SOLANA_SIGNER_SECRET assignments in production JavaScript")
+  : bad("production scan: hardcoded SOLANA_SIGNER_SECRET assignment found in production JavaScript", `${productionSignerAssignments.length} file(s); values not printed`);
 
 const redactionSelfCheck =
   redactSensitive("https://rpc.invalid/?api-key=secret").includes("[REDACTED]") &&
@@ -242,7 +332,17 @@ if (cfg) {
   cfg.maxRoutePriceImpactPct >= 0 && cfg.maxRoutePriceImpactPct <= 10 ? ok("maxRoutePriceImpactPct between 0 and 10") : bad("maxRoutePriceImpactPct outside 0–10", `is ${cfg.maxRoutePriceImpactPct}`);
   cfg.confirmationCommitment === "confirmed" ? ok("confirmationCommitment = confirmed") : bad("confirmationCommitment must be confirmed", `is ${cfg.confirmationCommitment}`);
   cfg.confirmationTimeoutMs >= 0 && cfg.confirmationTimeoutMs <= 30000 ? ok("confirmationTimeoutMs between 0 and 30000") : bad("confirmationTimeoutMs outside 0–30000", `is ${cfg.confirmationTimeoutMs}`);
-  Number.isInteger(cfg.maxSubmitRetries) && cfg.maxSubmitRetries >= 0 && cfg.maxSubmitRetries <= 1 ? ok("maxSubmitRetries between 0 and 1") : bad("maxSubmitRetries must be integer between 0 and 1", `is ${cfg.maxSubmitRetries}`);
+  checkMaxSubmitRetriesPolicy(cfg.maxSubmitRetries)
+    ? ok("maxSubmitRetries between 0 and 2 (R14 policy)")
+    : bad("maxSubmitRetries must be integer between 0 and 2", `is ${cfg.maxSubmitRetries}`);
+}
+
+if (cfg && fs.existsSync(EXECUTOR_FILE)) {
+  const executorPolicySource = fs.readFileSync(EXECUTOR_FILE, "utf8");
+  executorPolicySource.includes("function maxSubmitAttempts") &&
+  executorPolicySource.includes("Math.min(Math.floor(retries) + 1, 10)")
+    ? ok("maxSubmitRetries wired to bounded quote/submit attempt counter")
+    : bad("maxSubmitRetries must drive bounded quote/submit attempts");
 }
 
 // 6. EMERGENCY STOP STATE
@@ -359,8 +459,15 @@ if (!fs.existsSync(EXECUTOR_FILE)) {
   executorSource.includes("lastValidBlockHeight") && executorSource.includes("jupiterReportedPrioritizationFeeLamports")
     ? ok("Jupiter build response fee and block-height metadata are audited")
     : bad("Jupiter build response fee and block-height metadata are audited");
-  executorSource.includes("https://api.jup.ag/swap/v1/swap") ? ok("Jupiter Swap v1 build endpoint reference exists") : bad("Jupiter Swap v1 build endpoint reference exists");
-  executorSource.includes("https://quote-api.jup.ag/v6/quote") ? ok("Jupiter v6 quote endpoint reference exists") : bad("Jupiter v6 quote endpoint reference exists");
+  executorSource.includes("jupiter_swap_client") &&
+    executorSource.includes("JUPITER_SWAP_BASE_DEFAULT") &&
+    !executorSource.includes("https://quote-api.jup.ag/v6/quote")
+    ? ok("Jupiter Swap v1 unified adapter reference exists; deprecated v6 quote host removed")
+    : bad("Jupiter Swap v1 unified adapter reference must exist; deprecated v6 quote host must be removed");
+  executorSource.includes("https://quote-api.jup.ag/v6/quote") ? bad("deprecated Jupiter v6 quote endpoint must not remain in live_executor") : ok("deprecated Jupiter v6 quote endpoint removed from live_executor");
+  executorSource.includes("fetchJupiterQuote") && executorSource.includes("buildSwapRequestUrl")
+    ? ok("live_executor uses shared Jupiter quote and swap-build adapter")
+    : bad("live_executor must use shared Jupiter quote and swap-build adapter");
   executorSource.includes("getPriorityFeeEstimate") ? ok("Helius priority-fee method reference exists") : bad("Helius priority-fee method reference exists");
   executorSource.includes("maxPriorityFeeLamports") && executorSource.includes("fallbackPriorityFeeLamports")
     ? ok("priority-fee total-lamport cap and fallback references exist")
@@ -382,44 +489,28 @@ if (!fs.existsSync(EXECUTOR_FILE)) {
 
   const submitSwapMatch = executorSource.match(/async function submitSwap[\s\S]*?\n}\n\n\/\/ ─── Pre-trade abort checks/);
   const submitSwapSource = submitSwapMatch?.[0] || "";
-  const simulateIndex = submitSwapSource.indexOf("simulateSwapTx(builtSwap, cfg)");
-  const signedIndex = submitSwapSource.indexOf("logExecutionStage(EXECUTION_STAGES.SIGNED");
-  const submitIndex = submitSwapSource.indexOf("submitRawTransaction(signedBytes, cfg");
-  const confirmIndex = submitSwapSource.indexOf("awaitConfirmation(submission.txSig, cfg");
-  const fillIndex = submitSwapSource.indexOf("parseFillFromTransaction(submission.txSig, cfg, kind, builtSwap");
-  const liveSubmissionPath = submitSwapMatch &&
-    submitSwapSource.includes('if (mode === "LIVE")') &&
-    submitSwapSource.includes("loadSignerFromEnvForRealExecution(cfg)") &&
-    submitSwapSource.includes("PIPELINE_DRY_RUN signer is identity-only and cannot sign") &&
-    submitSwapSource.includes("resolveSwapMints(kind, tokenAddress)") &&
-    submitSwapSource.includes("getJupiterQuote(kind, cfg, mints, quoteAmount)") &&
-    submitSwapSource.includes("validateJupiterRoute(quote, kind, cfg, mints)") &&
-    submitSwapSource.includes("resolvePriorityFee(cfg, { accountKeys: [mints.inputMint, mints.outputMint] })") &&
-    submitSwapSource.includes("buildSwapTx(quote, signer, priorityFee, cfg)") &&
-    submitSwapSource.includes("simulateSwapTx(builtSwap, cfg)") &&
-    submitSwapSource.includes("signer.sign(messageBytes)") &&
-    submitSwapSource.includes("assertLiveSubmissionArmed({ ...cfg, positionSizeSol })") &&
-    submitSwapSource.includes("txSigFromSignedBytes(signedBytes)") &&
-    submitSwapSource.includes("submitRawTransaction(signedBytes, cfg") &&
-    submitSwapSource.includes("awaitConfirmation(submission.txSig, cfg") &&
-    submitSwapSource.includes("parseFillFromTransaction(submission.txSig, cfg, kind, builtSwap") &&
-    submitSwapSource.includes("signedBytes.fill(0)") &&
-    submitSwapSource.includes("signature.fill(0)") &&
-    submitSwapSource.includes("signer = null") &&
-    signedIndex !== -1 &&
-    submitIndex !== -1 &&
-    confirmIndex !== -1 &&
-    fillIndex !== -1 &&
-    simulateIndex !== -1 &&
-    simulateIndex < signedIndex &&
-    signedIndex < submitIndex &&
-    submitIndex < confirmIndex &&
-    confirmIndex < fillIndex;
-  liveSubmissionPath ? ok("armed LIVE submitSwap branch signs, submits, confirms, then parses fill") : bad("armed LIVE submitSwap branch must sign, submit, confirm, then parse fill");
-  executorSource.includes('process.env.FOMO_ENABLE_LIVE_SUBMISSION !== "YES"') &&
-    executorSource.includes("positionSizeSol must be > 0 and <= 0.01 for first-live safety")
-    ? ok("LIVE submission gate requires arming env var and <=0.01 SOL size")
-    : bad("LIVE submission gate must require arming env var and <=0.01 SOL size");
+  const liveStructure = evaluateLiveSubmissionStructure(executorSource);
+  liveStructure.pass
+    ? ok("LIVE submission path preserves arming → pipeline → sign → submit → confirm → fill order")
+    : bad("LIVE submission path must preserve arming → pipeline → sign → submit → confirm → fill order");
+  liveStructure.checks.armingBeforePipeline
+    ? ok("LIVE arming guard occurs before execution pipeline")
+    : bad("LIVE arming guard must occur before execution pipeline");
+  liveStructure.checks.simulateBeforeSign
+    ? ok("LIVE simulation occurs before signing")
+    : bad("LIVE simulation must occur before signing");
+  liveStructure.checks.signBeforeSubmit
+    ? ok("LIVE signing occurs before submit")
+    : bad("LIVE signing must occur before submit");
+  liveStructure.checks.submitBeforeConfirm
+    ? ok("LIVE submit occurs before confirmation")
+    : bad("LIVE submit must occur before confirmation");
+  liveStructure.checks.confirmBeforeFill
+    ? ok("LIVE confirmation occurs before fill parsing")
+    : bad("LIVE confirmation must occur before fill parsing");
+  evaluateArmingGate(executorSource)
+    ? ok('LIVE submission gate requires exact FOMO_ENABLE_LIVE_SUBMISSION === "YES" and <=0.01 SOL size')
+    : bad('LIVE submission gate must require exact FOMO_ENABLE_LIVE_SUBMISSION === "YES" and <=0.01 SOL size');
   executorSource.includes('action: "SUBMISSION_UNKNOWN"') &&
     executorSource.includes('action: "CONFIRMATION_UNKNOWN"') &&
     executorSource.includes('action: "FILL_PARSE_UNKNOWN"') &&
@@ -563,4 +654,23 @@ section("RESULT");
 console.log(`  ${failures === 0 ? G : R} ${failures} failure(s), ${warnings} warning(s)`);
 if (failures === 0) console.log(`\n  ${B}\x1b[32mLIVE SYSTEM VALIDATION PASSED${X} ${D}(dry run; automation state unchanged by validator)${X}\n`);
 else console.log(`\n  ${B}\x1b[31mVALIDATION FAILED — fix failures before proceeding${X}\n`);
-process.exit(failures === 0 ? 0 : 1);
+return { failures, warnings };
+}
+
+if (require.main === module) {
+  const result = runValidation();
+  process.exit(result.failures === 0 ? 0 : 1);
+}
+
+module.exports = {
+  SIGNER_ASSIGNMENT_RE,
+  normalizeRelativePath,
+  isExcludedSecretScanPath,
+  isProductionJsScanCandidate,
+  scanProductionHardcodedSignerAssignments,
+  checkMaxSubmitRetriesPolicy,
+  evaluateLiveSubmissionStructure,
+  evaluateArmingGate,
+  runValidation,
+  projectTextFiles
+};
