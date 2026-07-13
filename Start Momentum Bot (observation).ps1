@@ -11,7 +11,7 @@ cd C:\TracktaOS\Projects\Active\Solana-Momentum-Bot
 
 Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd C:\TracktaOS\Projects\Active\Solana-Momentum-Bot; node dashboard_server.js'
 
-Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd C:\TracktaOS\Projects\Active\Solana-Momentum-Bot; while ($true) { Get-Date; node scanner.js; Start-Sleep -Seconds 60 }'
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd C:\TracktaOS\Projects\Active\Solana-Momentum-Bot; while ($true) { Get-Date; node scanner_gmgn_trending.js; Start-Sleep -Seconds 60 }'
 
 Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd C:\TracktaOS\Projects\Active\Solana-Momentum-Bot; while ($true) { Get-Date; node monitor.js; Start-Sleep -Seconds 60 }'
 
