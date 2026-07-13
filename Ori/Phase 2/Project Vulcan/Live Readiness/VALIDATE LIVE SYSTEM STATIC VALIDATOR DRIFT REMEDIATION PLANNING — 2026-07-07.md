@@ -263,7 +263,7 @@ Add **`test_validate_live_system_drift.js`** (included in `run_safety_tests.js` 
 |------|---------|----------|
 | Positive | Current repo with doc placeholders | scan passes (docs excluded or allowlisted) |
 | Negative | Temp file `temp_secret_leak.js` with line `SOLANA_SIGNER_SECRET=[1,2,...]` | validator helper returns fail |
-| Negative | Temp file with `SOLANA_SIGNER_SECRET=actualBase58Material` at line start in root `.js` | fail |
+| Negative | Temp file with a signer-secret assignment placeholder at line start in root `.js` | fail |
 
 Implementation approach: export scan helper from validator OR spawn `node validate_live_system.js` with `TRACKTA_RUNTIME_ROOT` temp fixture root containing injected bad file.
 
