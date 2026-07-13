@@ -1666,6 +1666,36 @@ function matchesPhase1Thesis(trade, cfg) {
   return { ok: reasons.length === 0, reasons };
 }
 
+// Thesis Band B (M1 parallel, observation-only, added 2026-07-13) — wider
+// market-cap band (250k-600k) tracked alongside the original Band A thesis,
+// not a replacement. See the BAND_B_* constants and calibration note above
+// computeScannerThesisMatchBandB() in scanner_gmgn_trending.js for the
+// historical-data reasoning behind these specific thresholds. Reads
+// cfg.thesisBandB if present (none of today's live_config.json has this key,
+// so it currently always falls through to the defaults below — deliberate,
+// to avoid writing a new key into a config file the running executor
+// periodically rewrites atomically from its own in-memory state).
+function matchesPhase1ThesisBandB(trade, cfg) {
+  const t = cfg.thesisBandB || {};
+  const score = Number(trade.score);
+  const mc    = Number(trade.marketCap);
+  const bot   = Number(trade.botDegenRate);
+  const top10 = Number(trade.top10HolderRate);
+  const liq   = Number(trade.liquidity);
+  const reasons = [];
+
+  if (trade.source !== (t.source || "gmgn_trending")) reasons.push("source != gmgn_trending");
+  if (!(score >= (t.scoreMin ?? 79) && score <= (t.scoreMax ?? 89))) reasons.push("score outside 79-89");
+  if (!(mc >= (t.marketCapMin ?? 250000) && mc <= (t.marketCapMax ?? 600000))) reasons.push("marketCap outside 250k-600k");
+  if (!(bot < (t.botDegenRateMax ?? 0.10))) reasons.push("botDegenRate >= 0.10");
+  if (!(top10 >= (t.top10HolderRateMin ?? 0.10) && top10 <= (t.top10HolderRateMax ?? 0.25))) reasons.push("top10 outside 0.10-0.25");
+  if (!(Number.isFinite(liq) && liq > 0)) reasons.push("liquidity missing");
+  if (!trade.pairAddress) reasons.push("pairAddress missing");
+  if (!Number.isFinite(Number(trade.entryPrice)) || Number(trade.entryPrice) <= 0) reasons.push("entry price missing");
+
+  return { ok: reasons.length === 0, reasons };
+}
+
 // ─── Read paper signals (read-only) ───────────────────────────────────────────
 
 function readPaperTrades() {
@@ -3943,7 +3973,7 @@ module.exports = {
   enterPosition, executeLiveExit, flagOpenLiveTradeAnomaly,
   findEntryCandidate, findCandidates, findStrictThesisCandidates,
   findPipelineObservationCandidates, findDryRunCandidates,
-  observePipelineCandidate, matchesPhase1Thesis,
+  observePipelineCandidate, matchesPhase1Thesis, matchesPhase1ThesisBandB,
   // controls
   startAutomation, stopAutomation, emergencyStopControl, readinessChecks,
   resolveExecutionMode, isAnyDryRun, computeLiveArmedStatus,
@@ -4111,7 +4141,7 @@ module.exports = {
   },
   __observationPoolTest: {
     findCandidates, findStrictThesisCandidates, findPipelineObservationCandidates,
-    findDryRunCandidates, observePipelineCandidate, matchesPhase1Thesis,
+    findDryRunCandidates, observePipelineCandidate, matchesPhase1Thesis, matchesPhase1ThesisBandB,
     setCandidatePoolForTest: candidates => { candidatePoolForTest = candidates; },
     resetCandidatePoolForTest: () => { candidatePoolForTest = null; },
     setPipelineCandidateQueueForTest: candidates => { pipelineCandidateQueueForTest = candidates; },

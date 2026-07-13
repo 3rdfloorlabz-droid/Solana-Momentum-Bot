@@ -30,6 +30,30 @@ const MAX_MARKET_CAP = 2500000;
 const MIN_LIQUIDITY = 25000;
 const MIN_POOL_LIQUIDITY = 25000;
 
+// Thesis Band B (observation-only, added 2026-07-13) — market caps have run
+// higher since the original 100k-250k band was set; this is a *parallel*,
+// wider-market-cap band tracked alongside the original for comparison, not a
+// replacement. Score/bot-rate/top10 thresholds here are deliberately looser
+// than Band A: calibrated against ~387 historical near_misses.json rows in
+// the 250k-600k range, where the unmodified Band A thresholds matched only
+// 1/387 (0.3%) — score (median 73 vs required 80+) and bot rate (median 30%
+// vs required <5%) were the dominant blockers, not market cap or top10.
+// scoreMin is 79, not a lower value, because MIN_SCORE_TO_LOG (below) already
+// gates every candidate before either thesis band is ever evaluated — a
+// lower Band B scoreMin would be silently unreachable, not actually looser.
+// The values below pass 5/387 (1.3%) of the historical sample — enough to
+// start accumulating real paper-trade evidence without abandoning a quality
+// bar. This is exploratory calibration for data collection, not a claim that
+// these thresholds are profitable — there is no outcome data for this band
+// yet, by definition, since near-misses were never traded.
+const BAND_B_MARKET_CAP_MIN = 250000;
+const BAND_B_MARKET_CAP_MAX = 600000;
+const BAND_B_SCORE_MIN = 79;
+const BAND_B_SCORE_MAX = 89;
+const BAND_B_BOT_DEGEN_RATE_MAX = 0.10;
+const BAND_B_TOP10_HOLDER_RATE_MIN = 0.10;
+const BAND_B_TOP10_HOLDER_RATE_MAX = 0.25;
+
 const FILTER_VERSION = "ATH_PENALTY_V1";
 
 const MIN_VOLUME_5M = 100;
@@ -403,9 +427,37 @@ function computeScannerThesisMatch(c) {
   return { thesisMatch: reasons.length === 0, thesisFailureReasons: reasons };
 }
 
+// Thesis Band B (M1 parallel, observation-only) — see the BAND_B_* constants
+// above for the data this is calibrated against. Independent of Band A: does
+// not affect computeScannerThesisMatch, does not touch live_config.json, and
+// carries no execution authority. Bounds must match matchesPhase1ThesisBandB()
+// in live_executor.js.
+function computeScannerThesisMatchBandB(c) {
+  const score     = Number(c.score);
+  const mc        = Number(c.marketCap);
+  const bot       = Number(c.botDegenRate);
+  const top10     = Number(c.top10HolderRate);
+  const liq       = Number(c.liquidity);
+  const entry     = Number(c.priceUsd || 0);
+  const reasons   = [];
+  if (!(score >= BAND_B_SCORE_MIN && score <= BAND_B_SCORE_MAX))
+    reasons.push(`score outside ${BAND_B_SCORE_MIN}-${BAND_B_SCORE_MAX}`);
+  if (!(mc >= BAND_B_MARKET_CAP_MIN && mc <= BAND_B_MARKET_CAP_MAX))
+    reasons.push(`marketCap outside ${BAND_B_MARKET_CAP_MIN / 1000}k-${BAND_B_MARKET_CAP_MAX / 1000}k`);
+  if (!(bot < BAND_B_BOT_DEGEN_RATE_MAX))
+    reasons.push(`botDegenRate >= ${BAND_B_BOT_DEGEN_RATE_MAX}`);
+  if (!(top10 >= BAND_B_TOP10_HOLDER_RATE_MIN && top10 <= BAND_B_TOP10_HOLDER_RATE_MAX))
+    reasons.push(`top10 outside ${BAND_B_TOP10_HOLDER_RATE_MIN}-${BAND_B_TOP10_HOLDER_RATE_MAX}`);
+  if (!(Number.isFinite(liq) && liq > 0))          reasons.push("liquidity missing");
+  if (!c.pairAddress)                              reasons.push("pairAddress missing");
+  if (!(Number.isFinite(entry) && entry > 0))      reasons.push("entry price missing");
+  return { thesisMatchBandB: reasons.length === 0, thesisFailureReasonsBandB: reasons };
+}
+
 function buildPaperTradeRecord(c, timestamp = new Date().toISOString()) {
   const entryPrice = Number(c.priceUsd || 0);
   const { thesisMatch, thesisFailureReasons } = computeScannerThesisMatch(c);
+  const { thesisMatchBandB, thesisFailureReasonsBandB } = computeScannerThesisMatchBandB(c);
   return {
     timestamp,
     source: "gmgn_trending",
@@ -433,7 +485,9 @@ function buildPaperTradeRecord(c, timestamp = new Date().toISOString()) {
     status: "OPEN",
     chart: c.url,
     thesisMatch,
-    thesisFailureReasons
+    thesisFailureReasons,
+    thesisMatchBandB,
+    thesisFailureReasonsBandB
   };
 }
 
@@ -788,6 +842,7 @@ module.exports = {
   deriveLastScanStatus,
   writeScannerHealthSnapshot,
   computeScannerThesisMatch,
+  computeScannerThesisMatchBandB,
   logPaperTrade,
   setScannerHealthFileForTest: file => { scannerHealthFileForTest = file; },
   resetScannerHealthFileForTest: () => { scannerHealthFileForTest = null; }

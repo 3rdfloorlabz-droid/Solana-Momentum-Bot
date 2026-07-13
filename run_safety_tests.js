@@ -21,6 +21,7 @@ const TESTS = [
   "test_a1_d03_crash_drill.js",
   "test_a1_d05_audit_durability_drill.js",
   "test_pipeline_candidate_handoff.js",
+  "test_thesis_band_b.js",
   "test_pipeline_dry_run.js",
   // R14 enforcement regression (mocked quote/fee/build; no live/signing/network secrets).
   "test_jupiter_quote_validation.js",
