@@ -1,0 +1,94 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-schema-valid-armed-no-submit-proof-pass/1.0.0",
+  "authorizedStatement": "I authorize AP04 armed-no-submit proof retry with schema-valid runtime stub only: fresh Domain A recapture if required by timing, immediate process isolation, C1-C3 arming transition, create analysis/r15_manual_approval_record.json without top-level sessionId or linkedSessionId and with session binding only under oriLinkage.sessionId, run AP04 armed no-submit validator/tooling, and immediately close back to dry/disarmed; keep SOLANA_SIGNER_SECRET redacted, leave FOMO Wallet Monitor untouched, create no executor loop except authorized proof tooling, submit/sign/broadcast nothing, make no trade, and stop/fail closed if any validation, timing, posture, schema, or flat-state check fails.",
+  "status": "PASS_CLOSED_DRY_DISARMED",
+  "startedFromDryBaseline": {
+    "verifiedAtUtc": "2026-07-14T01:39:59.2417229Z",
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "pendingReconciliationRows": 0,
+    "openLivePositions": 0,
+    "recoveryActionRows": 0,
+    "fomoEnableLiveSubmission": "absent",
+    "signerSecret": "present_redacted"
+  },
+  "domainARecapture": {
+    "status": "PASS",
+    "command": "node run_safety_tests.js",
+    "suiteResult": "86/86 safety tests passed",
+    "recapturedBecausePriorFreshnessMarginWasBelow20Minutes": true,
+    "submitSignBroadcastTrade": "none"
+  },
+  "processIsolation": {
+    "status": "PASS",
+    "authorizedTargetsStopped": 0,
+    "noRespawnObservationSeconds": 10,
+    "walletMonitorUntouched": true,
+    "walletMonitorKnownPids": [29172, 30676]
+  },
+  "c1C3ArmingTransition": {
+    "status": "PASS",
+    "executionModeDuringProof": "LIVE",
+    "dryRunModeDuringProof": false,
+    "liveArmedDuringProof": true,
+    "liveConfigHashDuringArmedSha256": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b",
+    "executorLoopCreated": false,
+    "fomoAllowLoopLive": "unset"
+  },
+  "runtimeStub": {
+    "status": "CREATED_SCHEMA_VALID_THEN_REMOVED",
+    "path": "analysis/r15_manual_approval_record.json",
+    "topLevelSessionIdIncluded": false,
+    "topLevelLinkedSessionIdIncluded": false,
+    "sessionBindingField": "oriLinkage.sessionId",
+    "secretMaterialIncluded": false,
+    "fingerprintDuringProofSha256": "9ee517efcd4516091094f8575fad1986b43236f9d5f21cfbd6312d05e198ada6",
+    "presentAfterClosure": false
+  },
+  "armedValidator": {
+    "status": "PASS",
+    "receipt": "analysis/rb_g9_20260713_ap04_schema_valid_retry_validate_armed_preflight_receipt.json",
+    "receiptSha256": "bdf2630c1e4b41ac919473dddd170ca69cd42b3d4dc578fd03b337ec376495c2",
+    "overallStatus": "PASS",
+    "checkCount": 20,
+    "failureCount": 0
+  },
+  "armedPreflightManifest": {
+    "status": "PASS",
+    "receipt": "analysis/rb_g9_20260713_ap04_schema_valid_retry_armed_preflight_manifest_receipt.json",
+    "receiptSha256": "ca1772ce43d388ba89ce778f9600f5d5d2eebf5dd114e3d14abef1cef58efa20",
+    "overallStatus": "PASS",
+    "checkCount": 20,
+    "passCount": 19,
+    "notApplicableWithReplacementEvidenceCount": 1,
+    "failureCount": 0
+  },
+  "closure": {
+    "status": "PASS",
+    "closedAtUtc": "2026-07-14T01:46:46.0322865Z",
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "liveSubmission": "DISARMED",
+    "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "fomoEnableLiveSubmission": "absent",
+    "runtimeStubPresent": false,
+    "pendingReconciliationRows": 0,
+    "openLivePositions": 0,
+    "recoveryActionRows": 0,
+    "walletMonitorUntouched": true
+  },
+  "safetyStatement": {
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none",
+    "executorLoopCreated": false
+  },
+  "nextRequiredStep": "AP04 armed no-submit proof chain is complete and closed. Before live trading, Taylor must explicitly authorize the next governance tier; this proof is not live-trading authorization."
+}

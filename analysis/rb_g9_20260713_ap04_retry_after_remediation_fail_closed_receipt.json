@@ -1,0 +1,88 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-armed-no-submit-retry-fail-closed/1.0.0",
+  "authorizedStatement": "I authorize AP04 armed-no-submit proof retry after engineering remediation: fresh Domain A recapture, immediate process isolation, C1-C3 arming transition, runtime stub creation, AP04 armed no-submit validator/tooling, and immediate closure back to dry/disarmed; keep SOLANA_SIGNER_SECRET redacted, leave FOMO Wallet Monitor untouched, create no executor loop except authorized proof tooling, submit/sign/broadcast nothing, make no trade, and stop/fail closed if any validation, timing, posture, or flat-state check fails.",
+  "status": "FAIL_CLOSED_AFTER_ARMED_VALIDATOR_FAILURE",
+  "startedFromDryBaseline": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "pendingReconciliationRows": 0,
+    "openLivePositions": 0,
+    "recoveryActionRows": 0,
+    "fomoEnableLiveSubmission": "absent",
+    "signerSecret": "present_redacted"
+  },
+  "domainARecapture": {
+    "status": "PASS",
+    "command": "node run_safety_tests.js",
+    "suiteResult": "86/86 safety tests passed",
+    "submitSignBroadcastTrade": "none"
+  },
+  "processIsolation": {
+    "status": "PASS",
+    "authorizedTargetsStopped": 0,
+    "noRespawnObservationSeconds": 10,
+    "walletMonitorUntouched": true,
+    "walletMonitorKnownPids": [29172, 30676]
+  },
+  "c1C3ArmingTransition": {
+    "status": "PASS",
+    "armedStatusUtc": "2026-07-14T01:23:00Z",
+    "executionModeDuringProof": "LIVE",
+    "dryRunModeDuringProof": false,
+    "liveArmedDuringProof": true,
+    "liveConfigHashDuringArmedSha256": "919ba6adc8e1af2520ed0a2c07ce1b39bc3c1c5430f2af804e04a9a4b1bc8a77",
+    "executorLoopCreated": false
+  },
+  "runtimeStub": {
+    "status": "CREATED_THEN_REMOVED",
+    "path": "analysis/r15_manual_approval_record.json",
+    "topLevelSessionFieldsIncluded": true,
+    "secretMaterialIncluded": false,
+    "presentAfterClosure": false
+  },
+  "armedValidator": {
+    "status": "FAIL",
+    "receipt": "analysis/rb_g9_20260713_ap04_retry_validate_armed_preflight_receipt.json",
+    "receiptSha256": "86c3b1e20ed35310556e87a9c5d57294f7db3b87c1498a83947e13ff3eee8b3e",
+    "overallStatus": "FAIL",
+    "passedChecksOfInterest": {
+      "AP-03": "PASS"
+    },
+    "failedChecks": {
+      "AP-13": "Unknown fields present in schemaVersion 2 record.",
+      "AP-14": "Unknown fields present in schemaVersion 2 record."
+    },
+    "failureInterpretation": "AP-03 remediation worked, but the runtime stub workaround added schemaVersion 2 top-level fields that the stricter R15 approval validator rejects. The next remediation should keep the stub schema-valid and rely on AP-03 reading oriLinkage.sessionId."
+  },
+  "postFailureActions": {
+    "manifestToolingRunAfterValidatorFailure": false,
+    "additionalArmedProofRunAfterValidatorFailure": false,
+    "failClosedClosurePerformed": true
+  },
+  "finalState": {
+    "verifiedAtUtc": "2026-07-14T01:27:53.6217466Z",
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "liveSubmission": "DISARMED",
+    "liveConfigHashSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "fomoEnableLiveSubmission": "absent",
+    "runtimeStubPresent": false,
+    "pendingReconciliationRows": 0,
+    "openLivePositions": 0,
+    "recoveryActionRows": 0,
+    "walletMonitorUntouched": true
+  },
+  "safetyStatement": {
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "nextRequiredStep": "Engineering remediation: remove schema-invalid top-level fields from AP04 runtime stub creation and rely on AP-03 accepting oriLinkage.sessionId; then rerun focused tests before any new armed no-submit proof retry."
+}

@@ -1,0 +1,361 @@
+{
+  "checks": [
+    {
+      "checkId": "AP-01",
+      "evidence": {
+        "dryRunMode": false,
+        "executionMode": "LIVE",
+        "liveArmed": true,
+        "operationalPosture": "LIVE_ARMED"
+      },
+      "rationale": "LIVE_ARMED posture satisfied",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.832Z"
+    },
+    {
+      "checkId": "AP-02",
+      "evidence": {
+        "chainMode": "armed-no-submit-proof",
+        "documents": {
+          "g1": {
+            "basename": "AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260713-AP04 — 2026-07-13.md",
+            "consumed": false,
+            "documentClass": "fresh-r15",
+            "fingerprintSha256": "74039b884a545a074057baffdb8dee4cef435d26cdfc601c41156b3ea73857ec",
+            "signed": true
+          },
+          "g2": {
+            "basename": "AUTHORIZATION — Arming — RB-G9-20260713-AP04 — 2026-07-13.md",
+            "consumed": false,
+            "documentClass": "arming",
+            "fingerprintSha256": "7b21238734d3bff7fe6add2fef86dfdbcf9730f97cc2e6b35d42e3da6e5d8613",
+            "signed": true
+          },
+          "g3": {
+            "basename": "AUTHORIZATION — Runtime Stub Creation — RB-G9-20260713-AP04 — 2026-07-13.md",
+            "consumed": false,
+            "documentClass": "stub-creation",
+            "fingerprintSha256": "9d3e8e311d20ef96d5522debe21c9617bd99a0ef2cec60c54b30f7b61f55c9ce",
+            "signed": true
+          },
+          "g4": {
+            "basename": "AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260713-AP04 — 2026-07-13.md",
+            "consumed": false,
+            "documentClass": "armed-no-submit-proof",
+            "fingerprintSha256": "e67b6ca39816bbc80d456fcc318b6037a3ebc7d7ae9151802f8e505d435ff455",
+            "signed": true
+          }
+        },
+        "sessionId": "RB-G9-20260713-AP04"
+      },
+      "rationale": "Proof-specific G1–G4 authorization chain valid",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.833Z"
+    },
+    {
+      "checkId": "AP-03",
+      "evidence": {
+        "approvalId": "RB-G9-20260713-AP04",
+        "sessionId": "RB-G9-20260713-AP04"
+      },
+      "rationale": "Runtime stub present and session-bound",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.834Z"
+    },
+    {
+      "checkId": "AP-04",
+      "evidence": {
+        "executorLoopCount": 0
+      },
+      "rationale": "No executor loop processes detected",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.834Z"
+    },
+    {
+      "checkId": "AP-05",
+      "evidence": {
+        "lockState": "present",
+        "stale": true
+      },
+      "rationale": "Singleton lock state documented",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.835Z"
+    },
+    {
+      "checkId": "AP-06",
+      "evidence": {
+        "openCount": 0
+      },
+      "rationale": "No open live positions",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.835Z"
+    },
+    {
+      "checkId": "AP-07",
+      "evidence": {
+        "pendingCount": 0
+      },
+      "rationale": "No pending reconciliation",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.835Z"
+    },
+    {
+      "checkId": "AP-08",
+      "evidence": {
+        "lineCount": 0,
+        "present": false
+      },
+      "rationale": "No recovery actions file",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.835Z"
+    },
+    {
+      "checkId": "AP-09",
+      "evidence": {
+        "capitalExposure": "none"
+      },
+      "rationale": "Capital exposure none",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.835Z"
+    },
+    {
+      "checkId": "AP-10",
+      "evidence": {
+        "envGates": {
+          "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+          "FOMO_ALLOW_LOOP_LIVE": "unset",
+          "FOMO_ENABLE_LIVE_SUBMISSION": "YES"
+        }
+      },
+      "rationale": "Signer present and wallet match verified",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.835Z"
+    },
+    {
+      "checkId": "AP-11",
+      "evidence": {
+        "provider": "HELIUS_RPC_URL"
+      },
+      "rationale": "Dedicated RPC read-only probe OK",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.836Z"
+    },
+    {
+      "checkId": "AP-12",
+      "evidence": {
+        "gateCount": 8
+      },
+      "rationale": "All live submission gates pass",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.836Z"
+    },
+    {
+      "checkId": "AP-13",
+      "evidence": {
+        "purposeContext": "armed_no_submit_proof_only"
+      },
+      "rationale": "R15 approval record assert pass",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.840Z"
+    },
+    {
+      "checkId": "AP-14",
+      "evidence": {
+        "code": null,
+        "purposeContext": "armed_no_submit_proof_only"
+      },
+      "rationale": "BUY pre-submit guards satisfied without submit invocation",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.841Z"
+    },
+    {
+      "checkId": "AP-15",
+      "evidence": {
+        "automationCandidateHandoffDisabled": true,
+        "executionPathCallCount": 0,
+        "maxSlippageBps": 100,
+        "maxSlippageBpsConfigured": 100,
+        "noCandidateSelected": true,
+        "noExecutionQuoteRequested": true,
+        "noTradeMetadataPresent": true,
+        "positionSizeCapUnchanged": true,
+        "positionSizeSolCap": 0.005,
+        "positionSizeSolConfigured": 0.005,
+        "proofAuthorizationProhibitsExecution": true,
+        "replacementEvidenceId": "armed-no-submit-proof-scope",
+        "runtimeStubPurpose": "armed_no_submit_proof_only",
+        "scalingDisabled": true,
+        "slippageCapUnchanged": true
+      },
+      "rationale": "armed-no-submit-proof-scope",
+      "status": "NOT_APPLICABLE_WITH_REPLACEMENT_EVIDENCE",
+      "timestamp": "2026-07-14T01:44:58.841Z"
+    },
+    {
+      "checkId": "AP-16",
+      "evidence": {
+        "ok": true,
+        "usesAdapter": true,
+        "v6Removed": true
+      },
+      "rationale": "Jupiter adapter/host consistency OK",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.842Z"
+    },
+    {
+      "checkId": "AP-17",
+      "evidence": {
+        "note": "Does not replace full dry N6 drill for Domains A or C",
+        "productionConfigHashAfter": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b",
+        "productionConfigHashBefore": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b",
+        "productionConfigUnchanged": true,
+        "steps": [
+          {
+            "detail": "pre-submit guards reachable in harness",
+            "pass": true,
+            "step": "N6A-3"
+          },
+          {
+            "detail": "Emergency stop is active — LIVE submit blocked.",
+            "pass": true,
+            "step": "N6A-5"
+          }
+        ],
+        "tempRoot": "C:\\Users\\nalle\\AppData\\Local\\Temp\\n6a-estop-probe-miHWcH"
+      },
+      "rationale": "N6 armed-safe e-stop probe pass",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.849Z"
+    },
+    {
+      "checkId": "AP-18",
+      "evidence": {
+        "liveConfigHashSha256": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b"
+      },
+      "rationale": "Config hash matches arming baseline",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.849Z"
+    },
+    {
+      "checkId": "AP-19",
+      "evidence": {
+        "orStatus": "not_promoted"
+      },
+      "rationale": "OR-20260630-008 not_promoted",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.849Z"
+    },
+    {
+      "checkId": "AP-20",
+      "evidence": {
+        "note": "manifest defers to dedicated regression gate for full subprocess proof",
+        "ok": true,
+        "source": "test_r16_live_path_coupling.js"
+      },
+      "rationale": "R16 coupling evidence available",
+      "status": "PASS",
+      "timestamp": "2026-07-14T01:44:58.849Z"
+    }
+  ],
+  "completedAt": "2026-07-14T01:44:58.849Z",
+  "context": "armed-no-submit-proof",
+  "evidence": {
+    "checkCount": 20
+  },
+  "failures": [],
+  "fingerprints": {
+    "armingBaselineHashSha256": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b",
+    "authorizationChainMode": "armed-no-submit-proof",
+    "authorizationDocuments": {
+      "g1": {
+        "basename": "AUTHORIZATION — R15 ARMED-NO-SUBMIT ONE_SESSION_ONLY — RB-G9-20260713-AP04 — 2026-07-13.md",
+        "consumed": false,
+        "documentClass": "fresh-r15",
+        "fingerprintSha256": "74039b884a545a074057baffdb8dee4cef435d26cdfc601c41156b3ea73857ec",
+        "signed": true
+      },
+      "g2": {
+        "basename": "AUTHORIZATION — Arming — RB-G9-20260713-AP04 — 2026-07-13.md",
+        "consumed": false,
+        "documentClass": "arming",
+        "fingerprintSha256": "7b21238734d3bff7fe6add2fef86dfdbcf9730f97cc2e6b35d42e3da6e5d8613",
+        "signed": true
+      },
+      "g3": {
+        "basename": "AUTHORIZATION — Runtime Stub Creation — RB-G9-20260713-AP04 — 2026-07-13.md",
+        "consumed": false,
+        "documentClass": "stub-creation",
+        "fingerprintSha256": "9d3e8e311d20ef96d5522debe21c9617bd99a0ef2cec60c54b30f7b61f55c9ce",
+        "signed": true
+      },
+      "g4": {
+        "basename": "AUTHORIZATION — Armed No-Submit Proof — RB-G9-20260713-AP04 — 2026-07-13.md",
+        "consumed": false,
+        "documentClass": "armed-no-submit-proof",
+        "fingerprintSha256": "e67b6ca39816bbc80d456fcc318b6037a3ebc7d7ae9151802f8e505d435ff455",
+        "signed": true
+      }
+    },
+    "authorizationLinkage": "RB-G9-20260713-AP04",
+    "cliInputs": {
+      "armingBaselineHash": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b",
+      "authorizationDocumentCount": 4,
+      "proofContext": "armed-no-submit-proof",
+      "sessionId": "RB-G9-20260713-AP04",
+      "sessionManifest": null
+    },
+    "codeFingerprint": {
+      "aggregate": "99f5ff53547b0ee399bf9d0a2b70edda74ec6a8cdce744ea29f2db490ae548c5",
+      "algorithm": "sha256",
+      "files": {
+        "armed_preflight_checks.js": "63033b67c31641629eaa3fa36d3b753c099f6f2ff7e8d6672f053d9456e513c1",
+        "armed_preflight_manifest.js": "763c3055e52228f7a3b7216c7aea3f5d2218e9756442158c04ff4f0fe0c02b87",
+        "armed_preflight_session.js": "817cb6d8cceefabedb95de63ad4430fd51964ac3ad206f1fc40ed8665a49cc09",
+        "live_validation_common.js": "8ff051dedc8f724cff74d5847335933b5e8fed51756558a843a9552513b2e2d6",
+        "run_armed_preflight_manifest.js": "2c86c1749934470e9a8d95c7444c030ebd9912821a1581bdf09c16d0e2c0bc93",
+        "test_n6_armed_estop_probe.js": "a3b3176ca748418cb0d790fc00f28af367b58f0aff30ff4bb0e66ccce16a06e3",
+        "validate_armed_preflight.js": "2271fd98d839b95379b4ee6cbd828aa518bcf89f55173dbce09efd6e76c680be"
+      }
+    },
+    "envGateBooleans": {
+      "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+      "FOMO_ALLOW_LOOP_LIVE": "unset",
+      "FOMO_ENABLE_LIVE_SUBMISSION": "YES"
+    },
+    "liveConfigHashSha256": "d53aa83a11030cd106b79b3af9f02fee4dcd4e24663056fa3251bf4d6a12d73b",
+    "manifestVersion": "ap-manifest/1.0.0",
+    "posture": {
+      "dryRunMode": false,
+      "executionMode": "LIVE",
+      "liveArmed": true
+    },
+    "processSet": {
+      "count": 0,
+      "executorLoopCount": 0,
+      "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "proofContext": "armed-no-submit-proof",
+    "runtimeStub": {
+      "fingerprint": "9ee517efcd4516091094f8575fad1986b43236f9d5f21cfbd6312d05e198ada6",
+      "present": true
+    }
+  },
+  "overallStatus": "PASS",
+  "posture": {
+    "dryRunMode": false,
+    "envGates": {
+      "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+      "FOMO_ALLOW_LOOP_LIVE": "unset",
+      "FOMO_ENABLE_LIVE_SUBMISSION": "YES",
+      "SOLANA_SIGNER_SECRET": "present"
+    },
+    "executionMode": "LIVE",
+    "failures": [],
+    "liveArmed": true,
+    "ok": true,
+    "operationalPosture": "LIVE_ARMED"
+  },
+  "schemaVersion": "armed-preflight-receipt/1.0.0",
+  "startedAt": "2026-07-14T01:44:58.831Z",
+  "toolName": "validate_armed_preflight"
+}

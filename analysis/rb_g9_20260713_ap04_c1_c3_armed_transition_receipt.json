@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "rb-g9-ap04-c1-c3-armed-transition/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "status": "PASS_LIVE_ARMED_NO_EXECUTOR",
+  "authorizedBy": "Taylor Cheaney",
+  "authorizedStatement": "I authorize AP04 Final Fresh Domain A recapture, immediate process-isolation proof execution if PASS with >=20m remaining, and immediate C1-C3 arming transition if isolation PASS with >=12m remaining; keep SOLANA_SIGNER_SECRET redacted, stop only authorized AP04 isolation targets, leave FOMO Wallet Monitor untouched, create no executor loop, submit/sign/broadcast nothing, and stop/fail closed if any validation check fails.",
+  "domainARecapture": {
+    "status": "PASS",
+    "completionUtc": "2026-07-14T00:50:07.2471718Z",
+    "freshnessExpiryUtc": "2026-07-14T01:20:07.2471718Z",
+    "latestC1StartUtc": "2026-07-14T01:08:07.2471718Z",
+    "validateLiveSystem": "PASS, 0 failures, 5 warnings",
+    "safetySuite": "86/86 PASS",
+    "armedToolsDisarmedContext": "PASS_FAIL_CLOSED_WRONG_POSTURE"
+  },
+  "processIsolation": {
+    "status": "PASS",
+    "mode": "zero-stop",
+    "authorizedTargetsPresent": false,
+    "fomoWalletMonitorUntouched": true,
+    "noRespawnObservedSeconds": 10
+  },
+  "c1c3Transition": {
+    "startedUtc": "2026-07-14T00:50:46.2436741Z",
+    "validatedUtc": "2026-07-14T00:51:38.5639123Z",
+    "freshnessRemainingAtStartMs": 1761004,
+    "authorizedChangesApplied": {
+      "c1": "FOMO_ENABLE_LIVE_SUBMISSION=YES",
+      "c2": "live_config.json executionMode=LIVE",
+      "c3": "live_config.json dryRunMode=false"
+    },
+    "liveConfigHashAfterC1C3": "ba44fbbbc8b01d31f1b1e837a4f3887a97e0c199fffa054f82bf053de744e130",
+    "signerSecret": "present_redacted",
+    "signerMatchesConfiguredWallet": true
+  },
+  "statusValidation": {
+    "tool": "node live_executor.js --status",
+    "executionMode": "LIVE",
+    "dryRunMode": false,
+    "automationEnabled": true,
+    "emergencyStop": false,
+    "liveArmed": true,
+    "operationalPosture": "LIVE_ARMED",
+    "readiness": "ALL PASS",
+    "liveSubmission": "Live submission gates satisfied",
+    "liveLoopAllowed": false,
+    "liveLoopBlockedBy": "FOMO_ALLOW_LOOP_LIVE required for --loop",
+    "executorLoopCreated": false
+  },
+  "flatStateAfterValidation": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "runtimeStubExists": false,
+    "capitalExposure": "none",
+    "pendingReconciliationHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "livePositionsHash": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  },
+  "nonAuthorizationsMaintained": {
+    "executorLoopCreated": false,
+    "runtimeStubCreated": false,
+    "armedProofInvoked": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposed": false,
+    "fomoWalletMonitorTouched": false,
+    "fomoAllowLoopLiveSet": false
+  },
+  "armedWindow": {
+    "maximumArmedDurationMinutes": 15,
+    "armedWindowStartUtc": "2026-07-14T00:50:46.2436741Z",
+    "armedWindowExpiryUtc": "2026-07-14T01:05:46.2436741Z",
+    "remainingAtValidationMsApprox": 847680
+  },
+  "nextRequiredGate": "AP04 runtime stub creation authorization/execution; no executor loop or armed AP/N6 proof has been authorized by this receipt."
+}

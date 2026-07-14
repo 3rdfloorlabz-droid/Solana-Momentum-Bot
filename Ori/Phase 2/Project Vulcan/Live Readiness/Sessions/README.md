@@ -10,7 +10,7 @@
 | **Live session records** | **1** — see below |
 | **Closed unused sessions (no folder)** | **2** — AP01 · AP03 — see below |
 | **Superseded planned sessions (no folder)** | **1** — AP02 — see below |
-| **Active planned sessions (no folder yet)** | **0** |
+| **Active planned sessions (no folder yet)** | **1** — AP04 — see below |
 | **Fixture drill captures** | Remain in `analysis/` (e.g. `a1_d04_rb_g9_manual_capture.json`) — **non-canonical** drill evidence |
 
 ## Closed unused / timing-abort sessions (no session folder)
@@ -25,6 +25,12 @@
 | Session ID | Original plan | Disposition | Notes |
 |------------|---------------|-------------|-------|
 | **`RB-G9-20260713-AP02`** | **2026-07-13** · **14:00–20:00 MDT** | **Superseded before execution** · **never armed · never executed** · **no new AP02 authorization permitted** | Early G1 closed: [`../RB-G9-20260713-AP02 EXPIRED G1 CLOSURE — 2026-07-13.md`](../RB-G9-20260713-AP02%20EXPIRED%20G1%20CLOSURE%20%E2%80%94%202026-07-13.md) · superseded by AP03 reselection: [`../RB-G9 AP03 OPERATING WINDOW RESELECTION — 2026-07-11.md`](../RB-G9%20AP03%20OPERATING%20WINDOW%20RESELECTION%20%E2%80%94%202026-07-11.md) |
+
+## Active planned sessions (no session folder)
+
+| Session ID | Plan | Disposition | Notes |
+|------------|------|-------------|-------|
+| **`RB-G9-20260713-AP04`** | **2026-07-13** · **17:30-23:30 MDT** | **G1-G4 + production integration + process-isolation authorization signed/unused for governance only** · never armed · never executed · no capital exposure | G1-G4 receipt: [`../RB-G9-20260713-AP04 FRESH G1-G4 GOVERNANCE AUTHORIZATION — 2026-07-13.md`](../RB-G9-20260713-AP04%20FRESH%20G1-G4%20GOVERNANCE%20AUTHORIZATION%20%E2%80%94%202026-07-13.md) · production integration: [`../RB-G9 ARMED CONTINUUM PRODUCTION INTEGRATION AUTHORIZATION — 2026-07-13.md`](../RB-G9%20ARMED%20CONTINUUM%20PRODUCTION%20INTEGRATION%20AUTHORIZATION%20%E2%80%94%202026-07-13.md) · isolation auth: [`../RB-G9-20260713-AP04 PROCESS ISOLATION AUTHORIZATION — 2026-07-13.md`](../RB-G9-20260713-AP04%20PROCESS%20ISOLATION%20AUTHORIZATION%20%E2%80%94%202026-07-13.md) |
 
 ## Filed sessions
 

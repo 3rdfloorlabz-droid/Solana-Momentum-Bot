@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "rb-g9-domain-a-baseline/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "capturedAtUtc": "2026-07-13T23:47:52.2089531Z",
+  "capturedAtLocal": "2026-07-13T17:47:52-06:00",
+  "captureType": "AP04 Final Fresh Domain A read-only baseline",
+  "authorizationBoundary": {
+    "authorizedBy": "Taylor Cheaney",
+    "authorizedScope": "AP04 Final Fresh Domain A Proof read-only baseline capture only",
+    "noArming": true,
+    "noLiveSubmission": true,
+    "noConfigChanges": true,
+    "noProcessChanges": true
+  },
+  "posture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "automationEnabled": true,
+    "emergencyStop": false,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "liveSubmission": "DISARMED",
+    "liveSubmissionBlockedBy": [
+      "executionMode must be LIVE",
+      "dryRunMode must be false",
+      "SOLANA_SIGNER_SECRET must be present",
+      "FOMO_ENABLE_LIVE_SUBMISSION must equal YES"
+    ],
+    "executorSingletonLock": "stale"
+  },
+  "freshness": {
+    "freshnessWindowMs": 1800000,
+    "freshnessExpiryUtc": "2026-07-14T00:17:52.2089531Z",
+    "minimumRemainingForProcessIsolationMs": 1200000,
+    "latestProcessIsolationStartUtc": "2026-07-13T23:57:52.2089531Z",
+    "minimumRemainingForC1Ms": 720000,
+    "latestC1StartUtc": "2026-07-14T00:05:52.2089531Z"
+  },
+  "authorizationHashes": {
+    "g1": "74039b884a545a074057baffdb8dee4cef435d26cdfc601c41156b3ea73857ec",
+    "g2": "7b21238734d3bff7fe6add2fef86dfdbcf9730f97cc2e6b35d42e3da6e5d8613",
+    "g3": "9d3e8e311d20ef96d5522debe21c9617bd99a0ef2cec60c54b30f7b61f55c9ce",
+    "g4": "e67b6ca39816bbc80d456fcc318b6037a3ebc7d7ae9151802f8e505d435ff455",
+    "productionIntegration": "29c051e12ff1e9c6739b071a82b520acc5f826deb390944b9bf7bb8df49f4699",
+    "processIsolation": "dd40557cca4c1b20df438a5416da2b557755a10a872e14a47f4614b053e3b4f8"
+  },
+  "authorizationValidation": {
+    "g1ThroughG4ChainOk": true,
+    "g1ProofDayOk": true,
+    "g1ValidationResult": "PASS",
+    "g1ExpiresAtUtc": "2026-07-14T07:00:00.000Z",
+    "g1RequiredMinExpiryUtc": "2026-07-14T06:30:00.000Z"
+  },
+  "validationResults": {
+    "validateLiveSystem": {
+      "exitCode": 0,
+      "result": "PASS",
+      "failures": 0,
+      "warnings": 5
+    },
+    "runSafetyTests": {
+      "exitCode": 0,
+      "result": "PASS",
+      "passed": 86,
+      "total": 86
+    },
+    "validateArmedPreflightDisarmedContext": {
+      "result": "PASS_FAIL_CLOSED",
+      "overallStatus": "WRONG_POSTURE",
+      "expected": true
+    },
+    "runArmedPreflightManifestDisarmedContext": {
+      "result": "PASS_FAIL_CLOSED",
+      "overallStatus": "WRONG_POSTURE",
+      "expected": true
+    },
+    "n6ArmedEstopProbeDisarmedContext": {
+      "result": "PASS_FAIL_CLOSED",
+      "message": "production posture not LIVE_ARMED",
+      "expected": true
+    }
+  },
+  "runtimeHealth": {
+    "queried": true,
+    "available": false,
+    "message": "Unable to connect to the remote server",
+    "interpretation": "Dashboard endpoint unavailable; no process start was authorized for this gate."
+  },
+  "flatState": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "capitalExposure": "none"
+  },
+  "fileHashes": {
+    "live_config.json": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "pending_reconciliation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "live_positions.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "recovery_actions.jsonl": null,
+    "analysis/r15_manual_approval_record.json": null
+  },
+  "environmentGates": {
+    "EXPECTED_WALLET_PUBLIC_ADDRESS": "present",
+    "FOMO_ALLOW_LOOP_LIVE": "unset_or_not_yes",
+    "FOMO_ENABLE_LIVE_SUBMISSION": "unset_or_not_yes",
+    "SOLANA_SIGNER_SECRET": "absent"
+  },
+  "environmentGateFingerprint": "8c8748b7ee31177ade98077b0eab9cc29fcbe721c3372d627bd8f6e54a9c67dd",
+  "processInventory": {
+    "persistentProjectProcesses": [
+      {
+        "name": "powershell.exe",
+        "identity": "FOMO Wallet Monitor wrapper",
+        "commandLine": "powershell -NoExit -NoProfile -Command ... node wallet_monitor.js"
+      },
+      {
+        "name": "node.exe",
+        "identity": "FOMO Wallet Monitor child",
+        "commandLine": "node wallet_monitor.js"
+      }
+    ],
+    "dashboard": "absent",
+    "scanner": "absent",
+    "executorLoopCount": 0,
+    "processSetFingerprint": "8eff46bca1a96b7519b1f2aa6f892f6ca532496c1948b815af1e659f123131fa"
+  },
+  "codeFingerprint": {
+    "aggregate": "6a5715b97a703db69149f7a90395c625a304c988110266a4bc519627130b4b1d",
+    "files": {
+      "live_executor.js": "c19d4fca540aafae0cc70891b72cc153c5b6edff3af7665fa62bed27cb221b6c",
+      "validate_live_system.js": "b76494184739626aa4c5c5d5dc246c9d6d6722fefd902d6f9d5c72a48f6257e5",
+      "run_safety_tests.js": "b60a4c0d4c54b6e25e0d1839a3bb7252c44147f4915536c0b0a39f8ba16563ac",
+      "validate_armed_preflight.js": "2271fd98d839b95379b4ee6cbd828aa518bcf89f55173dbce09efd6e76c680be",
+      "run_armed_preflight_manifest.js": "2c86c1749934470e9a8d95c7444c030ebd9912821a1581bdf09c16d0e2c0bc93",
+      "test_n6_armed_estop_probe.js": "a3b3176ca748418cb0d790fc00f28af367b58f0aff30ff4bb0e66ccce16a06e3",
+      "armed_preflight_session.js": "817cb6d8cceefabedb95de63ad4430fd51964ac3ad206f1fc40ed8665a49cc09",
+      "armed_preflight_checks.js": "af4a361915fa146c36277236a261f5b685fc3d29cb1d85a6544a286023d76135",
+      "armed_preflight_manifest.js": "763c3055e52228f7a3b7216c7aea3f5d2218e9756442158c04ff4f0fe0c02b87",
+      "live_validation_common.js": "8ff051dedc8f724cff74d5847335933b5e8fed51756558a843a9552513b2e2d6",
+      "armed_g1_proof_day.js": "503521c74228f8b8fe54681eb137cd958d6e8b19aba634bbfa101821b7558032",
+      "armed_continuum_timing.js": "4c9a49162b3e24f06432aa9117ec8755d079b692eef5315b236bfaa04ebb2d6d"
+    }
+  },
+  "blockers": {
+    "panic": false,
+    "emergencyStop": false,
+    "pendingReconciliation": false,
+    "openLivePositions": false,
+    "recoveryActions": false,
+    "dashboardHealthUnavailable": true,
+    "liveAuthorizationStillRequired": true,
+    "processIsolationExecutionStillRequired": true,
+    "armingStillRequiresSeparateAuthorization": true
+  },
+  "nonAuthorizations": [
+    "No arming was performed.",
+    "No live submission was enabled.",
+    "No configuration was changed.",
+    "No production runtime process was intentionally started or stopped.",
+    "No runtime stub was created.",
+    "No AP/N6 armed proof was invoked.",
+    "No submit, sign, broadcast, trade, transfer, position, reconciliation, or capital exposure occurred."
+  ]
+}

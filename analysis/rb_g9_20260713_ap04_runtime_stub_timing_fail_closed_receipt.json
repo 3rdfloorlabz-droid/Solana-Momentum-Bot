@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "rb-g9-ap04-runtime-stub-gate/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "status": "FAIL_CLOSED_NO_STUB_CREATED",
+  "authorizedBy": "Taylor Cheaney",
+  "authorizedStatement": "I authorize AP04 runtime stub creation only for RB-G9-20260713-AP04 while LIVE_ARMED; create analysis/r15_manual_approval_record.json from the approved G1/G3 mirror fields, keep SOLANA_SIGNER_SECRET redacted, do not start an executor loop, do not submit/sign/broadcast, and stop/fail closed if validation fails.",
+  "precheck": {
+    "checkedAtUtc": "2026-07-14T00:55:19.6286160Z",
+    "liveArmed": true,
+    "operationalPosture": "LIVE_ARMED",
+    "armedWindowStartUtc": "2026-07-14T00:50:46.2436741Z",
+    "armedWindowExpiryUtc": "2026-07-14T01:05:46.2436741Z",
+    "minimumRemainingAfterStubValidationMs": 720000,
+    "remainingAtPrecheckMsApprox": 626615,
+    "timingPrecondition": "FAIL"
+  },
+  "failureReason": "G3 requires at least 12 minutes armed time remaining after stub validation. The gate was checked with under 12 minutes remaining, so no runtime stub was created.",
+  "runtimeStub": {
+    "path": "analysis/r15_manual_approval_record.json",
+    "created": false,
+    "existsAfterFailClosed": false
+  },
+  "failClosedRevert": {
+    "completedUtc": "2026-07-14T00:55:46.1752856Z",
+    "FOMO_ENABLE_LIVE_SUBMISSION": "absent",
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "readiness": "ALL PASS"
+  },
+  "signerSecret": "present_redacted",
+  "flatState": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "capitalExposure": "none"
+  },
+  "nonAuthorizationsMaintained": {
+    "executorLoopCreated": false,
+    "armedProofInvoked": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposed": false
+  },
+  "nextSafeStep": "Fresh chained recapture/isolation/C1-C3/runtime-stub authorization with enough time budget, or explicitly remain dry/disarmed."
+}

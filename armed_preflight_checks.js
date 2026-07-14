@@ -41,9 +41,31 @@ function createDefaultAdapters(root = __dirname) {
         return { ok: false, reason: error.message || String(error), code: error.code || null };
       }
     },
-    probeBuyNoSubmit: async cfg => {
+    probeBuyNoSubmit: async (cfg, options = {}) => {
       const r16 = executor.__r16LivePathTest;
       try {
+        if (options.noSubmitProof === true || options.proofContext === session.PROOF_CONTEXT) {
+          r16.assertLiveSubmissionArmed({ ...cfg, positionSizeSol: cfg?.positionSizeSol });
+          const capitalExposure = r16.resolveCapitalExposureForLiveGate(cfg);
+          if (capitalExposure !== "none") {
+            return {
+              ok: false,
+              reason: "Capital exposure must be none before armed no-submit proof.",
+              code: r16.EXECUTION_ABORT_CODES.CAPITAL_EXPOSURE_BLOCKED,
+              capitalExposure
+            };
+          }
+          if (r16.countPendingReconciliationEntries() > 0) {
+            return {
+              ok: false,
+              reason: "Pending reconciliation blocks armed no-submit proof.",
+              code: r16.EXECUTION_ABORT_CODES.PENDING_RECONCILIATION_BLOCKS_ENTRY
+            };
+          }
+          r16.assertArmedProofApprovalRecord(cfg);
+          r16.clearAllLiveSubmitInFlightForTest();
+          return { ok: true, preSubmitGuardsSatisfied: true, purposeContext: "armed_no_submit_proof_only" };
+        }
         r16.assertLivePathPreSubmit(cfg, {
           kind: "BUY",
           tokenAddress: "11111111111111111111111111111111",
@@ -121,6 +143,14 @@ function createDefaultAdapters(root = __dirname) {
     sessionId: null,
     orStatus: "not_promoted"
   };
+}
+
+function runtimeStubSessionId(record) {
+  if (!record || typeof record !== "object") return null;
+  return record.sessionId
+    || record.linkedSessionId
+    || record.oriLinkage?.sessionId
+    || null;
 }
 
 function evaluatePosture(cfg, adapters) {
@@ -223,17 +253,18 @@ async function runCheckAP03(adapters) {
   if (!record) {
     return common.buildCheckResult("AP-03", "FAIL", "Runtime R15 stub absent", { stubPath: adapters.stubFile });
   }
-  const sessionOk = !sessionId || record.sessionId === sessionId || record.linkedSessionId === sessionId;
+  const actualSessionId = runtimeStubSessionId(record);
+  const sessionOk = !sessionId || actualSessionId === sessionId;
   const signed = record.operatorSignaturePresent === true || record.approvalId;
   if (sessionOk && signed) {
     return common.buildCheckResult("AP-03", "PASS", "Runtime stub present and session-bound", {
-      sessionId: record.sessionId || record.linkedSessionId || null,
+      sessionId: actualSessionId,
       approvalId: record.approvalId || null
     });
   }
   return common.buildCheckResult("AP-03", "FAIL", "Runtime stub invalid or session mismatch", {
     sessionIdExpected: sessionId,
-    sessionIdActual: record.sessionId || record.linkedSessionId || null
+    sessionIdActual: actualSessionId
   });
 }
 
@@ -335,10 +366,18 @@ async function runCheckAP13(adapters, cfg) {
 }
 
 async function runCheckAP14(adapters, cfg) {
-  const probe = await adapters.probeBuyNoSubmit(cfg);
+  const chainMode = adapters.authorizationChainMode
+    || session.detectAuthorizationChainMode(adapters.authorizationDocs?.() || {});
+  const isProof = chainMode === "armed-no-submit-proof" || adapters.proofContext === session.PROOF_CONTEXT;
+  const probe = await adapters.probeBuyNoSubmit(cfg, {
+    noSubmitProof: isProof,
+    proofContext: isProof ? session.PROOF_CONTEXT : null,
+    authorizationChainMode: chainMode
+  });
   if (probe.ok && probe.preSubmitGuardsSatisfied) {
     return common.buildCheckResult("AP-14", "PASS", "BUY pre-submit guards satisfied without submit invocation", {
-      code: probe.code || null
+      code: probe.code || null,
+      purposeContext: isProof ? "armed_no_submit_proof_only" : "micro_live_execution"
     });
   }
   return common.buildCheckResult("AP-14", "FAIL", probe.reason || "BUY pre-submit guard probe failed", probe);

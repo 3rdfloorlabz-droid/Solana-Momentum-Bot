@@ -7,6 +7,7 @@ const path = require("path");
 const common = require("./live_validation_common");
 const manifest = require("./armed_preflight_manifest");
 const checks = require("./armed_preflight_checks");
+const session = require("./armed_preflight_session");
 const { runArmedPreflight } = require("./validate_armed_preflight");
 const { runArmedPreflightManifest } = require("./run_armed_preflight_manifest");
 
@@ -148,6 +149,21 @@ async function test(name, fn) {
     assert.ok(result.receipt.checks.find(c => c.checkId === "AP-03" && c.status === "FAIL"));
   });
 
+  await test("oriLinkage session binding passes AP-03", async () => {
+    const sessionId = "RB-G9-TEST-EV99";
+    const adapters = mockAdapters({
+      stub: {
+        oriLinkage: { sessionId },
+        approvalId: "TEST",
+        operatorSignaturePresent: true
+      }
+    });
+    const result = await runArmedPreflight({ adapters, forceChecks: true });
+    const ap03 = result.receipt.checks.find(c => c.checkId === "AP-03");
+    assert.strictEqual(ap03.status, "PASS");
+    assert.strictEqual(ap03.evidence.sessionId, sessionId);
+  });
+
   await test("signer/public mismatch fails AP-10", async () => {
     const adapters = mockAdapters({ walletMatch: false });
     const result = await runArmedPreflight({ adapters, forceChecks: true });
@@ -182,6 +198,69 @@ async function test(name, fn) {
     const adapters = mockAdapters({ gateFailures: ["executionMode must be LIVE"] });
     const result = await runArmedPreflight({ adapters, forceChecks: true });
     assert.ok(result.receipt.checks.find(c => c.checkId === "AP-12" && c.status === "FAIL"));
+  });
+
+  await test("AP-14 passes proof context to no-submit probe", async () => {
+    const adapters = mockAdapters({
+      patch: base => {
+        base.authorizationChainMode = "armed-no-submit-proof";
+        base.proofContext = session.PROOF_CONTEXT;
+        base.probeBuyNoSubmit = async (cfg, options) => {
+          assert.strictEqual(options.noSubmitProof, true);
+          assert.strictEqual(options.proofContext, session.PROOF_CONTEXT);
+          return { ok: true, preSubmitGuardsSatisfied: true };
+        };
+      }
+    });
+    const result = await runArmedPreflight({ adapters, forceChecks: true });
+    const ap14 = result.receipt.checks.find(c => c.checkId === "AP-14");
+    assert.strictEqual(ap14.status, "PASS");
+    assert.strictEqual(ap14.evidence.purposeContext, "armed_no_submit_proof_only");
+  });
+
+  await test("default AP-14 proof probe uses armed-proof approval", async () => {
+    const executor = require("./live_executor");
+    const r16 = executor.__r16LivePathTest;
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ap-unit-default-proof-"));
+    const analysisDir = path.join(tmp, "analysis");
+    fs.mkdirSync(analysisDir);
+    fs.writeFileSync(path.join(tmp, "live_config.json"), `${JSON.stringify(armedCfg(), null, 2)}\n`);
+    fs.writeFileSync(path.join(tmp, "live_positions.json"), "[]\n");
+
+    const record = JSON.parse(fs.readFileSync(path.join(__dirname, "test_fixtures", "r15", "v2_armed_proof_valid.json"), "utf8"));
+    record.approvalId = "RB-G9-TEST-EV99";
+    record.oriLinkage.sessionId = "RB-G9-TEST-EV99";
+    record.researchWalletPublicAddress = "FXLGxPo4JAv1WGJy728WnZiEzxsP4XvLRF2y6KdoxBH6";
+    record.walletPublicAddress = "FXLGxPo4JAv1WGJy728WnZiEzxsP4XvLRF2y6KdoxBH6";
+
+    const previous = {
+      FOMO_ENABLE_LIVE_SUBMISSION: process.env.FOMO_ENABLE_LIVE_SUBMISSION,
+      SOLANA_SIGNER_SECRET: process.env.SOLANA_SIGNER_SECRET,
+      HELIUS_RPC_URL: process.env.HELIUS_RPC_URL
+    };
+    try {
+      process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
+      process.env.SOLANA_SIGNER_SECRET = "UNIT_TEST_SIGNER_PRESENT_ONLY";
+      process.env.HELIUS_RPC_URL = "https://unit-test.invalid";
+      r16.setApprovalRecordProviderForTest(() => record);
+      r16.setCapitalExposureProviderForTest(() => "none");
+
+      const adapters = checks.createDefaultAdapters(tmp);
+      adapters.sessionId = "RB-G9-TEST-EV99";
+      adapters.authorizationChainMode = "armed-no-submit-proof";
+      adapters.proofContext = session.PROOF_CONTEXT;
+      const cfg = { ...adapters.loadConfig(), sessionId: "RB-G9-TEST-EV99" };
+      const ap14 = await checks.CHECK_RUNNERS["AP-14"](adapters, cfg);
+      assert.strictEqual(ap14.status, "PASS");
+      assert.strictEqual(ap14.evidence.purposeContext, "armed_no_submit_proof_only");
+    } finally {
+      r16.resetApprovalRecordProviderForTest();
+      r16.resetCapitalExposureProviderForTest();
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 
   await test("missing AP item fails manifest validation", async () => {

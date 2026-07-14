@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "rb-g9-ap04-domain-a-isolation-receipt/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "status": "PASS",
+  "authorizedBy": "Taylor Cheaney",
+  "authorizedStatement": "I authorize AP04 Final Fresh Domain A recapture and, if PASS with >=20m freshness remaining, immediate AP04 process-isolation proof execution only; stop only authorized AP04 isolation targets, leave FOMO Wallet Monitor untouched; no arming, no live submission, no config changes.",
+  "domainARecapture": {
+    "status": "PASS",
+    "completionUtc": "2026-07-14T00:06:43.8750286Z",
+    "freshnessExpiryUtc": "2026-07-14T00:36:43.8750286Z",
+    "latestProcessIsolationStartUtc": "2026-07-14T00:16:43.8750286Z",
+    "processIsolationStartedUtc": "2026-07-14T00:06:43.8750286Z",
+    "freshnessRemainingAtIsolationStartMs": 1800000,
+    "freshEnoughForProcessIsolation": true,
+    "validateLiveSystem": {
+      "status": "PASS",
+      "exitCode": 0,
+      "failures": 0,
+      "warnings": 5
+    },
+    "safetySuite": {
+      "status": "PASS",
+      "exitCode": 0,
+      "passed": 86,
+      "total": 86
+    },
+    "authorizationChain": {
+      "status": "PASS",
+      "g1ThroughG4ChainOk": true,
+      "g1ProofDayOk": true,
+      "g1ValidationResult": "PASS"
+    },
+    "armedToolsDisarmedContext": {
+      "validateArmedPreflight": "PASS_FAIL_CLOSED_WRONG_POSTURE",
+      "runArmedPreflightManifest": "PASS_FAIL_CLOSED_WRONG_POSTURE",
+      "n6ArmedEstopProbe": "PASS_FAIL_CLOSED_NOT_LIVE_ARMED"
+    }
+  },
+  "processIsolation": {
+    "status": "PASS",
+    "mode": "zero-stop",
+    "reason": "All authorized AP04 isolation targets were already absent at isolation inventory.",
+    "stoppedProcesses": [],
+    "authorizedTargetCounts": {
+      "monitorRestartWrapper": 0,
+      "monitorJs": 0,
+      "dashboardServer": 0,
+      "scannerGmgnTrendingWatch": 0,
+      "scannerRestartWrapper": 0,
+      "liveExecutorLoop": 0
+    },
+    "excludedProcessesStillPresent": [
+      {
+        "identity": "FOMO Wallet Monitor wrapper",
+        "pid": 29172
+      },
+      {
+        "identity": "node wallet_monitor.js",
+        "pid": 30676
+      }
+    ],
+    "noRespawnObservedSeconds": 10,
+    "observationCompletionUtc": "2026-07-14T00:07:36.3508951Z",
+    "isolatedProcessSetHash": "52fb420aebd2ccbbc0a4fc0f11415f8943bd4d1e96e4db1969f51de29fab8755"
+  },
+  "postIsolationPosture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "automationEnabled": true,
+    "emergencyStop": false,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "liveSubmission": "DISARMED"
+  },
+  "flatState": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "runtimeStubExists": false,
+    "capitalExposure": "none"
+  },
+  "hashes": {
+    "live_config.json": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "pending_reconciliation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "live_positions.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "g1": "74039b884a545a074057baffdb8dee4cef435d26cdfc601c41156b3ea73857ec",
+    "g2": "7b21238734d3bff7fe6add2fef86dfdbcf9730f97cc2e6b35d42e3da6e5d8613",
+    "g3": "9d3e8e311d20ef96d5522debe21c9617bd99a0ef2cec60c54b30f7b61f55c9ce",
+    "g4": "e67b6ca39816bbc80d456fcc318b6037a3ebc7d7ae9151802f8e505d435ff455"
+  },
+  "nonAuthorizations": {
+    "armingPerformed": false,
+    "liveSubmissionEnabled": false,
+    "configChanged": false,
+    "runtimeStubCreated": false,
+    "armedProofInvoked": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposed": false,
+    "fomoWalletMonitorTouched": false
+  },
+  "nextRequiredGate": "AP04 C1-C3 arming transition execution authorization"
+}

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "rb-g9-final-domain-a-receipt/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "status": "PASS",
+  "gate": "AP04 Final Fresh Domain A Proof read-only baseline capture",
+  "authorizedBy": "Taylor Cheaney",
+  "authorizedStatement": "I authorize AP04 Final Fresh Domain A Proof read-only baseline capture only; no arming, no live submission, no config changes, no process changes.",
+  "capturedAtUtc": "2026-07-13T23:47:52.2089531Z",
+  "freshnessExpiryUtc": "2026-07-14T00:17:52.2089531Z",
+  "latestProcessIsolationStartUtc": "2026-07-13T23:57:52.2089531Z",
+  "latestC1StartUtc": "2026-07-14T00:05:52.2089531Z",
+  "armingBaselineHash": "2fddc09a3c9e91145f52fda5fd063777b7ba20ce112487860bbfe7dcb97e9146",
+  "baselineManifestPath": "analysis/rb_g9_20260713_ap04_arming_baseline_manifest.json",
+  "posture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "automationEnabled": true,
+    "emergencyStop": false,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "liveSubmission": "DISARMED"
+  },
+  "validation": {
+    "validateLiveSystem": {
+      "status": "PASS",
+      "exitCode": 0,
+      "failures": 0,
+      "warnings": 5
+    },
+    "safetySuite": {
+      "status": "PASS",
+      "exitCode": 0,
+      "passed": 86,
+      "total": 86
+    },
+    "g1ThroughG4Chain": {
+      "status": "PASS",
+      "ok": true
+    },
+    "g1ProofDay": {
+      "status": "PASS",
+      "ok": true,
+      "g1ExpiresAtUtc": "2026-07-14T07:00:00.000Z",
+      "requiredMinExpiryUtc": "2026-07-14T06:30:00.000Z"
+    },
+    "armedToolsInDisarmedContext": {
+      "validateArmedPreflight": "PASS_FAIL_CLOSED_WRONG_POSTURE",
+      "runArmedPreflightManifest": "PASS_FAIL_CLOSED_WRONG_POSTURE",
+      "n6ArmedEstopProbe": "PASS_FAIL_CLOSED_NOT_LIVE_ARMED"
+    }
+  },
+  "runtimeHealth": {
+    "available": false,
+    "message": "Unable to connect to the remote server",
+    "note": "Dashboard was not started because this authorization allowed no process changes."
+  },
+  "flatState": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "capitalExposure": "none"
+  },
+  "hashes": {
+    "live_config.json": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "pending_reconciliation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "live_positions.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "codeAggregate": "6a5715b97a703db69149f7a90395c625a304c988110266a4bc519627130b4b1d",
+    "environmentGateFingerprint": "8c8748b7ee31177ade98077b0eab9cc29fcbe721c3372d627bd8f6e54a9c67dd",
+    "processSetFingerprint": "8eff46bca1a96b7519b1f2aa6f892f6ca532496c1948b815af1e659f123131fa"
+  },
+  "authorizationHashes": {
+    "g1": "74039b884a545a074057baffdb8dee4cef435d26cdfc601c41156b3ea73857ec",
+    "g2": "7b21238734d3bff7fe6add2fef86dfdbcf9730f97cc2e6b35d42e3da6e5d8613",
+    "g3": "9d3e8e311d20ef96d5522debe21c9617bd99a0ef2cec60c54b30f7b61f55c9ce",
+    "g4": "e67b6ca39816bbc80d456fcc318b6037a3ebc7d7ae9151802f8e505d435ff455",
+    "productionIntegration": "29c051e12ff1e9c6739b071a82b520acc5f826deb390944b9bf7bb8df49f4699",
+    "processIsolation": "dd40557cca4c1b20df438a5416da2b557755a10a872e14a47f4614b053e3b4f8"
+  },
+  "persistentProjectProcesses": [
+    "FOMO Wallet Monitor wrapper",
+    "node wallet_monitor.js"
+  ],
+  "blockers": {
+    "panic": false,
+    "emergencyStop": false,
+    "pendingReconciliation": false,
+    "openLivePositions": false,
+    "recoveryActions": false,
+    "dashboardHealthUnavailable": true,
+    "processIsolationExecutionStillRequired": true,
+    "armingStillRequiresSeparateAuthorization": true,
+    "liveTradingStillRequiresSeparateAuthorization": true
+  },
+  "nonAuthorizations": {
+    "armingPerformed": false,
+    "liveSubmissionEnabled": false,
+    "configChanged": false,
+    "productionProcessChanged": false,
+    "runtimeStubCreated": false,
+    "armedProofInvoked": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposed": false
+  }
+}

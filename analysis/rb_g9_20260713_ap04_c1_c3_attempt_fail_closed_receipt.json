@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "rb-g9-ap04-c1-c3-attempt/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "status": "FAIL_CLOSED_REVERTED",
+  "authorizedBy": "Taylor Cheaney",
+  "authorizedStatement": "I authorize AP04 Final Fresh Domain A recapture, immediate process-isolation proof execution if PASS with >=20m remaining, and immediate C1-C3 arming transition if isolation PASS with >=12m remaining; stop only authorized AP04 isolation targets, leave FOMO Wallet Monitor untouched, create no executor loop, submit/sign/broadcast nothing, and stop/fail closed if any validation check fails.",
+  "domainARecapture": {
+    "status": "PASS",
+    "completionUtc": "2026-07-14T00:37:13.1756429Z",
+    "freshnessExpiryUtc": "2026-07-14T01:07:13.1756429Z",
+    "latestC1StartUtc": "2026-07-14T00:55:13.1756429Z",
+    "safetySuite": "86/86 PASS",
+    "validateLiveSystem": "PASS, 0 failures, 5 warnings",
+    "armedToolsDisarmedContext": "PASS_FAIL_CLOSED_WRONG_POSTURE"
+  },
+  "processIsolation": {
+    "status": "PASS",
+    "mode": "zero-stop",
+    "authorizedTargetsPresent": false,
+    "fomoWalletMonitorUntouched": true,
+    "noRespawnObservedSeconds": 10
+  },
+  "c1c3Attempt": {
+    "startedUtc": "2026-07-14T00:38:00.9178091Z",
+    "freshnessRemainingAtStartMs": 1752258,
+    "authorizedChangesApplied": {
+      "c1": "FOMO_ENABLE_LIVE_SUBMISSION=YES",
+      "c2": "live_config.json executionMode=LIVE",
+      "c3": "live_config.json dryRunMode=false"
+    },
+    "executorLoopCreated": false,
+    "submitSignBroadcast": false
+  },
+  "postAttemptValidation": {
+    "result": "FAIL_CLOSED_REQUIRED",
+    "liveExecutorStatus": {
+      "executionMode": "LIVE",
+      "dryRunMode": false,
+      "operationalPosture": "LIVE_MODE_DISARMED",
+      "liveArmed": false,
+      "liveSubmission": "DISARMED",
+      "blockedBy": [
+        "SOLANA_SIGNER_SECRET must be present"
+      ],
+      "readiness": "FAILS: LIVE submission gate armed"
+    },
+    "reason": "C1-C3 did not produce a proof-ready LIVE_ARMED posture; signer remained absent and validation did not pass."
+  },
+  "failClosedRevert": {
+    "completedUtc": "2026-07-14T00:39:21.6585617Z",
+    "changesReverted": {
+      "FOMO_ENABLE_LIVE_SUBMISSION": "removed/absent",
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true
+    },
+    "finalLiveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "finalStatus": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "readiness": "ALL PASS",
+      "liveArmed": false,
+      "operationalPosture": "PIPELINE_OBSERVING",
+      "liveSubmission": "DISARMED"
+    }
+  },
+  "flatStateAfterRevert": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "runtimeStubExists": false,
+    "capitalExposure": "none"
+  },
+  "nonAuthorizationsMaintained": {
+    "executorLoopCreated": false,
+    "runtimeStubCreated": false,
+    "armedProofInvoked": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposed": false,
+    "fomoWalletMonitorTouched": false
+  },
+  "nextBlocker": "Signer/live-armed prerequisite unresolved; C1-C3 cannot be held without passing validation."
+}

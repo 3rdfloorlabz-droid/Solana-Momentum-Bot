@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "rb-g9-ap04-full-chain/1.0.0",
+  "sessionId": "RB-G9-20260713-AP04",
+  "status": "FAIL_CLOSED_AFTER_ARMED_VALIDATOR_FAILURE",
+  "authorizedBy": "Taylor Cheaney",
+  "authorizedStatement": "I authorize AP04 full armed-no-submit proof chain for RB-G9-20260713-AP04: fresh Domain A recapture, immediate process isolation, C1-C3 arming transition, runtime stub creation, AP04 armed no-submit proof tooling, and immediate closure back to dry/disarmed; keep SOLANA_SIGNER_SECRET redacted, leave FOMO Wallet Monitor untouched, create no executor loop except authorized proof tooling, submit/sign/broadcast nothing, make no trade, and stop/fail closed if any validation, timing, posture, or flat-state check fails.",
+  "domainA": {
+    "status": "PASS",
+    "safetySuite": "86/86 PASS",
+    "completionUtc": "2026-07-14T01:01:18.3282411Z"
+  },
+  "processIsolation": {
+    "status": "PASS",
+    "mode": "zero-stop",
+    "fomoWalletMonitorUntouched": true,
+    "noRespawnObservedSeconds": 10
+  },
+  "c1c3": {
+    "status": "APPLIED_THEN_REVERTED",
+    "armedStatusUtc": "2026-07-14T01:02:04.0986782Z",
+    "liveConfigHashDuringArmed": "ba44fbbbc8b01d31f1b1e837a4f3887a97e0c199fffa054f82bf053de744e130",
+    "liveArmed": true,
+    "executorLoopCreated": false
+  },
+  "runtimeStub": {
+    "created": true,
+    "removedDuringFailClosed": true,
+    "fingerprintDuringAttempt": "7ed42be8a2acc00996be31e5ffbea9e7344f9a5a7cdb58d7147eb255ab8336a2"
+  },
+  "armedValidator": {
+    "tool": "node validate_armed_preflight.js",
+    "receiptPath": "analysis/rb_g9_20260713_ap04_validate_armed_preflight_receipt.json",
+    "overallStatus": "FAIL",
+    "passedChecks": [
+      "AP-01",
+      "AP-02",
+      "AP-04",
+      "AP-05",
+      "AP-06",
+      "AP-07",
+      "AP-08",
+      "AP-09",
+      "AP-10",
+      "AP-11",
+      "AP-12",
+      "AP-13",
+      "AP-16",
+      "AP-17",
+      "AP-18",
+      "AP-19",
+      "AP-20"
+    ],
+    "replacementEvidenceChecks": [
+      "AP-15"
+    ],
+    "failedChecks": {
+      "AP-03": "Runtime stub invalid or session mismatch; validator expected top-level sessionId or linkedSessionId.",
+      "AP-14": "BUY pre-submit guard probe failed because live_executor pre-submit path still checks micro-live approval context and rejected the armed-proof approvalPurpose."
+    }
+  },
+  "manifestAndFurtherProof": {
+    "runArmedPreflightManifest": "NOT_RUN_AFTER_VALIDATOR_FAILURE",
+    "separateN6AfterManifest": "NOT_RUN_AFTER_VALIDATOR_FAILURE",
+    "reason": "Authorization required stop/fail closed if any validation check fails."
+  },
+  "failClosedClosure": {
+    "completedUtc": "2026-07-14T01:04:30.7348148Z",
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "fomoEnableLiveSubmission": "ABSENT",
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "readiness": "ALL PASS",
+    "liveConfigHash": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubExists": false
+  },
+  "flatStateAfterClosure": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "recoveryActionRows": 0,
+    "capitalExposure": "none"
+  },
+  "nonAuthorizationsMaintained": {
+    "executorLoopCreated": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposed": false,
+    "fomoWalletMonitorTouched": false,
+    "signerSecretPrintedOrStored": false
+  },
+  "nextBlocker": "Engineering fix required before retry: AP04 armed-proof runtime stub/session binding and AP-14 pre-submit proof context must validate without invoking live submit/sign/broadcast."
+}
