@@ -1,0 +1,44 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "recordType": "second_micro_live_execution_authorization_governance",
+  "createdAtUtc": "2026-07-14T04:25:14.7585908Z",
+  "status": "PASS_GOVERNANCE_ONLY_NO_EXECUTION",
+  "nonSecret": true,
+  "authorization": {
+    "scope": "one future second micro-live engineering-validation cycle",
+    "maxEntryCount": 1,
+    "mandatoryExit": true,
+    "maxPositionSizeSol": 0.005,
+    "requiresFreshCandidateAndQuote": true,
+    "requiresFinalPerTradeConfirmation": true,
+    "expiresAtUtc": "2026-07-14T05:30:00.000Z"
+  },
+  "currentPosture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubPresent": false,
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "nodeLiveExecutorProcessFound": false
+  },
+  "linkedCloseout": {
+    "status": "CLOSED_FLAT_AFTER_MANDATORY_EXIT",
+    "receipt": "analysis/rb_g9_20260713_ap04_first_live_closeout_receipt.json",
+    "remediationCommit": "9e628d2002d05c42ce0a6ee94b62add4f5eb028e"
+  },
+  "nonAuthorizations": {
+    "candidateSelected": false,
+    "quoteRequested": false,
+    "armed": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "submittedSignedBroadcastOrTraded": false,
+    "capitalExposure": false,
+    "configChanged": false,
+    "envChanged": false
+  },
+  "explicitUserAuthorization": "ok lets do the closeout and push then authorize a second micro live"
+}
+

@@ -1,0 +1,49 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "recordType": "first_live_closeout",
+  "createdAtUtc": "2026-07-14T04:25:14.7585908Z",
+  "status": "CLOSED_FLAT_AFTER_MANDATORY_EXIT",
+  "nonSecret": true,
+  "firstLive": {
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "positionSizeSol": 0.005,
+    "entryTxSig": "L2Pz5v2crr94jaMLCdZzvn8CxUfxEZgJFkVyyN33oKaGhUygUrGBQ7EoTdUmAhUWVMLkDctjvH1aW7dPmGfHLEo",
+    "exitTxSig": "4BsAp9VddcECACFZNLDTeCQHTdhXudseEaVq8v4CDPsYAa3td3vM6W7fnkp4arNMzA7D8b37niFe7PaxECiHPtxH",
+    "confirmedBuyFillUi": 1.846305,
+    "exitAmountRaw": 1846305,
+    "totalFeesSol": 0.000015998
+  },
+  "finding": {
+    "initialMandatorySellFailedBeforeSubmission": true,
+    "failureCode": "QUOTE_FAILED",
+    "failureStage": "QUOTE",
+    "failureDetail": "Quote request parameters are invalid.",
+    "remediation": "Persist filledTokenAmountRaw and bind live SELL exits to raw token units."
+  },
+  "linkedEvidence": {
+    "initialExecutionReceipt": "analysis/rb_g9_20260713_ap04_first_live_execution_1784001899237_receipt.json",
+    "initialExecutionReceiptSha256": "06200889025e58e778d7981b296043bd2075a559fdb39dd0edf8461e2c6b3823",
+    "mandatoryExitOnlyReceipt": "analysis/rb_g9_20260713_ap04_mandatory_exit_only_1784001994477_receipt.json",
+    "mandatoryExitOnlyReceiptSha256": "ea1f4c4400f1def6a61312040324180f5fdb445edf41ab6ac6a5c7f1d6016045",
+    "remediationCommit": "9e628d2002d05c42ce0a6ee94b62add4f5eb028e"
+  },
+  "finalPosture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubPresent": false,
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "panicFlagPresent": false,
+    "emergencyStopFlagPresent": false,
+    "nodeLiveExecutorProcessFound": false
+  },
+  "boundary": {
+    "authorizesAdditionalLiveTrade": false,
+    "authorizesLoop": false,
+    "authorizesOrPromotion": false
+  }
+}
+
