@@ -424,7 +424,7 @@ async function runTests() {
   await expectCode(codes().CAPITAL_EXPOSURE_BLOCKED, () =>
     pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: kp.address }))
   );
-  pass("T9", "capital exposure blocks LIVE submit");
+  pass("T9", "active capital exposure blocks LIVE BUY submit");
 
   // T10 — audit without secrets
   resetMocks();
@@ -459,12 +459,87 @@ async function runTests() {
   resetMocks();
   armLiveEnv(kp);
   r16().setWalletBalanceForTest(1.0);
+  fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), `${JSON.stringify([{
+    liveTradeId: "sell-liquidity-open-position",
+    symbol: "R16SELL",
+    address: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    filledTokenAmount: 100,
+    entryTime: new Date().toISOString(),
+    intendedEntryPrice: 0.0001,
+    actualEntryPrice: 0.0001,
+    entryFeeSol: 0.000005,
+    poolLiquidityUsd: 30000,
+    status: "OPEN",
+    dryRun: false
+  }], null, 2)}\n`);
   installLiveMocks(kp);
   pipeline.setSignerLoaderForTest(() => mockSigner(kp));
   await expectCode(codes().LIQUIDITY_BELOW_FLOOR, () =>
-    pipeline.submitSwapForTest("SELL", swapArgs({ walletPublicAddress: kp.address }, { poolLiquidityUsd: null }))
+    pipeline.submitSwapForTest("SELL", swapArgs(
+      { walletPublicAddress: kp.address },
+      { poolLiquidityUsd: null, sellAmountTokenUnits: 100, liveTradeId: "sell-liquidity-open-position" }
+    ))
   );
   pass("T13", "SELL missing poolLiquidityUsd fail-closed");
+
+  // T14 - matching mandatory SELL may close the single authorized live position.
+  resetMocks();
+  armLiveEnv(kp);
+  r16().setWalletBalanceForTest(1.0);
+  fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), `${JSON.stringify([{
+    liveTradeId: "matching-sell-open-position",
+    symbol: "R16SELLOK",
+    address: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    filledTokenAmount: 100,
+    entryTime: new Date().toISOString(),
+    intendedEntryPrice: 0.0001,
+    actualEntryPrice: 0.0001,
+    entryFeeSol: 0.000005,
+    poolLiquidityUsd: 30000,
+    status: "OPEN",
+    dryRun: false
+  }], null, 2)}\n`);
+  const matchingSellKey = r16().assertLivePathPreSubmit(baseCfg({ walletPublicAddress: kp.address }), {
+    kind: "SELL",
+    tokenAddress: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    sellAmountTokenUnits: 100,
+    liveTradeId: "matching-sell-open-position"
+  });
+  assert(matchingSellKey, "T14 matching SELL guard returned an in-flight key");
+  r16().clearLiveSubmitInFlight(matchingSellKey);
+  pass("T14", "matching mandatory SELL passes the live pre-submit guard");
+
+  // T15 - mismatched mandatory SELL remains blocked before route/submission.
+  resetMocks();
+  armLiveEnv(kp);
+  fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), `${JSON.stringify([{
+    liveTradeId: "mismatched-sell-open-position",
+    symbol: "R16SELLBLOCK",
+    address: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    filledTokenAmount: 100,
+    entryTime: new Date().toISOString(),
+    intendedEntryPrice: 0.0001,
+    actualEntryPrice: 0.0001,
+    entryFeeSol: 0.000005,
+    poolLiquidityUsd: 30000,
+    status: "OPEN",
+    dryRun: false
+  }], null, 2)}\n`);
+  await expectCode(codes().CAPITAL_EXPOSURE_BLOCKED, () =>
+    pipeline.submitSwapForTest("SELL", swapArgs(
+      { walletPublicAddress: kp.address },
+      { sellAmountTokenUnits: 99, liveTradeId: "mismatched-sell-open-position" }
+    ))
+  );
+  pass("T15", "mismatched mandatory SELL remains blocked");
 
   // Pending reconciliation blocks new entries via safetyCheck
   fs.writeFileSync(pendingFile, `${JSON.stringify({

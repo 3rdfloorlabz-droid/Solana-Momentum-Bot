@@ -2400,6 +2400,37 @@ function resolveCapitalExposureForLiveGate(cfg) {
   return openLive.length > 0 ? "active" : "none";
 }
 
+function resolveAuthorizedLiveExitForGate(context = {}) {
+  if (context.kind !== "SELL") return { ok: false, reason: "not_sell" };
+  const tokenAddress = context.tokenAddress;
+  const pairAddress = context.pairAddress;
+  const sellAmountTokenUnits = Number(context.sellAmountTokenUnits);
+  if (!tokenAddress || !pairAddress) return { ok: false, reason: "missing_token_or_pair" };
+  if (!Number.isFinite(sellAmountTokenUnits) || sellAmountTokenUnits <= 0) {
+    return { ok: false, reason: "missing_sell_amount" };
+  }
+
+  const openLive = openPositions().filter(p => p.status === "OPEN" && p.dryRun !== true);
+  if (openLive.length !== 1) return { ok: false, reason: "open_live_position_count", openLiveCount: openLive.length };
+
+  const pos = openLive[0];
+  if (context.liveTradeId && pos.liveTradeId !== context.liveTradeId) {
+    return { ok: false, reason: "live_trade_id_mismatch", openLiveCount: openLive.length };
+  }
+  if (pos.address !== tokenAddress) return { ok: false, reason: "token_mismatch", openLiveCount: openLive.length };
+  if (pos.pairAddress !== pairAddress) return { ok: false, reason: "pair_mismatch", openLiveCount: openLive.length };
+  if (Number(pos.filledTokenAmount) !== sellAmountTokenUnits) {
+    return { ok: false, reason: "sell_amount_mismatch", openLiveCount: openLive.length };
+  }
+
+  return {
+    ok: true,
+    liveTradeId: pos.liveTradeId || null,
+    symbol: pos.symbol || null,
+    openLiveCount: openLive.length
+  };
+}
+
 function countPendingReconciliationEntries() {
   if (!fs.existsSync(PENDING_RECONCILIATION_FILE)) return 0;
   return fs.readFileSync(PENDING_RECONCILIATION_FILE, "utf8")
@@ -2452,19 +2483,30 @@ function assertLivePathPreSubmit(cfg, context = {}) {
   assertLiveSubmissionArmed({ ...cfg, positionSizeSol: context.positionSizeSol ?? cfg?.positionSizeSol });
 
   const capitalExposure = resolveCapitalExposureForLiveGate(cfg);
+  const authorizedLiveExit = resolveAuthorizedLiveExitForGate(context);
   logExecutionStage(EXECUTION_STAGES.GUARD, {
     capitalExposure,
     liveArmed: computeLiveArmedStatus(cfg).liveArmed,
     executionMode: resolveExecutionMode(cfg),
     dryRunMode: cfg?.dryRunMode === true,
-    kind: context.kind || null
+    kind: context.kind || null,
+    authorizedLiveExit: authorizedLiveExit.ok,
+    authorizedLiveExitReason: authorizedLiveExit.ok ? null : authorizedLiveExit.reason || null
   });
-  if (capitalExposure !== "none") {
+  if (capitalExposure !== "none" && !authorizedLiveExit.ok) {
     throw makeExecutionError(
       EXECUTION_ABORT_CODES.CAPITAL_EXPOSURE_BLOCKED,
       EXECUTION_STAGES.GUARD,
-      "Capital exposure must be none before LIVE submit.",
-      { capitalExposure }
+      "Capital exposure must be none before LIVE submit unless closing the single authorized live position.",
+      { capitalExposure, kind: context.kind || null, liveExitGateReason: authorizedLiveExit.reason || null }
+    );
+  }
+  if (context.kind === "SELL" && !authorizedLiveExit.ok) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.CAPITAL_EXPOSURE_BLOCKED,
+      EXECUTION_STAGES.GUARD,
+      "LIVE SELL must close the single authorized open live position.",
+      { capitalExposure, kind: context.kind || null, liveExitGateReason: authorizedLiveExit.reason || null }
     );
   }
 
@@ -3102,7 +3144,7 @@ async function completeLiveSwapFromPipeline({
 
 async function submitSwap(kind, {
   cfg, tokenAddress, pairAddress, expectedPrice, positionSizeSol,
-  sellAmountTokenUnits, poolLiquidityUsd, manualSlippageApproved
+  sellAmountTokenUnits, poolLiquidityUsd, manualSlippageApproved, liveTradeId
 }) {
   const mode = resolveExecutionMode(cfg);
   if (mode === "DRY_RUN") {
@@ -3145,7 +3187,7 @@ async function submitSwap(kind, {
     try {
       if (mode === "LIVE") {
         inFlightKey = assertLivePathPreSubmit(cfg, {
-          kind, tokenAddress, pairAddress, positionSizeSol
+          kind, tokenAddress, pairAddress, positionSizeSol, sellAmountTokenUnits, liveTradeId
         });
       }
       const signer = mode === "LIVE"
@@ -3445,6 +3487,7 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
       cfg, tokenAddress: pos.address, pairAddress: pos.pairAddress,
       expectedPrice: trigger.triggerPrice, positionSizeSol: pos.positionSizeSol,
       sellAmountTokenUnits,
+      liveTradeId: pos.liveTradeId,
       poolLiquidityUsd: pos.poolLiquidityUsd
     });
   } catch (err) {
@@ -4115,6 +4158,7 @@ module.exports = {
     clearLiveSubmitInFlight,
     countPendingReconciliationEntries,
     resolveCapitalExposureForLiveGate,
+    resolveAuthorizedLiveExitForGate,
     computeLiveArmedStatus,
     submitSwapForTest: submitSwap,
     enterPositionForTest: enterPosition,

@@ -1,0 +1,119 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-first-live-execution-retry-fail-closed/1.0.0",
+  "status": "FAIL_CLOSED_BEFORE_ARMING_NO_EXECUTION",
+  "createdAtUtc": "2026-07-14T03:19:02.2472522Z",
+  "authorizedStatement": "I authorize AP04 first-live execution gate retry after exit-path remediation for RB-G9-20260713-AP04: perform fresh readiness/timing/flat-state checks, process isolation, C1-C3 arming transition, create a schema-valid micro_live_execution runtime stub, refresh candidate quote, and execute exactly one 0.005 SOL BUY of mint JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN via pair/pool 3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe with mandatory SELL exit using the confirmed BUY filled token amount; no executor/scanner loop, no second entry, no scaling, keep SOLANA_SIGNER_SECRET redacted, leave FOMO Wallet Monitor untouched, and stop/fail closed if any readiness, timing, posture, quote, candidate, stub, signer, RPC, submission, confirmation, reconciliation, exit, or flat-state check fails. CONFIRM RB-G9-20260713-AP04 FOR JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN AT 3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe - ONE 0.005 SOL ENTRY AND MANDATORY EXIT USING CONFIRMED BUY FILLED TOKEN AMOUNT",
+  "candidate": {
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "positionSizeSol": 0.005,
+    "mandatoryExitAmountSource": "confirmed_buy_filled_token_amount"
+  },
+  "prechecksPassedBeforeBlocker": {
+    "insideAuthorizationWindow": true,
+    "authorizationWindow": {
+      "expiryUtc": "2026-07-14T05:30:00Z",
+      "observedNowUtc": "2026-07-14T03:15:29.1553735Z",
+      "expiryRemainingMinutes": 134.51
+    },
+    "flatState": {
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0,
+      "recoveryActionsRows": 0
+    },
+    "signerPresence": {
+      "rawProcessEnv": "absent",
+      "localEnvLoader": "present_redacted",
+      "format": "json_array",
+      "valid64ByteArray": true
+    },
+    "dedicatedRpc": "configured_redacted",
+    "runtimeHealth": {
+      "dashboardEndpoint": "unreachable",
+      "directBuildClassification": "CAPITAL_SAFE_BUT_RUNTIME_AMBIGUOUS",
+      "directBuildWarnings": [
+        "STALE_SCANNER",
+        "EXECUTOR_LOOP_UNCONFIRMED"
+      ],
+      "a4Status": "A4_VERIFIED_DEDICATED",
+      "a4Blocker": false,
+      "a4ProofStabilitySuccessCount": 2,
+      "a4ProofStabilityFreshSuccessCount": 2
+    },
+    "processIsolation": {
+      "inspectionPerformed": true,
+      "authorizedIsolationTargetsFound": false,
+      "processesStopped": false,
+      "fomoWalletMonitorLeftUntouched": true
+    },
+    "runtimeStubSchemaDryRun": {
+      "validatedInMemory": true,
+      "approvalPurpose": "micro_live_execution",
+      "topLevelSessionIdPresent": false,
+      "topLevelLinkedSessionIdPresent": false,
+      "sessionBinding": "oriLinkage.sessionId"
+    },
+    "preArmingPosture": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "liveArmed": false,
+      "emergencyStop": false,
+      "readiness": "ALL PASS"
+    }
+  },
+  "blocker": {
+    "code": "MANDATORY_SELL_BLOCKED_BY_CAPITAL_EXPOSURE_GUARD",
+    "severity": "critical",
+    "reason": "The live pre-submit guard requires capital exposure to be none for every LIVE submit. After a successful BUY, the required mandatory SELL would see the open non-dry live position as active capital exposure and fail before submission, so the authorized entry-plus-mandatory-exit cycle cannot be guaranteed.",
+    "evidence": [
+      "live_executor.js resolveCapitalExposureForLiveGate returns active when openPositions() contains any OPEN non-dry position.",
+      "live_executor.js assertLivePathPreSubmit calls resolveCapitalExposureForLiveGate before every LIVE submit.",
+      "live_executor.js assertLivePathPreSubmit throws CAPITAL_EXPOSURE_BLOCKED whenever capitalExposure is not none.",
+      "The guard currently applies before checking whether context.kind is BUY or SELL, so it blocks a SELL that is intended to close the authorized live position."
+    ],
+    "codeLocations": [
+      {
+        "file": "live_executor.js",
+        "function": "resolveCapitalExposureForLiveGate",
+        "linesObserved": "2396-2400"
+      },
+      {
+        "file": "live_executor.js",
+        "function": "assertLivePathPreSubmit",
+        "linesObserved": "2443-2468"
+      }
+    ]
+  },
+  "explicitNonActions": {
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "scannerLoopStarted": false,
+    "quoteRefreshedForExecution": false,
+    "swapBuildCalled": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "buyExecuted": false,
+    "sellExecuted": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "postFailClosedVerification": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "emergencyStop": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubPresent": false,
+    "fomoEnableLiveSubmissionPresent": false,
+    "fomoAllowLoopLivePresent": false,
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0
+  },
+  "nextRequiredStep": "Engineering remediation only: update the live pre-submit capital exposure guard so BUY remains blocked whenever any live exposure exists, while SELL may proceed only when it is explicitly closing the single authorized open live position/trade using the confirmed BUY filled token amount. Add focused tests proving BUY is blocked on active exposure and the matching mandatory SELL close path is allowed without weakening emergency stop, arming, signer, pending reconciliation, duplicate-submit, or live authority gates."
+}
