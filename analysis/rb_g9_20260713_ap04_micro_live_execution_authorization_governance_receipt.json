@@ -1,0 +1,61 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-micro-live-execution-authorization-governance/1.0.0",
+  "status": "PASS_GOVERNANCE_ONLY_NO_EXECUTION",
+  "authorizedStatement": "I authorize the AP04 micro-live execution authorization governance gate only for RB-G9-20260713-AP04; create the required authorization record and receipts/docs for one first-live micro-live execution cycle, do not arm, do not change live_config/.env, do not start an executor loop, do not submit/sign/broadcast/trade, keep SOLANA_SIGNER_SECRET redacted, and stop/fail closed if any governance or readiness check fails.",
+  "createdAtUtc": "2026-07-14T01:52:10.7537921Z",
+  "authorization": {
+    "type": "micro_live_execution_governance_only",
+    "path": "Ori/Phase 2/Project Vulcan/Live Readiness/Authorizations/AUTHORIZATION - Micro-Live Execution - RB-G9-20260713-AP04 - 2026-07-13.md",
+    "linkedSessionId": "RB-G9-20260713-AP04",
+    "maximumBuyCount": 1,
+    "mandatoryExit": true,
+    "maxPositionSizeSol": 0.005,
+    "expiresAtUtc": "2026-07-14T05:30:00.000Z",
+    "expiryBasis": "AP04 operating block end",
+    "finalPerTradeConfirmationRequired": true
+  },
+  "prerequisiteEvidence": {
+    "ap04ArmedNoSubmitProofStatus": "PASS_CLOSED_DRY_DISARMED",
+    "ap04PassReceipt": "analysis/rb_g9_20260713_ap04_schema_valid_armed_no_submit_proof_pass_receipt.json",
+    "ap04ValidatorReceiptSha256": "bdf2630c1e4b41ac919473dddd170ca69cd42b3d4dc578fd03b337ec376495c2",
+    "ap04ManifestReceiptSha256": "ca1772ce43d388ba89ce778f9600f5d5d2eebf5dd114e3d14abef1cef58efa20"
+  },
+  "runtimePostureBeforeAndAfter": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "operationalPosture": "PIPELINE_OBSERVING",
+    "liveSubmission": "DISARMED",
+    "fomoEnableLiveSubmission": "unset",
+    "runtimeStubPresent": false,
+    "liveConfigChanged": false,
+    "envChanged": false
+  },
+  "explicitNonActions": {
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "candidateSelected": false,
+    "quoteRequested": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "futureExecutionPrerequisites": [
+    "separate execution-gate authorization",
+    "fresh Domain A if timing requires it",
+    "process isolation",
+    "C1-C3 arming transition",
+    "schema-valid micro_live_execution runtime stub",
+    "candidate packet",
+    "fresh quote within 10 seconds at submit",
+    "Taylor final per-trade confirmation",
+    "single-shot no-loop execution only"
+  ],
+  "nextRequiredStep": "Separately authorize first-live execution preparation/candidate gate; this governance record is not execution permission."
+}

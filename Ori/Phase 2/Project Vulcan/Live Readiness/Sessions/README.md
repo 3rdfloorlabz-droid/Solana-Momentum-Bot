@@ -30,7 +30,7 @@
 
 | Session ID | Plan | Disposition | Notes |
 |------------|------|-------------|-------|
-| **`RB-G9-20260713-AP04`** | **2026-07-13** · **17:30-23:30 MDT** | **G1-G4 + production integration + process-isolation authorization signed/unused for governance only** · never armed · never executed · no capital exposure | G1-G4 receipt: [`../RB-G9-20260713-AP04 FRESH G1-G4 GOVERNANCE AUTHORIZATION — 2026-07-13.md`](../RB-G9-20260713-AP04%20FRESH%20G1-G4%20GOVERNANCE%20AUTHORIZATION%20%E2%80%94%202026-07-13.md) · production integration: [`../RB-G9 ARMED CONTINUUM PRODUCTION INTEGRATION AUTHORIZATION — 2026-07-13.md`](../RB-G9%20ARMED%20CONTINUUM%20PRODUCTION%20INTEGRATION%20AUTHORIZATION%20%E2%80%94%202026-07-13.md) · isolation auth: [`../RB-G9-20260713-AP04 PROCESS ISOLATION AUTHORIZATION — 2026-07-13.md`](../RB-G9-20260713-AP04%20PROCESS%20ISOLATION%20AUTHORIZATION%20%E2%80%94%202026-07-13.md) |
+| **`RB-G9-20260713-AP04`** | **2026-07-13** · **17:30-23:30 MDT** | **Armed no-submit proof PASS/CLOSED + micro-live execution authorization signed/unused for governance only** · no candidate · no final per-trade confirmation · never live-executed · no capital exposure | Proof PASS: [`../AP04 SCHEMA-VALID ARMED-NO-SUBMIT PROOF PASS - RB-G9-20260713-AP04 - 2026-07-13.md`](../AP04%20SCHEMA-VALID%20ARMED-NO-SUBMIT%20PROOF%20PASS%20-%20RB-G9-20260713-AP04%20-%202026-07-13.md) · micro-live auth: [`../Authorizations/AUTHORIZATION - Micro-Live Execution - RB-G9-20260713-AP04 - 2026-07-13.md`](../Authorizations/AUTHORIZATION%20-%20Micro-Live%20Execution%20-%20RB-G9-20260713-AP04%20-%202026-07-13.md) |
 
 ## Filed sessions
 
