@@ -1438,12 +1438,6 @@ function loadConfig() {
   return cfg;
 }
 
-function saveConfig(cfg) {
-  // A1b: atomic write (temp → validate → rename). Behavior/format unchanged;
-  // value gates remain in loadConfig()/readinessChecks(), audit remains in callers.
-  configStore.writeConfigAtomic(cfg, CONFIG_FILE);
-}
-
 // ─── Config change audit (A3 — append-only, redacted; never mutates config) ─────
 // Records safety-relevant live_config.json field changes. This NEVER changes a
 // config value, blocks a change, or enables anything — it only writes an audit row.
@@ -1495,35 +1489,80 @@ function diffConfigFields(oldCfg, newCfg) {
   return changes;
 }
 
+function buildConfigChangeAuditRows({ oldCfg, newCfg, actor = "system", source = "unknown", reason = null, modeCfg = null } = {}) {
+  const changes = diffConfigFields(oldCfg, newCfg);
+  if (!changes.length) return [];
+  const ctxCfg = modeCfg || newCfg || oldCfg || {};
+  let modeAtChange = null;
+  try { modeAtChange = resolveExecutionMode(ctxCfg); } catch { modeAtChange = ctxCfg.executionMode || null; }
+  let liveArmedAtChange = null;
+  try { liveArmedAtChange = computeLiveArmedStatus(ctxCfg).liveArmed === true; } catch { liveArmedAtChange = null; }
+  const changeId = crypto.randomUUID();
+  const timestamp = nowIso();
+  return changes.map(c => {
+    const riskLevel = classifyConfigFieldRisk(c.field);
+    return {
+      timestamp,
+      actor,
+      source,
+      field: c.field,
+      oldValue: redactConfigValue(c.field, c.oldValue),
+      newValue: redactConfigValue(c.field, c.newValue),
+      reason,
+      riskLevel,
+      requiresReview: riskLevel === "CRITICAL" || riskLevel === "IMPORTANT",
+      modeAtChange,
+      liveArmedAtChange,
+      changeId
+    };
+  });
+}
+
+function appendConfigChangeAuditRows(rows) {
+  for (const row of rows) appendJsonl(CONFIG_AUDIT_FILE, row);
+  return rows.length;
+}
+
 function auditConfigChange({ oldCfg, newCfg, actor = "system", source = "unknown", reason = null, modeCfg = null } = {}) {
   try {
-    const changes = diffConfigFields(oldCfg, newCfg);
-    if (!changes.length) return;
-    const ctxCfg = modeCfg || newCfg || oldCfg || {};
-    let modeAtChange = null;
-    try { modeAtChange = resolveExecutionMode(ctxCfg); } catch { modeAtChange = ctxCfg.executionMode || null; }
-    let liveArmedAtChange = null;
-    try { liveArmedAtChange = computeLiveArmedStatus(ctxCfg).liveArmed === true; } catch { liveArmedAtChange = null; }
-    const changeId = crypto.randomUUID();
-    const timestamp = nowIso();
-    for (const c of changes) {
-      const riskLevel = classifyConfigFieldRisk(c.field);
-      appendJsonl(CONFIG_AUDIT_FILE, {
-        timestamp,
-        actor,
-        source,
-        field: c.field,
-        oldValue: redactConfigValue(c.field, c.oldValue),
-        newValue: redactConfigValue(c.field, c.newValue),
-        reason,
-        riskLevel,
-        requiresReview: riskLevel === "CRITICAL" || riskLevel === "IMPORTANT",
-        modeAtChange,
-        liveArmedAtChange,
-        changeId
-      });
-    }
+    return appendConfigChangeAuditRows(buildConfigChangeAuditRows({ oldCfg, newCfg, actor, source, reason, modeCfg }));
   } catch { /* audit must never break control flow */ }
+  return 0;
+}
+
+function criticalConfigChanges(oldCfg, newCfg) {
+  return diffConfigFields(oldCfg, newCfg)
+    .filter(change => classifyConfigFieldRisk(change.field) === "CRITICAL");
+}
+
+function makeConfigAuditRequiredError(changes) {
+  const fields = changes.map(change => change.field).join(", ");
+  const error = new Error(`CONFIG_AUDIT_REQUIRED: critical live_config.json changes require audit metadata before write: ${fields}`);
+  error.code = "CONFIG_AUDIT_REQUIRED";
+  error.fields = changes.map(change => change.field);
+  return error;
+}
+
+function saveConfig(cfg, options = {}) {
+  const oldCfg = fs.existsSync(CONFIG_FILE) ? loadConfig() : null;
+  const criticalChanges = criticalConfigChanges(oldCfg, cfg);
+  const audit = options && typeof options === "object" ? options.audit : null;
+  if (criticalChanges.length && !audit) throw makeConfigAuditRequiredError(criticalChanges);
+
+  if (audit) {
+    appendConfigChangeAuditRows(buildConfigChangeAuditRows({
+      oldCfg,
+      newCfg: cfg,
+      actor: audit.actor || "system",
+      source: audit.source || "unknown",
+      reason: audit.reason || null,
+      modeCfg: audit.modeCfg || cfg
+    }));
+  }
+
+  // A1b: atomic write (temp -> validate -> rename). Behavior/format unchanged;
+  // value gates remain in loadConfig()/readinessChecks().
+  configStore.writeConfigAtomic(cfg, CONFIG_FILE);
 }
 
 // ─── Positions store ──────────────────────────────────────────────────────────
@@ -2274,6 +2313,32 @@ function assertLiveSubmissionArmed(cfg) {
   }
 }
 
+function assertOnDiskLiveSubmissionPosture(context = {}, phase = "pre-submit") {
+  let diskCfg;
+  try {
+    diskCfg = loadConfig();
+  } catch (error) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.REAL_PATH_DISABLED,
+      EXECUTION_STAGES.GUARD,
+      "On-disk live_config.json could not be loaded before LIVE submission.",
+      { phase, reason: safeErrorMessage(error) }
+    );
+  }
+
+  const gateCfg = { ...diskCfg, positionSizeSol: context.positionSizeSol ?? diskCfg.positionSizeSol };
+  const { failures } = collectLiveSubmissionGateFailures(gateCfg);
+  if (failures.length) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.REAL_PATH_DISABLED,
+      EXECUTION_STAGES.GUARD,
+      "On-disk LIVE submission posture refused execution.",
+      { phase, failures }
+    );
+  }
+  return diskCfg;
+}
+
 const R15_REQUIRED_ACK_FIELDS = [
   "totalLossRiskAcknowledged",
   "slippageCapAcknowledged",
@@ -2993,6 +3058,13 @@ async function completeLiveSwapFromPipeline({
     );
   }
 
+  if (resolveExecutionMode(cfg) === "LIVE") {
+    cfg = assertOnDiskLiveSubmissionPosture(
+      { kind, tokenAddress, pairAddress, positionSizeSol },
+      "pre-sign"
+    );
+  }
+
   // The v0 versioned tx structure begins with a shortvec of signatures.
   // For a single signer, byte 0 must be 0x01, followed by 64 placeholder
   // signature bytes, then the message. If Jupiter/build output ever uses a
@@ -3239,16 +3311,21 @@ async function submitSwap(kind, {
   for (let attempt = 0; attempt < attempts; attempt++) {
     let inFlightKey = null;
     try {
+      let attemptCfg = cfg;
       if (mode === "LIVE") {
-        inFlightKey = assertLivePathPreSubmit(cfg, {
+        attemptCfg = assertOnDiskLiveSubmissionPosture(
+          { kind, tokenAddress, pairAddress, positionSizeSol, sellAmountTokenUnits, liveTradeId },
+          "pre-submit"
+        );
+        inFlightKey = assertLivePathPreSubmit(attemptCfg, {
           kind, tokenAddress, pairAddress, positionSizeSol, sellAmountTokenUnits, liveTradeId
         });
       }
       const signer = mode === "LIVE"
-        ? loadSignerFromEnvForRealExecution(cfg)
+        ? loadSignerFromEnvForRealExecution(attemptCfg)
         : pipelineDryRunSigner;
       const pipeline = await executeQuotedSwapAttempt(kind, {
-        cfg,
+        cfg: attemptCfg,
         tokenAddress,
         positionSizeSol,
         sellAmountTokenUnits,
@@ -3274,7 +3351,7 @@ async function submitSwap(kind, {
         });
       }
       return await completeLiveSwapFromPipeline({
-        kind, cfg, signer, pipeline, pipelineStartedAt,
+        kind, cfg: attemptCfg, signer, pipeline, pipelineStartedAt,
         tokenAddress, pairAddress, expectedPrice, positionSizeSol
       });
     } catch (error) {
@@ -3829,13 +3906,11 @@ function startAutomation(reason = "Manual START from dashboard") {
     logControl("START_REJECTED", "Readiness failed", { failed });
     return { ok: false, error: `Readiness checks failed: ${failed.join(", ")}`, readiness };
   }
-  const before = JSON.parse(JSON.stringify(cfg));
   cfg.automationEnabled = true;
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
   cfg.sessionStartedAt = cfg.lastAutomationToggleAt;
-  saveConfig(cfg);
-  auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.startAutomation", reason });
+  saveConfig(cfg, { audit: { actor: "operator", source: "live_executor.startAutomation", reason, modeCfg: cfg } });
   writeLiveEvent({ eventType: "SESSION_STARTED", timestamp: cfg.sessionStartedAt, reason });
   logControl("START", reason, { dryRunMode: cfg.dryRunMode });
   return { ok: true, dryRunMode: cfg.dryRunMode };
@@ -3843,25 +3918,21 @@ function startAutomation(reason = "Manual START from dashboard") {
 
 function stopAutomation(reason = "Manual STOP from dashboard") {
   const cfg = loadConfig();
-  const before = JSON.parse(JSON.stringify(cfg));
   cfg.automationEnabled = false; // entries off; exits continue
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
-  saveConfig(cfg);
-  auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.stopAutomation", reason });
+  saveConfig(cfg, { audit: { actor: "operator", source: "live_executor.stopAutomation", reason, modeCfg: cfg } });
   logControl("STOP", reason);
   return { ok: true, note: "New entries disabled. Open positions will still be exited by the loop." };
 }
 
 function emergencyStopControl(reason = "Manual EMERGENCY STOP from dashboard") {
   const cfg = loadConfig();
-  const before = JSON.parse(JSON.stringify(cfg));
   cfg.automationEnabled = false;
   cfg.emergencyStop = true;
   cfg.lastAutomationToggleAt = nowIso();
   cfg.lastAutomationToggleReason = reason;
-  saveConfig(cfg);
-  auditConfigChange({ oldCfg: before, newCfg: cfg, actor: "operator", source: "live_executor.emergencyStopControl", reason });
+  saveConfig(cfg, { audit: { actor: "operator", source: "live_executor.emergencyStopControl", reason, modeCfg: cfg } });
   logControl("EMERGENCY_STOP", reason);
   writeLiveEvent({ eventType: "KILL_SWITCH_ACTIVATED", timestamp: nowIso(), reason, anomalyFlags: ["KILL_SWITCH"] });
   return { ok: true };

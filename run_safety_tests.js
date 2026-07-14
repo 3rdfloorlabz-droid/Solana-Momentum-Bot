@@ -30,6 +30,8 @@ const TESTS = [
   "test_validate_live_system_drift.js",
   "test_priority_fee.js",
   "test_submit_retry_requote.js",
+  // RB-G10/AP04: config-audit and on-disk posture recheck regressions (temp root only).
+  "test_rb_g10_runtime_safety_remediation.js",
   "test_realized_slippage_check.js",
   "test_partial_fill_detection.js",
   "test_execution_time_liquidity_floor.js",
