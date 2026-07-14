@@ -1,0 +1,94 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-first-live-execution-preparation/1.0.0",
+  "status": "PASS_PREPARATION_ONLY_NOT_EXECUTABLE",
+  "createdAtUtc": "2026-07-14T02:04:52.763Z",
+  "authorizationWindow": {
+    "expiresAtUtc": "2026-07-14T05:30:00.000Z",
+    "remainingMinutesAtCapture": 205.14,
+    "insideWindow": true
+  },
+  "artifacts": {
+    "candidatePacketJson": "Ori/Phase 2/Project Vulcan/Live Readiness/Sessions/SESSION - RB-G9-20260713-AP04 - 2026-07-13/candidate_packet.json",
+    "candidatePacketMarkdown": "Ori/Phase 2/Project Vulcan/Live Readiness/Sessions/SESSION - RB-G9-20260713-AP04 - 2026-07-13/CANDIDATE PACKET - RB-G9-20260713-AP04 - 2026-07-13.md"
+  },
+  "hashes": {
+    "candidatePacketJsonSha256": "f188aaad4557f2f1049faf38e1924ac1995ab8fbd76e1a440c20ec1c9d309e9b",
+    "candidatePacketMarkdownSha256": "21ea5f9685fdd5e7c29eec61603055d95880c757e8eea1c43256c19ea4b0bce4",
+    "receiptSha256Note": "Compute externally after receipt write; self-hash is intentionally not embedded."
+  },
+  "readinessSummary": {
+    "posture": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "liveArmed": false,
+      "emergencyStop": false,
+      "positionSizeSol": 0.005,
+      "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+      "runtimeStubPresent": false,
+      "fomoEnableLiveSubmissionPresent": false,
+      "fomoAllowLoopLivePresent": false
+    },
+    "flatState": {
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0,
+      "recoveryActionsRows": 0
+    },
+    "runtimeHealth": {
+      "classification": "CAPITAL_SAFE_BUT_RUNTIME_AMBIGUOUS",
+      "severity": "warning",
+      "summary": "No capital exposure, but producer/loop/lock/scanner evidence is incomplete.",
+      "warnings": [
+        "STALE_SCANNER",
+        "EXECUTOR_LOOP_UNCONFIRMED"
+      ],
+      "supportsSoakClaim": false,
+      "supportsLiveReadiness": false,
+      "capitalExposure": "none",
+      "executorLoopConfirmed": false,
+      "a4Status": "A4_VERIFIED_DEDICATED",
+      "a4ProofStability": {
+        "successCount": 2,
+        "freshSuccessCount": 2,
+        "separationBucket": ">=15m",
+        "providerConsistent": true,
+        "endpointClassConsistent": true,
+        "providerLabel": "helius_rpc_url_configured",
+        "endpointClass": "dedicated",
+        "fallbackObserved": false,
+        "failureObserved": false,
+        "secretSafe": true,
+        "withinFreshnessWindow": true,
+        "stabilityCandidate": true
+      }
+    },
+    "dashboardEndpointReachable": false,
+    "dashboardEndpointNote": "localhost:3000 endpoint unavailable during prep; direct read-only buildVulcanRuntimeHealth used instead"
+  },
+  "candidateSummary": {
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "liquidityUsd": 78404.87,
+    "entryOutAmountRaw": "1831523",
+    "exitOutAmountLamports": "4999351",
+    "entryPriceImpactPct": "0",
+    "exitPriceImpactPct": "0.0011736457048605308228869978",
+    "csFailed": []
+  },
+  "explicitNonActions": {
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "swapBuildCalled": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "finalPerTradeConfirmationReceived": false,
+  "nextRequiredStep": "Taylor final per-trade execution authorization only after reviewing this candidate/quote packet; separate gate must still create schema-valid micro_live_execution runtime stub and perform arming transition if authorized."
+}

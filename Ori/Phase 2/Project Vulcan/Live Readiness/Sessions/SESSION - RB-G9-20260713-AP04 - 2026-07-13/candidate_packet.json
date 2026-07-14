@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "recordType": "MICRO_LIVE_CANDIDATE_PACKET",
+  "status": "PREPARATION_ONLY_NOT_EXECUTABLE_FINAL_CONFIRMATION_REQUIRED",
+  "sessionId": "RB-G9-20260713-AP04",
+  "packetDateUtc": "2026-07-14",
+  "preparedAtUtc": "2026-07-14T02:04:52.750Z",
+  "authorizationSignedUtc": "2026-07-14T01:52:10.7537921Z",
+  "authorizationExpiryUtc": "2026-07-14T05:30:00.000Z",
+  "authorizationRemainingMinutesAtCapture": 205.14,
+  "finalPerTradeConfirmationReceived": false,
+  "preparationQuoteDisclaimer": "NON_EXECUTABLE_PREPARATION_QUOTE_FRESH_QUOTE_REQUIRED_AT_EXECUTION",
+  "linkedAuthorizations": {
+    "microLiveExecutionAuthorization": "../../Authorizations/AUTHORIZATION - Micro-Live Execution - RB-G9-20260713-AP04 - 2026-07-13.md",
+    "ap04ArmedNoSubmitProofPass": "../../AP04 SCHEMA-VALID ARMED-NO-SUBMIT PROOF PASS - RB-G9-20260713-AP04 - 2026-07-13.md"
+  },
+  "candidate": {
+    "name": "Jupiter",
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "chain": "solana",
+    "referenceVenue": "meteora",
+    "selectionRationale": "Manual engineering-validation routability baseline; candidate meets the signed liquidity floor at fresh capture; not scanner-selected; not a strategy-readiness claim"
+  },
+  "liquidity": {
+    "source": "dexscreener",
+    "liquidityUsd": 78404.87,
+    "priceUsdReference": 0.1483,
+    "pairUrl": "https://dexscreener.com/solana/3xngdc58axytrj64stqz5trdqwvtwhlr888irbbwznee",
+    "dexId": "meteora",
+    "baseToken": {
+      "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "name": "Meteora",
+      "symbol": "MET"
+    },
+    "quoteToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "capturedAtUtc": "2026-07-14T02:04:52.639Z"
+  },
+  "jupiterExecutionPath": {
+    "adapter": "jupiter_swap_client.js",
+    "quoteBaseUrl": "https://lite-api.jup.ag/swap/v1",
+    "quotePath": "/swap/v1/quote",
+    "swapBuildPath": "/swap/v1/swap",
+    "quoteBuildHostMatch": true,
+    "deprecatedV6Blocked": true,
+    "splitHostBlocked": true,
+    "preparationEvidenceOnly": true,
+    "swapBuildCalled": false,
+    "submitCalled": false,
+    "signCalled": false,
+    "broadcastCalled": false
+  },
+  "entryQuotePreparation": {
+    "api": "lite-api.jup.ag/swap/v1/quote",
+    "timestampUtc": "2026-07-14T02:04:52.370Z",
+    "quoteAgeMsAtCapture": 269,
+    "inputLamports": 5000000,
+    "positionSizeSol": 0.005,
+    "outAmountRaw": "1831523",
+    "otherAmountThresholdRaw": "1813208",
+    "expectedHumanUnits": "1.831523 JUP at 6 decimals",
+    "priceImpactPct": "0",
+    "slippageBps": 100,
+    "routeFingerprint": "[{\"label\":\"BisonFi\",\"percent\":100,\"ammKey\":\"8FnX3xo2yYw3EUE6w3nQA4GfXGS9wpK6oj3veJpbFzLo\"},{\"label\":\"Meteora DLMM\",\"percent\":100,\"ammKey\":\"BhQEFZCRnWKQ21LEt4DUby7fKynfmLVJcNjfHNqjEF61\"}]",
+    "route": [
+      {
+        "label": "BisonFi",
+        "ammKey": "8FnX3xo2yYw3EUE6w3nQA4GfXGS9wpK6oj3veJpbFzLo",
+        "percent": 100
+      },
+      {
+        "label": "Meteora DLMM",
+        "ammKey": "BhQEFZCRnWKQ21LEt4DUby7fKynfmLVJcNjfHNqjEF61",
+        "percent": 100
+      }
+    ]
+  },
+  "exitQuotePreparation": {
+    "api": "lite-api.jup.ag/swap/v1/quote",
+    "timestampUtc": "2026-07-14T02:04:52.639Z",
+    "quoteAgeMsAtCapture": 111,
+    "inAmountRaw": "1831523",
+    "outAmountLamports": "4999351",
+    "outAmountSol": "0.004999351",
+    "otherAmountThresholdLamports": "4949358",
+    "priceImpactPct": "0.0011736457048605308228869978",
+    "slippageBps": 100,
+    "routeFingerprint": "[{\"label\":\"ZeroFi\",\"percent\":100,\"ammKey\":\"Et6HnPjetV8AzmxNAfzKJ6ax5VM82ZB7phY465Ns5iZW\"},{\"label\":\"TesseraV\",\"percent\":100,\"ammKey\":\"DNhfyh75AApg1L1Yig3fErvERKutYRqfWLGb496iViSZ\"},{\"label\":\"PancakeSwap\",\"percent\":100,\"ammKey\":\"8tpmZEtYup1UEXNqaKoXWE5eiK7yqxh9cGfh76YeCtuC\"}]",
+    "route": [
+      {
+        "label": "ZeroFi",
+        "ammKey": "Et6HnPjetV8AzmxNAfzKJ6ax5VM82ZB7phY465Ns5iZW",
+        "percent": 100
+      },
+      {
+        "label": "TesseraV",
+        "ammKey": "DNhfyh75AApg1L1Yig3fErvERKutYRqfWLGb496iViSZ",
+        "percent": 100
+      },
+      {
+        "label": "PancakeSwap",
+        "ammKey": "8tpmZEtYup1UEXNqaKoXWE5eiK7yqxh9cGfh76YeCtuC",
+        "percent": 100
+      }
+    ],
+    "sellRouteVerifiedPreparation": true,
+    "routeAsymmetryNote": "BUY and SELL prep routes may differ via Jupiter aggregation; both legs returned quotes at preparation time"
+  },
+  "tokenSafety": {
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mintAuthority": null,
+    "freezeAuthority": null,
+    "decimals": 6,
+    "token2022": false,
+    "transferRestrictionDetected": false,
+    "unsupportedTokenExtensionDetected": false,
+    "honeypotIndicatorPreparation": "none_observed_sell_quote_ok",
+    "rpcProviderLabel": "helius_rpc_url_configured",
+    "secretSafe": true
+  },
+  "fees": {
+    "tradeNotionalSol": 0.005,
+    "baseFeeSol": 0.000005,
+    "priorityFeeSolAppliedPlanning": 0.0002,
+    "priorityFeeCapSol": 0.001,
+    "platformOrRouteFeeSol": null,
+    "ataRentSolIfCreated": 0.00203928,
+    "ataRentRefundable": true,
+    "nonRentSingleEntryUpperBoundSol": 0.000205,
+    "walletDebitUpperBoundSolNoAta": 0.005205,
+    "walletDebitUpperBoundSolWithAta": 0.00724428,
+    "doubleCountPriorityFee": false,
+    "exitFeesExcludedFromEntryBound": true,
+    "minWalletBalanceSolConfig": 0.12,
+    "feePolicyVerdict": "PASS_FOR_ENGINEERING_TEST"
+  },
+  "executionBounds": {
+    "targetPct": 10,
+    "stopPct": 5,
+    "timeoutMinutes": 20,
+    "confirmationTimeoutMs": 30000,
+    "realizedSlippageHaltBps": 200,
+    "sessionLossStopSol": 0.03,
+    "dailyLossStopSol": 0.03,
+    "maxDailyLossCount": 2,
+    "mevRouteMode": "public_micro_live_only"
+  },
+  "csResults": {
+    "CS1": "PASS_MANUAL_ENGINEERING_BASELINE",
+    "CS2": "PASS",
+    "CS3": "PASS",
+    "CS4": "PASS",
+    "CS5": "PASS",
+    "CS6": "PASS_AT_CAPTURE_REFETCH_REQUIRED",
+    "CS7": "PASS",
+    "CS8": "PASS",
+    "CS9": "PASS",
+    "CS10": "PASS_PREPARATION_QUOTE",
+    "CS11": "PASS_PREPARATION_QUOTE",
+    "CS12": "PASS_WITH_ROUTE_ASYMMETRY_NOTE",
+    "CS13": "PASS_PREPARATION_FEE_MODEL"
+  },
+  "readinessCheckpoint": {
+    "posture": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "liveArmed": false,
+      "emergencyStop": false,
+      "positionSizeSol": 0.005,
+      "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+      "runtimeStubPresent": false,
+      "fomoEnableLiveSubmissionPresent": false,
+      "fomoAllowLoopLivePresent": false
+    },
+    "flatState": {
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0,
+      "recoveryActionsRows": 0
+    },
+    "runtimeHealth": {
+      "classification": "CAPITAL_SAFE_BUT_RUNTIME_AMBIGUOUS",
+      "severity": "warning",
+      "summary": "No capital exposure, but producer/loop/lock/scanner evidence is incomplete.",
+      "warnings": [
+        "STALE_SCANNER",
+        "EXECUTOR_LOOP_UNCONFIRMED"
+      ],
+      "supportsSoakClaim": false,
+      "supportsLiveReadiness": false,
+      "capitalExposure": "none",
+      "executorLoopConfirmed": false,
+      "a4Status": "A4_VERIFIED_DEDICATED",
+      "a4ProofStability": {
+        "successCount": 2,
+        "freshSuccessCount": 2,
+        "separationBucket": ">=15m",
+        "providerConsistent": true,
+        "endpointClassConsistent": true,
+        "providerLabel": "helius_rpc_url_configured",
+        "endpointClass": "dedicated",
+        "fallbackObserved": false,
+        "failureObserved": false,
+        "secretSafe": true,
+        "withinFreshnessWindow": true,
+        "stabilityCandidate": true
+      }
+    },
+    "dashboardEndpointReachable": false,
+    "dashboardEndpointNote": "localhost:3000 endpoint unavailable during prep; direct read-only buildVulcanRuntimeHealth used instead"
+  },
+  "unresolvedRisks": [
+    "preparation quotes are evidence only; execution gate must obtain fresh quote <= 10 seconds",
+    "route fingerprint may change at execution",
+    "dashboard endpoint unavailable during prep; no process changes authorized to start it",
+    "runtime health has stale scanner/lock warnings and does not support live-readiness claim",
+    "real submit/sign/broadcast/confirmation/reconciliation/exit unproven in this gate",
+    "strategy NOT READY - engineering validation only",
+    "final per-trade confirmation absent"
+  ],
+  "boundedListHaltedAfterFirstPass": true,
+  "candidatesInBoundedList": 1,
+  "candidatesFullyEvaluated": 1,
+  "confirmationStringExact": "CONFIRM RB-G9-20260713-AP04 FOR JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN AT 3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe - ONE 0.005 SOL ENTRY AND MANDATORY EXIT",
+  "governance": {
+    "or20260630008": "not_promoted",
+    "strategyReady": false,
+    "profitabilityClaim": false,
+    "liveReadinessClaim": false,
+    "finalPerTradeConfirmationReceived": false
+  },
+  "explicitNonActions": {
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "swapBuildCalled": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "secretSafe": true
+}
