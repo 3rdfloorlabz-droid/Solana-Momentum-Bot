@@ -1,0 +1,33 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "liveTradeId": "live_JUP_1784001899528",
+  "startedAtUtc": "2026-07-14T04:06:34.477Z",
+  "action": "MANDATORY_EXIT_ONLY_NO_NEW_ENTRY",
+  "redacted": true,
+  "positionBeforeExit": {
+    "liveTradeId": "live_JUP_1784001899528",
+    "filledTokenAmountUi": 1.846305,
+    "filledTokenAmountRawForExit": 1846305,
+    "entryTxSig": "L2Pz5v2crr94jaMLCdZzvn8CxUfxEZgJFkVyyN33oKaGhUygUrGBQ7EoTdUmAhUWVMLkDctjvH1aW7dPmGfHLEo"
+  },
+  "positionAmountNormalizedForExit": true,
+  "exit": {
+    "completed": true,
+    "status": "CLOSED",
+    "pendingAfterExit": 0,
+    "openPositionsAfterExit": 0
+  },
+  "status": "PASS_MANDATORY_EXIT_COMPLETED",
+  "completedAtUtc": "2026-07-14T04:06:36.881Z",
+  "finalPosture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "emergencyStop": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef"
+  },
+  "finalFlatState": {
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0,
+    "runtimeStubPresent": false
+  }
+}

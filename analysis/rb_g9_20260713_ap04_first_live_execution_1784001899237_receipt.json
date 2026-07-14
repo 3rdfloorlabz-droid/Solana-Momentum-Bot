@@ -1,0 +1,68 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "startedAtUtc": "2026-07-14T04:04:59.237Z",
+  "candidate": {
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "positionSizeSol": 0.005
+  },
+  "stages": [
+    {
+      "stage": "preArmingFlatState",
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0
+    },
+    {
+      "stage": "postArmingFlatState",
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0
+    }
+  ],
+  "nonSecret": true,
+  "preLiveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+  "freshDexPair": {
+    "liquidityUsd": 77612.2,
+    "priceUsd": 0.1466,
+    "dexId": "meteora",
+    "capturedAtUtc": "2026-07-14T04:04:59.483Z"
+  },
+  "runtimeStub": {
+    "created": true,
+    "sha256": "546ffa2d79a73e3c544592a25bf86571f6fb9b66dea3c5227cca6095c443cdc4",
+    "schemaVersion": 2,
+    "approvalPurpose": "micro_live_execution"
+  },
+  "armed": {
+    "executionMode": "LIVE",
+    "dryRunMode": false,
+    "fomoEnableLiveSubmission": "YES",
+    "liveConfigSha256": "ba44fbbbc8b01d31f1b1e837a4f3887a97e0c199fffa054f82bf053de744e130"
+  },
+  "buy": {
+    "liveTradeId": "live_JUP_1784001899528",
+    "completed": true,
+    "openPositionsAfterBuy": 1,
+    "pendingAfterBuy": 0
+  },
+  "status": "FAIL_CLOSED",
+  "error": {
+    "message": "Quote request parameters are invalid.",
+    "code": "QUOTE_FAILED",
+    "stage": "QUOTE",
+    "buyStarted": true,
+    "sellStarted": true,
+    "liveTradeId": "live_JUP_1784001899528"
+  },
+  "completedAtUtc": "2026-07-14T04:05:03.829Z",
+  "finalPosture": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "emergencyStop": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubPresent": false,
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 1,
+    "fomoEnableLiveSubmissionProcess": "absent"
+  }
+}

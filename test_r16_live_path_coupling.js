@@ -222,8 +222,8 @@ function installLiveMocks(kp, opts = {}) {
             mint: "11111111111111111111111111111111",
             uiTokenAmount: {
               amount: String(opts.sellAmountTokenUnits || 100),
-              uiAmount: opts.sellAmountTokenUnits || 100,
-              uiAmountString: String(opts.sellAmountTokenUnits || 100)
+              uiAmount: opts.sellAmountUi ?? opts.sellAmountTokenUnits ?? 100,
+              uiAmountString: String(opts.sellAmountUi ?? opts.sellAmountTokenUnits ?? 100)
             }
           }] : [],
           postTokenBalances: opts.quoteKind === "SELL" ? [{
@@ -339,8 +339,9 @@ async function runTests() {
   assert(liveTradeId, "T1 enterPosition returned id");
   const positions = readPositions();
   assert(positions.length === 1 && positions[0].status === "OPEN", "T1 position OPEN");
-  assert(positions[0].filledTokenAmount === 100, "T1 stores filled token amount for mandatory SELL sizing");
-  pass("T1", "enterPosition after mocked LIVE confirm writes OPEN position with filled token amount");
+  assert(positions[0].filledTokenAmount === 100, "T1 stores UI filled token amount");
+  assert(positions[0].filledTokenAmountRaw === 100, "T1 stores raw filled token amount for mandatory SELL sizing");
+  pass("T1", "enterPosition after mocked LIVE confirm writes OPEN position with UI and raw filled token amounts");
 
   // T2 — submit failure → no position write
   resetMocks();
@@ -471,6 +472,8 @@ async function runTests() {
     pairAddress: "r16-pair",
     positionSizeSol: 0.01,
     filledTokenAmount: 100,
+    filledTokenAmountUi: 100,
+    filledTokenAmountRaw: 100,
     entryTime: new Date().toISOString(),
     intendedEntryPrice: 0.0001,
     actualEntryPrice: 0.0001,
@@ -500,6 +503,8 @@ async function runTests() {
     pairAddress: "r16-pair",
     positionSizeSol: 0.01,
     filledTokenAmount: 100,
+    filledTokenAmountUi: 100,
+    filledTokenAmountRaw: 100,
     entryTime: new Date().toISOString(),
     intendedEntryPrice: 0.0001,
     actualEntryPrice: 0.0001,
@@ -530,6 +535,8 @@ async function runTests() {
     pairAddress: "r16-pair",
     positionSizeSol: 0.01,
     filledTokenAmount: 100,
+    filledTokenAmountUi: 100,
+    filledTokenAmountRaw: 100,
     entryTime: new Date().toISOString(),
     intendedEntryPrice: 0.0001,
     actualEntryPrice: 0.0001,
@@ -589,6 +596,8 @@ async function runTests() {
     pairAddress: "r16-pair",
     positionSizeSol: 0.01,
     filledTokenAmount: 100,
+    filledTokenAmountUi: 100,
+    filledTokenAmountRaw: 100,
     entryTime: new Date().toISOString(),
     intendedEntryPrice: 0.0001,
     actualEntryPrice: 0.0001,
@@ -602,9 +611,9 @@ async function runTests() {
     onQuoteAmount: amount => quotedSellAmounts.push(amount)
   });
   await r16().executeLiveExitForTest("exit-with-filled-amount", { triggerType: "MANUAL", triggerPrice: 0.0001 });
-  assert(quotedSellAmounts.includes("100"), "T-extra-exit-success SELL quote used filledTokenAmount");
+  assert(quotedSellAmounts.includes("100"), "T-extra-exit-success SELL quote used filledTokenAmountRaw");
   assert(readPositions().length === 0, "T-extra-exit-success closes the open position");
-  pass("T-extra-exit-success", "mandatory exit quotes stored filled token amount and closes position");
+  pass("T-extra-exit-success", "mandatory exit quotes stored raw filled token amount and closes position");
 
   // T-extra-live-exit-success - confirmed LIVE SELL compares raw lamports and closes.
   resetMocks();
@@ -620,7 +629,9 @@ async function runTests() {
     address: "11111111111111111111111111111111",
     pairAddress: "r16-pair",
     positionSizeSol: 0.01,
-    filledTokenAmount: 100,
+    filledTokenAmount: 1.846305,
+    filledTokenAmountUi: 1.846305,
+    filledTokenAmountRaw: 1846305,
     entryTime: new Date().toISOString(),
     intendedEntryPrice: 0.0001,
     actualEntryPrice: 0.0001,
@@ -631,11 +642,13 @@ async function runTests() {
   }], null, 2)}\n`);
   installLiveMocks(kp, {
     quoteKind: "SELL",
-    sellAmountTokenUnits: 100,
+    sellAmountTokenUnits: 1846305,
+    sellAmountUi: 1.846305,
     onQuoteAmount: amount => quotedSellAmounts.push(amount)
   });
   pipeline.setSignerLoaderForTest(() => mockSigner(kp));
   await r16().executeLiveExitForTest("live-exit-with-filled-amount", { triggerType: "MANUAL", triggerPrice: 0.0001 });
+  assert(quotedSellAmounts.includes("1846305"), "T-extra-live-exit-success SELL quote used filledTokenAmountRaw");
   assert(readPositions().length === 0, "T-extra-live-exit-success closes the open live position");
   assert(readRows(pendingFile).length === 0, "T-extra-live-exit-success does not create reconciliation");
   pass("T-extra-live-exit-success", "confirmed LIVE SELL validates raw output units and closes position");

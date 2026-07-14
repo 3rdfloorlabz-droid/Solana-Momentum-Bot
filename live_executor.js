@@ -2400,6 +2400,12 @@ function resolveCapitalExposureForLiveGate(cfg) {
   return openLive.length > 0 ? "active" : "none";
 }
 
+function resolvePositionSellAmountTokenUnits(pos) {
+  const raw = Number(pos?.filledTokenAmountRaw);
+  if (Number.isSafeInteger(raw) && raw > 0) return raw;
+  return null;
+}
+
 function resolveAuthorizedLiveExitForGate(context = {}) {
   if (context.kind !== "SELL") return { ok: false, reason: "not_sell" };
   const tokenAddress = context.tokenAddress;
@@ -2419,7 +2425,11 @@ function resolveAuthorizedLiveExitForGate(context = {}) {
   }
   if (pos.address !== tokenAddress) return { ok: false, reason: "token_mismatch", openLiveCount: openLive.length };
   if (pos.pairAddress !== pairAddress) return { ok: false, reason: "pair_mismatch", openLiveCount: openLive.length };
-  if (Number(pos.filledTokenAmount) !== sellAmountTokenUnits) {
+  const positionSellAmountTokenUnits = resolvePositionSellAmountTokenUnits(pos);
+  if (positionSellAmountTokenUnits === null) {
+    return { ok: false, reason: "missing_filled_token_amount_raw", openLiveCount: openLive.length };
+  }
+  if (positionSellAmountTokenUnits !== sellAmountTokenUnits) {
     return { ok: false, reason: "sell_amount_mismatch", openLiveCount: openLive.length };
   }
 
@@ -3411,6 +3421,8 @@ async function enterPosition(cfg, candidate) {
     positionSizeSol: cfg.positionSizeSol,
     intendedEntryPrice: candidate.entryPrice, actualEntryPrice: entryPrice,
     filledTokenAmount: res.filledTokenAmount,
+    filledTokenAmountUi: res.filledTokenAmount,
+    filledTokenAmountRaw: res.filledOutputAmountRaw,
     entrySlippagePct: res.slippagePct, entryFeeSol: res.feeSol || 0,
     entryTxSig: res.txSig, entryLatencyMs, targetPrice, stopPrice,
     poolLiquidityUsd: Number.isFinite(Number(candidate.liquidity)) ? Number(candidate.liquidity) : null,
@@ -3426,6 +3438,8 @@ async function enterPosition(cfg, candidate) {
     positionSizeSol: cfg.positionSizeSol,
     entryTime: nowIso(), intendedEntryPrice: candidate.entryPrice, actualEntryPrice: entryPrice,
     filledTokenAmount: res.filledTokenAmount,
+    filledTokenAmountUi: res.filledTokenAmount,
+    filledTokenAmountRaw: res.filledOutputAmountRaw,
     entrySlippagePct: res.slippagePct, entryFeeSol: res.feeSol || 0,
     entryTxSig: res.txSig, entryLatencyMs, targetPrice, stopPrice,
     poolLiquidityUsd: Number.isFinite(Number(candidate.liquidity)) ? Number(candidate.liquidity) : null,
@@ -3510,9 +3524,9 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
     triggerType: trigger.triggerType, triggerPrice: trigger.triggerPrice
   });
 
-  const sellAmountTokenUnits = Number(pos.filledTokenAmount);
-  if (!Number.isFinite(sellAmountTokenUnits) || sellAmountTokenUnits <= 0) {
-    const detail = "Open position missing positive filledTokenAmount; mandatory SELL cannot be sized safely.";
+  const sellAmountTokenUnits = resolvePositionSellAmountTokenUnits(pos);
+  if (sellAmountTokenUnits === null) {
+    const detail = "Open position missing positive integer filledTokenAmountRaw; mandatory SELL cannot be sized safely.";
     logError("executeLiveExit.sellAmountTokenUnits", detail, { liveTradeId, symbol: pos.symbol });
     writeLiveEvent({ eventType: "EXECUTION_FAILURE", liveTradeId, timestamp: nowIso(),
       symbol: pos.symbol, failureReason: "SELL_AMOUNT_MISSING", failureDetail: detail,
@@ -3569,7 +3583,10 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
     eventType: "ACTUAL_LIVE_EXIT", liveTradeId, timestamp: nowIso(), exitTime: nowIso(),
     symbol: pos.symbol, address: pos.address, pairAddress: pos.pairAddress,
     triggerType: trigger.triggerType, positionSizeSol: pos_,
-    filledTokenAmount: pos.filledTokenAmount,
+    filledTokenAmount: pos.filledTokenAmountUi ?? pos.filledTokenAmount,
+    filledTokenAmountUi: pos.filledTokenAmountUi ?? pos.filledTokenAmount,
+    filledTokenAmountRaw: pos.filledTokenAmountRaw,
+    sellAmountTokenUnits,
     actualEntryPrice: entryPrice, actualExitPrice: exitPrice,
     exitSlippagePct: res.slippagePct, exitFeeSol: res.feeSol || 0, totalFeesSol,
     exitTxSig: res.txSig, exitLatencyMs,
@@ -3584,7 +3601,10 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
     entryTime: pos.entryTime, exitTime: nowIso(),
     symbol: pos.symbol, address: pos.address, pairAddress: pos.pairAddress,
     positionSizeSol: pos_, actualEntryPrice: entryPrice, actualExitPrice: exitPrice,
-    filledTokenAmount: pos.filledTokenAmount,
+    filledTokenAmount: pos.filledTokenAmountUi ?? pos.filledTokenAmount,
+    filledTokenAmountUi: pos.filledTokenAmountUi ?? pos.filledTokenAmount,
+    filledTokenAmountRaw: pos.filledTokenAmountRaw,
+    sellAmountTokenUnits,
     entrySlippagePct: pos.entrySlippagePct, exitSlippagePct: res.slippagePct,
     entryFeeSol: pos.entryFeeSol || 0, exitFeeSol: res.feeSol || 0, totalFeesSol,
     entryLatencyMs: pos.entryLatencyMs, exitLatencyMs,
