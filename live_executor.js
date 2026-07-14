@@ -3069,6 +3069,9 @@ async function completeLiveSwapFromPipeline({
   return {
     txSig: submission.txSig,
     filledPrice,
+    filledInputAmount: fill.inputAmount,
+    filledOutputAmount: fill.outputAmount,
+    filledTokenAmount: kind === "BUY" ? fill.outputAmount : fill.inputAmount,
     actualFillPriceSolPerToken: fill.actualFillPriceSolPerToken,
     actualFillPriceUsdPerToken: fill.actualFillPriceUsdPerToken,
     slippagePct,
@@ -3085,6 +3088,9 @@ async function completeLiveSwapFromPipeline({
       confirmationStatus: confirmation.confirmationStatus,
       actualFillPriceSolPerToken: fill.actualFillPriceSolPerToken,
       actualFillPriceUsdPerToken: fill.actualFillPriceUsdPerToken,
+      filledInputAmount: fill.inputAmount,
+      filledOutputAmount: fill.outputAmount,
+      filledTokenAmount: kind === "BUY" ? fill.outputAmount : fill.inputAmount,
       quoteAgeMs,
       mevRouteMode: mevPosture.mode,
       realizedSlippageBps: realizedSlippage.realizedSlippageBps
@@ -3318,6 +3324,7 @@ async function enterPosition(cfg, candidate) {
     score: candidate.score, source: candidate.source, strategyVersion: cfg.strategyVersion,
     positionSizeSol: cfg.positionSizeSol,
     intendedEntryPrice: candidate.entryPrice, actualEntryPrice: entryPrice,
+    filledTokenAmount: res.filledTokenAmount,
     entrySlippagePct: res.slippagePct, entryFeeSol: res.feeSol || 0,
     entryTxSig: res.txSig, entryLatencyMs, targetPrice, stopPrice,
     poolLiquidityUsd: Number.isFinite(Number(candidate.liquidity)) ? Number(candidate.liquidity) : null,
@@ -3332,6 +3339,7 @@ async function enterPosition(cfg, candidate) {
     score: candidate.score, source: candidate.source,
     positionSizeSol: cfg.positionSizeSol,
     entryTime: nowIso(), intendedEntryPrice: candidate.entryPrice, actualEntryPrice: entryPrice,
+    filledTokenAmount: res.filledTokenAmount,
     entrySlippagePct: res.slippagePct, entryFeeSol: res.feeSol || 0,
     entryTxSig: res.txSig, entryLatencyMs, targetPrice, stopPrice,
     poolLiquidityUsd: Number.isFinite(Number(candidate.liquidity)) ? Number(candidate.liquidity) : null,
@@ -3416,11 +3424,27 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
     triggerType: trigger.triggerType, triggerPrice: trigger.triggerPrice
   });
 
+  const sellAmountTokenUnits = Number(pos.filledTokenAmount);
+  if (!Number.isFinite(sellAmountTokenUnits) || sellAmountTokenUnits <= 0) {
+    const detail = "Open position missing positive filledTokenAmount; mandatory SELL cannot be sized safely.";
+    logError("executeLiveExit.sellAmountTokenUnits", detail, { liveTradeId, symbol: pos.symbol });
+    writeLiveEvent({ eventType: "EXECUTION_FAILURE", liveTradeId, timestamp: nowIso(),
+      symbol: pos.symbol, failureReason: "SELL_AMOUNT_MISSING", failureDetail: detail,
+      anomalyFlags: ["EXECUTION_FAILURE", "NEEDS_REVIEW"], status: "FAILED" });
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.MINT_MISMATCH,
+      EXECUTION_STAGES.MINT_RESOLUTION,
+      detail,
+      { liveTradeId, symbol: pos.symbol }
+    );
+  }
+
   let res;
   try {
     res = await submitSwap("SELL", {
       cfg, tokenAddress: pos.address, pairAddress: pos.pairAddress,
       expectedPrice: trigger.triggerPrice, positionSizeSol: pos.positionSizeSol,
+      sellAmountTokenUnits,
       poolLiquidityUsd: pos.poolLiquidityUsd
     });
   } catch (err) {
@@ -3458,6 +3482,7 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
     eventType: "ACTUAL_LIVE_EXIT", liveTradeId, timestamp: nowIso(), exitTime: nowIso(),
     symbol: pos.symbol, address: pos.address, pairAddress: pos.pairAddress,
     triggerType: trigger.triggerType, positionSizeSol: pos_,
+    filledTokenAmount: pos.filledTokenAmount,
     actualEntryPrice: entryPrice, actualExitPrice: exitPrice,
     exitSlippagePct: res.slippagePct, exitFeeSol: res.feeSol || 0, totalFeesSol,
     exitTxSig: res.txSig, exitLatencyMs,
@@ -3472,6 +3497,7 @@ async function executeLiveExitImpl(liveTradeId, trigger) {
     entryTime: pos.entryTime, exitTime: nowIso(),
     symbol: pos.symbol, address: pos.address, pairAddress: pos.pairAddress,
     positionSizeSol: pos_, actualEntryPrice: entryPrice, actualExitPrice: exitPrice,
+    filledTokenAmount: pos.filledTokenAmount,
     entrySlippagePct: pos.entrySlippagePct, exitSlippagePct: res.slippagePct,
     entryFeeSol: pos.entryFeeSol || 0, exitFeeSol: res.feeSol || 0, totalFeesSol,
     entryLatencyMs: pos.entryLatencyMs, exitLatencyMs,

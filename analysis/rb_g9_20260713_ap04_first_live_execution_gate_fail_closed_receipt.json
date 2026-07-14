@@ -1,0 +1,68 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-first-live-execution-gate-fail-closed/1.0.0",
+  "status": "FAIL_CLOSED_BEFORE_ARMING_NO_EXECUTION",
+  "createdAtUtc": "2026-07-14T02:19:32.8494880Z",
+  "authorizedStatement": "I authorize AP04 first-live execution gate for RB-G9-20260713-AP04: perform fresh readiness/timing/flat-state checks, process isolation, C1-C3 arming transition, create a schema-valid micro_live_execution runtime stub, refresh candidate quote, and execute exactly one 0.005 SOL BUY of mint JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN via pair/pool 3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe with mandatory SELL exit under signed bounds; no executor/scanner loop, no second entry, no scaling, keep SOLANA_SIGNER_SECRET redacted, leave FOMO Wallet Monitor untouched, and stop/fail closed if any readiness, timing, posture, quote, candidate, stub, signer, RPC, submission, confirmation, reconciliation, or flat-state check fails. CONFIRM RB-G9-20260713-AP04 FOR JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN AT 3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe - ONE 0.005 SOL ENTRY AND MANDATORY EXIT",
+  "candidate": {
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "positionSizeSol": 0.005
+  },
+  "prechecksPassedBeforeBlocker": {
+    "insideAuthorizationWindow": true,
+    "flatState": {
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0
+    },
+    "signerPresence": "present_redacted",
+    "dedicatedRpc": "configured_redacted",
+    "preArmingPosture": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "liveArmed": false,
+      "emergencyStop": false
+    }
+  },
+  "blocker": {
+    "code": "MANDATORY_EXIT_PATH_NOT_SUPPORTED_BY_CURRENT_PUBLIC_EXECUTION_GATE",
+    "severity": "critical",
+    "reason": "The supported live_executor entry path can submit a BUY, but executeLiveExit does not pass sellAmountTokenUnits into submitSwap. The SELL quote path derives quoteAmount from Number(sellAmountTokenUnits), so a mandatory immediate SELL cannot be guaranteed through the supported exported exit flow.",
+    "evidence": [
+      "live_executor.js executeQuotedSwapAttempt uses quoteAmount = kind === \"BUY\" ? positionSizeSol lamports : Number(sellAmountTokenUnits)",
+      "live_executor.js submitSwap accepts sellAmountTokenUnits",
+      "live_executor.js executeLiveExitImpl calls submitSwap(\"SELL\", ...) without sellAmountTokenUnits",
+      "legacy R43E real proof target is 0.01 SOL -> USDC and stopAfterFirstTransaction only, not the authorized 0.005 SOL -> JUP with mandatory exit"
+    ]
+  },
+  "explicitNonActions": {
+    "processIsolationPerformed": false,
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "scannerLoopStarted": false,
+    "quoteRefreshedForExecution": false,
+    "swapBuildCalled": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "postFailClosedVerification": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "emergencyStop": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubPresent": false,
+    "fomoEnableLiveSubmissionPresent": false,
+    "fomoAllowLoopLivePresent": false,
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0
+  },
+  "nextRequiredStep": "Engineering remediation or an explicitly authorized, reviewed single-cycle entry-and-exit tool that binds actual BUY fill amount into the mandatory SELL path before any live entry is attempted."
+}

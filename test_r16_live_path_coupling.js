@@ -114,6 +114,12 @@ function seedRuntime(walletAddress) {
     emergencyStop: false,
     walletPublicAddress: walletAddress,
     positionSizeSol: 0.01,
+    maxEntrySlippagePct: 1,
+    maxExitSlippagePct: 1,
+    priorityFeeMode: "dynamic_helius",
+    maxPriorityFeeLamports: 1000000,
+    fallbackPriorityFeeLamports: 200000,
+    assumedComputeUnitLimit: 300000,
     maxOpenTrades: 1
   }, null, 2)}\n`);
   fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), "[]\n");
@@ -129,16 +135,20 @@ function installLiveMocks(kp, opts = {}) {
   const simulationTest = executor.__simulationTest;
   const submissionTest = executor.__submissionTest;
 
-  quoteTest.setQuoteFetchForTest(async () => {
+  quoteTest.setQuoteFetchForTest(async (url) => {
     if (opts.slowQuoteMs) await new Promise(r => setTimeout(r, opts.slowQuoteMs));
+    const isSell = opts.quoteKind === "SELL";
+    if (typeof opts.onQuoteAmount === "function" && url) {
+      opts.onQuoteAmount(new URL(url).searchParams.get("amount"));
+    }
     return {
       ok: true,
       json: async () => ({
-        inputMint: quoteTest.SOL_MINT,
-        outputMint: "11111111111111111111111111111111",
-        inAmount: "10000000",
-        outAmount: "100",
-        otherAmountThreshold: "97",
+        inputMint: isSell ? "11111111111111111111111111111111" : quoteTest.SOL_MINT,
+        outputMint: isSell ? quoteTest.SOL_MINT : "11111111111111111111111111111111",
+        inAmount: isSell ? String(opts.sellAmountTokenUnits || 100) : "10000000",
+        outAmount: isSell ? "9900000" : "100",
+        otherAmountThreshold: isSell ? "9800000" : "97",
         priceImpactPct: "1",
         slippageBps: 100,
         routePlan: [{ swapInfo: { label: "MOCK" }, percent: 100 }],
@@ -205,9 +215,17 @@ function installLiveMocks(kp, opts = {}) {
         meta: {
           fee: 5000,
           preBalances: [1000000000],
-          postBalances: [990000000],
-          preTokenBalances: [],
-          postTokenBalances: [{
+          postBalances: opts.quoteKind === "SELL" ? [1009900000] : [990000000],
+          preTokenBalances: opts.quoteKind === "SELL" ? [{
+            owner: kp.address,
+            mint: "11111111111111111111111111111111",
+            uiTokenAmount: { uiAmount: opts.sellAmountTokenUnits || 100, uiAmountString: String(opts.sellAmountTokenUnits || 100) }
+          }] : [],
+          postTokenBalances: opts.quoteKind === "SELL" ? [{
+            owner: kp.address,
+            mint: "11111111111111111111111111111111",
+            uiTokenAmount: { uiAmount: 0, uiAmountString: "0" }
+          }] : [{
             owner: kp.address,
             mint: "11111111111111111111111111111111",
             uiTokenAmount: { uiAmount: 100, uiAmountString: "100" }
@@ -287,6 +305,7 @@ async function runTests() {
   const pipeline = executor.__pipelineDryRunTest;
   const pendingFile = executor.FILES.PENDING_RECONCILIATION_FILE;
   const auditFile = executor.FILES.EXECUTION_AUDIT_FILE;
+  const liveTradesFile = executor.FILES.LIVE_TRADES_FILE;
   const results = [];
 
   function pass(id, detail = "") {
@@ -315,7 +334,8 @@ async function runTests() {
   assert(liveTradeId, "T1 enterPosition returned id");
   const positions = readPositions();
   assert(positions.length === 1 && positions[0].status === "OPEN", "T1 position OPEN");
-  pass("T1", "enterPosition after mocked LIVE confirm writes OPEN position");
+  assert(positions[0].filledTokenAmount === 100, "T1 stores filled token amount for mandatory SELL sizing");
+  pass("T1", "enterPosition after mocked LIVE confirm writes OPEN position with filled token amount");
 
   // T2 — submit failure → no position write
   resetMocks();
@@ -455,6 +475,56 @@ async function runTests() {
   const gate = r16().safetyCheckForTest(baseCfg());
   assert(!gate.allowed && gate.reasons.some(r => r.includes("Pending reconciliation")), "safetyCheck blocks entries");
   pass("T-extra", "pending reconciliation blocks safetyCheck entries");
+
+  // T-extra-exit - mandatory exit refuses positions without a concrete filled token amount.
+  resetMocks();
+  seedRuntime(kp.address);
+  fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), `${JSON.stringify([{
+    liveTradeId: "missing-sell-amount",
+    symbol: "R16EXIT",
+    address: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    entryTime: new Date().toISOString(),
+    intendedEntryPrice: 0.0001,
+    actualEntryPrice: 0.0001,
+    entryFeeSol: 0.000005,
+    status: "OPEN"
+  }], null, 2)}\n`);
+  await expectCode(codes().MINT_MISMATCH, () =>
+    r16().executeLiveExitForTest("missing-sell-amount", { triggerType: "MANUAL", triggerPrice: 0.0001 })
+  );
+  assert(readPositions().length === 1, "T-extra-exit position remains open for operator review");
+  assert(readRows(liveTradesFile).some(r => r.failureReason === "SELL_AMOUNT_MISSING"), "T-extra-exit writes SELL_AMOUNT_MISSING failure");
+  pass("T-extra-exit", "mandatory exit fails closed when filled token amount is missing");
+
+  // T-extra-exit-success - mandatory exit quotes the stored filled token amount.
+  resetMocks();
+  seedRuntime(kp.address);
+  const quotedSellAmounts = [];
+  fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), `${JSON.stringify([{
+    liveTradeId: "exit-with-filled-amount",
+    symbol: "R16EXITOK",
+    address: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    filledTokenAmount: 100,
+    entryTime: new Date().toISOString(),
+    intendedEntryPrice: 0.0001,
+    actualEntryPrice: 0.0001,
+    entryFeeSol: 0.000005,
+    poolLiquidityUsd: 30000,
+    status: "OPEN"
+  }], null, 2)}\n`);
+  installLiveMocks(kp, {
+    quoteKind: "SELL",
+    sellAmountTokenUnits: 100,
+    onQuoteAmount: amount => quotedSellAmounts.push(amount)
+  });
+  await r16().executeLiveExitForTest("exit-with-filled-amount", { triggerType: "MANUAL", triggerPrice: 0.0001 });
+  assert(quotedSellAmounts.includes("100"), "T-extra-exit-success SELL quote used filledTokenAmount");
+  assert(readPositions().length === 0, "T-extra-exit-success closes the open position");
+  pass("T-extra-exit-success", "mandatory exit quotes stored filled token amount and closes position");
 
   return results;
 }
