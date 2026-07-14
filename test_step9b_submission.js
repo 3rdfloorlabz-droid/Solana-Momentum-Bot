@@ -206,7 +206,7 @@ function installPipelineMocks({ returnedTxSig, fillThrows = false, highUsdFill =
             postTokenBalances: [{
               owner,
               mint: tokenAddress,
-              uiTokenAmount: { uiAmount: 100, uiAmountString: "100" }
+              uiTokenAmount: { amount: "100", uiAmount: 100, uiAmountString: "100" }
             }]
           }
         }
@@ -399,7 +399,7 @@ function resetMocks() {
               postTokenBalances: [{
                 owner: keypair.address,
                 mint: TEST_TOKEN_ADDRESS,
-                uiTokenAmount: { uiAmount: 100, uiAmountString: "100" }
+                uiTokenAmount: { amount: "100", uiAmount: 100, uiAmountString: "100" }
               }]
             }
           }

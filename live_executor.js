@@ -2764,6 +2764,27 @@ function tokenBalanceDelta(metaBalances, owner, mint) {
     .reduce((sum, item) => sum + Number(item.uiTokenAmount?.uiAmount ?? item.uiTokenAmount?.uiAmountString ?? 0), 0);
 }
 
+function tokenBalanceRawDelta(metaBalances, owner, mint) {
+  if (!Array.isArray(metaBalances)) return null;
+  let total = 0n;
+  let observed = false;
+  for (const item of metaBalances) {
+    if (owner && item.owner !== owner) continue;
+    if (mint && item.mint !== mint) continue;
+    const raw = item.uiTokenAmount?.amount;
+    if (raw === undefined || raw === null || raw === "") continue;
+    try {
+      total += BigInt(String(raw));
+      observed = true;
+    } catch {
+      return null;
+    }
+  }
+  if (!observed) return null;
+  const asNumber = Number(total);
+  return Number.isSafeInteger(asNumber) ? asNumber : null;
+}
+
 async function parseFillFromTransaction(txSig, cfg, kind, builtSwap, context = {}) {
   const rpc = resolveRpcEndpoint(cfg, { requireDedicated: true, purpose: "fill_parse" });
   const endpoint = rpc.endpoint;
@@ -2795,22 +2816,37 @@ async function parseFillFromTransaction(txSig, cfg, kind, builtSwap, context = {
       const preSol = Number(meta.preBalances?.[0]);
       const postSol = Number(meta.postBalances?.[0]);
       const solDelta = Number.isFinite(preSol) && Number.isFinite(postSol) ? (postSol - preSol) / LAMPORTS_PER_SOL : null;
+      const solDeltaLamports = Number.isFinite(preSol) && Number.isFinite(postSol) ? postSol - preSol : null;
       const inputMint = mints.inputMint;
       const outputMint = mints.outputMint;
       const preInputToken = tokenBalanceDelta(meta.preTokenBalances, owner, inputMint);
       const postInputToken = tokenBalanceDelta(meta.postTokenBalances, owner, inputMint);
       const preOutputToken = tokenBalanceDelta(meta.preTokenBalances, owner, outputMint);
       const postOutputToken = tokenBalanceDelta(meta.postTokenBalances, owner, outputMint);
+      const preInputTokenRaw = tokenBalanceRawDelta(meta.preTokenBalances, owner, inputMint);
+      const postInputTokenRaw = tokenBalanceRawDelta(meta.postTokenBalances, owner, inputMint);
+      const preOutputTokenRaw = tokenBalanceRawDelta(meta.preTokenBalances, owner, outputMint);
+      const postOutputTokenRaw = tokenBalanceRawDelta(meta.postTokenBalances, owner, outputMint);
       let inputAmount = null;
       let outputAmount = null;
+      let inputAmountRaw = null;
+      let outputAmountRaw = null;
       let actualFillPriceSolPerToken = null;
       if (kind === "BUY") {
         inputAmount = solDelta !== null ? Math.abs(Math.min(solDelta, 0)) : null;
         outputAmount = Math.max(postOutputToken - preOutputToken, 0);
+        inputAmountRaw = solDeltaLamports !== null ? Math.abs(Math.min(solDeltaLamports, 0)) : null;
+        outputAmountRaw = preOutputTokenRaw !== null || postOutputTokenRaw !== null
+          ? Math.max((postOutputTokenRaw || 0) - (preOutputTokenRaw || 0), 0)
+          : null;
         if (inputAmount > 0 && outputAmount > 0) actualFillPriceSolPerToken = inputAmount / outputAmount;
       } else {
         inputAmount = Math.max(preInputToken - postInputToken, 0);
         outputAmount = solDelta !== null ? Math.max(solDelta, 0) : null;
+        inputAmountRaw = preInputTokenRaw !== null || postInputTokenRaw !== null
+          ? Math.max((preInputTokenRaw || 0) - (postInputTokenRaw || 0), 0)
+          : null;
+        outputAmountRaw = solDeltaLamports !== null ? Math.max(solDeltaLamports, 0) : null;
         if (inputAmount > 0 && outputAmount > 0) actualFillPriceSolPerToken = outputAmount / inputAmount;
       }
       if (Number.isFinite(actualFillPriceSolPerToken) && actualFillPriceSolPerToken > 0) {
@@ -2819,6 +2855,8 @@ async function parseFillFromTransaction(txSig, cfg, kind, builtSwap, context = {
           attempt,
           inputAmount,
           outputAmount,
+          inputAmountRaw,
+          outputAmountRaw,
           actualFillPriceSolPerToken,
           actualFillPriceUsdPerToken: null,
           filledPriceUnavailable: true,
@@ -2833,10 +2871,12 @@ async function parseFillFromTransaction(txSig, cfg, kind, builtSwap, context = {
           slot: tx.slot ?? null,
           blockTime: tx.blockTime ?? null,
           inputAmount,
-          outputAmount
+          outputAmount,
+          inputAmountRaw,
+          outputAmountRaw
         };
       }
-      lastAttempt = { attempt, inputAmount, outputAmount, feeSolActual };
+      lastAttempt = { attempt, inputAmount, outputAmount, inputAmountRaw, outputAmountRaw, feeSolActual };
     }
     if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 1000));
   }
@@ -3070,7 +3110,7 @@ async function completeLiveSwapFromPipeline({
   }
 
   const expectedMinOut = quote.otherAmountThreshold ?? quote.outAmount;
-  const fillOutAmount = kind === "BUY" ? fill.outputAmount : fill.outputAmount;
+  const fillOutAmount = Number.isFinite(fill.outputAmountRaw) ? fill.outputAmountRaw : fill.outputAmount;
   detectPartialFill({
     actualOutAmount: fillOutAmount,
     expectedMinOut,
@@ -3113,6 +3153,8 @@ async function completeLiveSwapFromPipeline({
     filledPrice,
     filledInputAmount: fill.inputAmount,
     filledOutputAmount: fill.outputAmount,
+    filledInputAmountRaw: fill.inputAmountRaw,
+    filledOutputAmountRaw: fill.outputAmountRaw,
     filledTokenAmount: kind === "BUY" ? fill.outputAmount : fill.inputAmount,
     actualFillPriceSolPerToken: fill.actualFillPriceSolPerToken,
     actualFillPriceUsdPerToken: fill.actualFillPriceUsdPerToken,
@@ -3132,6 +3174,8 @@ async function completeLiveSwapFromPipeline({
       actualFillPriceUsdPerToken: fill.actualFillPriceUsdPerToken,
       filledInputAmount: fill.inputAmount,
       filledOutputAmount: fill.outputAmount,
+      filledInputAmountRaw: fill.inputAmountRaw,
+      filledOutputAmountRaw: fill.outputAmountRaw,
       filledTokenAmount: kind === "BUY" ? fill.outputAmount : fill.inputAmount,
       quoteAgeMs,
       mevRouteMode: mevPosture.mode,

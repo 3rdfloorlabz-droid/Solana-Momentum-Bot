@@ -106,7 +106,7 @@ async function expectCode(code, fn) {
   throw new Error(`expected ${code}, but call succeeded`);
 }
 
-function seedRuntime(walletAddress) {
+function seedRuntime(walletAddress, overrides = {}) {
   fs.writeFileSync(path.join(TEMP_ROOT, "live_config.json"), `${JSON.stringify({
     executionMode: "PIPELINE_DRY_RUN",
     dryRunMode: true,
@@ -120,7 +120,8 @@ function seedRuntime(walletAddress) {
     maxPriorityFeeLamports: 1000000,
     fallbackPriorityFeeLamports: 200000,
     assumedComputeUnitLimit: 300000,
-    maxOpenTrades: 1
+    maxOpenTrades: 1,
+    ...overrides
   }, null, 2)}\n`);
   fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), "[]\n");
   fs.writeFileSync(path.join(TEMP_ROOT, "live_trades.jsonl"), "");
@@ -219,16 +220,20 @@ function installLiveMocks(kp, opts = {}) {
           preTokenBalances: opts.quoteKind === "SELL" ? [{
             owner: kp.address,
             mint: "11111111111111111111111111111111",
-            uiTokenAmount: { uiAmount: opts.sellAmountTokenUnits || 100, uiAmountString: String(opts.sellAmountTokenUnits || 100) }
+            uiTokenAmount: {
+              amount: String(opts.sellAmountTokenUnits || 100),
+              uiAmount: opts.sellAmountTokenUnits || 100,
+              uiAmountString: String(opts.sellAmountTokenUnits || 100)
+            }
           }] : [],
           postTokenBalances: opts.quoteKind === "SELL" ? [{
             owner: kp.address,
             mint: "11111111111111111111111111111111",
-            uiTokenAmount: { uiAmount: 0, uiAmountString: "0" }
+            uiTokenAmount: { amount: "0", uiAmount: 0, uiAmountString: "0" }
           }] : [{
             owner: kp.address,
             mint: "11111111111111111111111111111111",
-            uiTokenAmount: { uiAmount: 100, uiAmountString: "100" }
+            uiTokenAmount: { amount: "100", uiAmount: 100, uiAmountString: "100" }
           }]
         }
       }
@@ -600,6 +605,40 @@ async function runTests() {
   assert(quotedSellAmounts.includes("100"), "T-extra-exit-success SELL quote used filledTokenAmount");
   assert(readPositions().length === 0, "T-extra-exit-success closes the open position");
   pass("T-extra-exit-success", "mandatory exit quotes stored filled token amount and closes position");
+
+  // T-extra-live-exit-success - confirmed LIVE SELL compares raw lamports and closes.
+  resetMocks();
+  seedRuntime(kp.address, {
+    executionMode: "LIVE",
+    dryRunMode: false
+  });
+  armLiveEnv(kp);
+  r16().setWalletBalanceForTest(1.0);
+  fs.writeFileSync(path.join(TEMP_ROOT, "live_positions.json"), `${JSON.stringify([{
+    liveTradeId: "live-exit-with-filled-amount",
+    symbol: "R16LIVEEXITOK",
+    address: "11111111111111111111111111111111",
+    pairAddress: "r16-pair",
+    positionSizeSol: 0.01,
+    filledTokenAmount: 100,
+    entryTime: new Date().toISOString(),
+    intendedEntryPrice: 0.0001,
+    actualEntryPrice: 0.0001,
+    entryFeeSol: 0.000005,
+    poolLiquidityUsd: 30000,
+    status: "OPEN",
+    dryRun: false
+  }], null, 2)}\n`);
+  installLiveMocks(kp, {
+    quoteKind: "SELL",
+    sellAmountTokenUnits: 100,
+    onQuoteAmount: amount => quotedSellAmounts.push(amount)
+  });
+  pipeline.setSignerLoaderForTest(() => mockSigner(kp));
+  await r16().executeLiveExitForTest("live-exit-with-filled-amount", { triggerType: "MANUAL", triggerPrice: 0.0001 });
+  assert(readPositions().length === 0, "T-extra-live-exit-success closes the open live position");
+  assert(readRows(pendingFile).length === 0, "T-extra-live-exit-success does not create reconciliation");
+  pass("T-extra-live-exit-success", "confirmed LIVE SELL validates raw output units and closes position");
 
   return results;
 }

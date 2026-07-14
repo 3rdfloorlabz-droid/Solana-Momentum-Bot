@@ -1,0 +1,107 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-first-live-execution-retry-fail-closed/1.1.0",
+  "status": "FAIL_CLOSED_BEFORE_ARMING_NO_EXECUTION",
+  "createdAtUtc": "2026-07-14T03:49:11.3955821Z",
+  "authorizedStatement": "authorize fresh checks, process isolation, C1-C3 arming transition, schema-valid micro-live stub, fresh quote, exactly one 0.005 SOL JUP BUY at the specified pool, and mandatory SELL exit using the confirmed BUY filled token amount.",
+  "candidate": {
+    "symbol": "JUP",
+    "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "pairAddressReference": "3xNGdc58axYtrJ64STQz5TrdQWVtWHLR888iRBbWZnEe",
+    "positionSizeSol": 0.005,
+    "mandatoryExitAmountSource": "confirmed_buy_filled_token_amount"
+  },
+  "prechecksPassedBeforeBlocker": {
+    "insideAuthorizationWindow": true,
+    "authorizationWindow": {
+      "expiresAtUtc": "2026-07-14T05:30:00.000Z",
+      "observedNowUtc": "2026-07-14T03:46:02.5308815Z",
+      "approxRemainingMinutes": 103.96
+    },
+    "readiness": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "automationEnabled": true,
+      "emergencyStop": false,
+      "readiness": "ALL PASS",
+      "liveArmed": false,
+      "liveSubmission": "DISARMED"
+    },
+    "flatState": {
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0
+    },
+    "processIsolation": {
+      "inspectionPerformed": true,
+      "authorizedIsolationTargetsFound": false,
+      "processesStopped": false,
+      "fomoWalletMonitorLeftUntouched": true
+    },
+    "activeGovernance": {
+      "microLiveExecutionAuthorizationReceipt": "analysis/rb_g9_20260713_ap04_micro_live_execution_authorization_governance_receipt.json",
+      "preparationReceipt": "analysis/rb_g9_20260713_ap04_first_live_execution_preparation_receipt.json",
+      "governanceExpiryUtc": "2026-07-14T05:30:00.000Z"
+    }
+  },
+  "blocker": {
+    "code": "MANDATORY_SELL_POST_CONFIRMATION_PARTIAL_FILL_UNIT_MISMATCH",
+    "severity": "critical",
+    "reason": "The LIVE SELL post-fill partial-fill validation compares the parsed SELL output amount in SOL units against Jupiter's raw lamport minimum-output threshold. A confirmed mandatory SELL can therefore be misclassified as PARTIAL_FILL_UNRECONCILED after broadcast, preventing the local exit path from closing the open live position record. This violates the mandatory-exit requirement for the first-live cycle.",
+    "evidence": [
+      "live_executor.js parseFillFromTransaction sets SELL outputAmount from solDelta in SOL units.",
+      "live_executor.js completeLiveSwapFromPipeline sets expectedMinOut from quote.otherAmountThreshold or quote.outAmount, which is a raw Jupiter amount.",
+      "live_executor.js completeLiveSwapFromPipeline passes fill.outputAmount into detectPartialFill for both BUY and SELL.",
+      "The prior focused mocked full-SELL submission path produced PARTIAL_FILL_UNRECONCILED before the test was narrowed to the pre-submit guard."
+    ],
+    "codeLocations": [
+      {
+        "file": "live_executor.js",
+        "line": 2813,
+        "observation": "SELL outputAmount is derived from solDelta, a SOL-denominated value."
+      },
+      {
+        "file": "live_executor.js",
+        "line": 3072,
+        "observation": "expectedMinOut is derived from Jupiter raw output threshold."
+      },
+      {
+        "file": "live_executor.js",
+        "line": 3073,
+        "observation": "fillOutAmount uses fill.outputAmount for SELL without raw-unit normalization."
+      },
+      {
+        "file": "live_executor.js",
+        "line": 3074,
+        "observation": "detectPartialFill compares those mismatched units."
+      }
+    ]
+  },
+  "explicitNonActions": {
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "scannerLoopStarted": false,
+    "quoteRefreshedForExecution": false,
+    "swapBuildCalled": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "buyExecuted": false,
+    "sellExecuted": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "postFailClosedVerification": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "emergencyStop": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+    "runtimeStubPresent": false,
+    "pendingReconciliationRows": 0,
+    "livePositionsOpen": 0
+  },
+  "nextRequiredStep": "Engineering remediation only: normalize SELL partial-fill validation to compare raw output units or skip the raw minimum-output comparison only when the confirmed SELL fill has already been parsed in SOL units with positive output and the route was pre-submit validated. Add a focused full mocked LIVE SELL test proving executeLiveExit closes the position after a confirmed SELL without PARTIAL_FILL_UNRECONCILED, while real partial/invalid SELL fills still fail closed."
+}
