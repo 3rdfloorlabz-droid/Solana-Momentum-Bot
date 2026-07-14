@@ -1,0 +1,67 @@
+{
+  "sessionId": "RB-G9-20260713-AP04",
+  "schemaVersion": "ap04-second-micro-live-candidate-packet/1.0.0",
+  "status": "PASS_PREPARATION_ONLY_NOT_EXECUTABLE_FINAL_CONFIRMATION_REQUIRED_WITH_WARNINGS",
+  "createdAtUtc": "2026-07-14T04:40:53.284Z",
+  "artifacts": {
+    "candidatePacketJson": "Ori/Phase 2/Project Vulcan/Live Readiness/Sessions/SESSION - RB-G9-20260713-AP04 - 2026-07-13/second_micro_live_candidate_packet.json",
+    "candidatePacketMarkdown": "Ori/Phase 2/Project Vulcan/Live Readiness/Sessions/SESSION - RB-G9-20260713-AP04 - 2026-07-13/SECOND MICRO-LIVE CANDIDATE PACKET - RB-G9-20260713-AP04 - 2026-07-13.md"
+  },
+  "readinessSummary": {
+    "posture": {
+      "executionMode": "PIPELINE_DRY_RUN",
+      "dryRunMode": true,
+      "liveArmed": false,
+      "emergencyStop": false,
+      "positionSizeSol": 0.005,
+      "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef",
+      "runtimeStubPresent": false
+    },
+    "flatState": {
+      "pendingReconciliationRows": 0,
+      "livePositionsOpen": 0
+    }
+  },
+  "candidateSummary": {
+    "symbol": "McGREJAK",
+    "mint": "5b3WY1VzcxJ5AkW7CYPyFz85YPkeLtuovEX2szmApump",
+    "pairAddressReference": "CCGcgW5GcSoP6QeLcEKefogpNuPNK4qGefbLUYWdkkws",
+    "scannerSourcePool": "non_thesis_observation",
+    "scannerResultsCount": 1,
+    "liquidityUsd": 39864.39,
+    "entryOutAmountRaw": "1320263506",
+    "exitOutAmountLamports": "4996525",
+    "entryPriceImpactPct": "0.0088015749131707954322263531",
+    "exitPriceImpactPct": "0",
+    "token2022": true,
+    "token2022Extensions": [
+      "metadataPointer",
+      "tokenMetadata"
+    ],
+    "csFailed": []
+  },
+  "warningsRequiringFinalAcknowledgment": [
+    "candidate is scanner-visible but classified by repo as non_thesis_observation because top10HolderRate 0.0955 is below the configured 0.10 floor",
+    "candidate mint is Token-2022, but parsed extensions are metadata-only and no transfer restriction was detected",
+    "preparation quotes are evidence only; execution gate must obtain fresh quotes <= 10 seconds",
+    "strategy NOT READY - engineering validation only",
+    "final per-trade confirmation absent"
+  ],
+  "explicitNonActions": {
+    "armed": false,
+    "liveConfigChanged": false,
+    "envChanged": false,
+    "runtimeStubCreated": false,
+    "executorLoopStarted": false,
+    "scannerLoopStarted": false,
+    "swapBuildCalled": false,
+    "submitted": false,
+    "signed": false,
+    "broadcast": false,
+    "tradeMade": false,
+    "capitalExposure": "none"
+  },
+  "finalPerTradeConfirmationReceived": false,
+  "nextRequiredStep": "Taylor final per-trade execution authorization only after reviewing warnings; separate execution gate must still re-check readiness, isolate processes, arm C1-C3, create schema-valid micro_live_execution runtime stub, refresh quotes, and fail closed on any blocker."
+}
+

@@ -1,0 +1,67 @@
+{
+  "recordType": "rb_g10_procedural_deviation_review",
+  "status": "COMPLETED_REVIEW_DEVIATIONS_ACCEPTANCE_ELIGIBLE",
+  "createdAtUtc": "2026-07-14T05:08:44.7496486Z",
+  "repoRoot": "C:\\TracktaOS\\Projects\\Active\\Solana-Momentum-Bot",
+  "branch": "github-clean",
+  "head": "3de99c5bbbeda974ee3a39d5c362a4cbcee54d80",
+  "runtimePostureAtReview": {
+    "executionMode": "PIPELINE_DRY_RUN",
+    "dryRunMode": true,
+    "liveArmed": false,
+    "pendingReconciliationRows": 0,
+    "openLivePositions": 0,
+    "runtimeStubPresent": false,
+    "liveConfigSha256": "0996882e1a5244d05079a2a6f3ff09049758ecbbf3b8e3e0434ee4b13a4d33ef"
+  },
+  "deviations": [
+    {
+      "id": "D1",
+      "description": "First micro-live BUY completed, then initial mandatory SELL attempt failed before submission due invalid quote amount units.",
+      "classification": "AUTHORIZED_WITH_PROCEDURAL_DEVIATION",
+      "safetyImpact": "MEDIUM_DURING_OPEN_INTERVAL_CLOSED_FLAT"
+    },
+    {
+      "id": "D2",
+      "description": "Mandatory exit-only remediation was required after first BUY instead of a clean single uninterrupted round trip.",
+      "classification": "REMEDIATED_PROCEDURAL_DEVIATION",
+      "safetyImpact": "MEDIUM_UNTIL_FLAT_CLOSURE"
+    },
+    {
+      "id": "D3",
+      "description": "RB-G10 named planning/decision/authorization chain was not found as a canonical artifact; AP04/RB-G9 records and chat authorizations carried authority.",
+      "classification": "GOVERNANCE_NAMING_COMPRESSION_DEVIATION",
+      "safetyImpact": "LOW_CAPITAL_MEDIUM_AUDIT_CLARITY"
+    },
+    {
+      "id": "D4",
+      "description": "Second candidate/execution evidence is uncommitted at review time.",
+      "classification": "EVIDENCE_PRESERVATION_GAP",
+      "safetyImpact": "LOW_RUNTIME_MEDIUM_AUDIT_DURABILITY"
+    },
+    {
+      "id": "D5",
+      "description": "One-use execution helper was generated under analysis rather than pre-existing committed operator tooling.",
+      "classification": "TOOLING_PROVENANCE_DEVIATION",
+      "safetyImpact": "LOW_TO_MEDIUM"
+    },
+    {
+      "id": "D6",
+      "description": "Second candidate was scanner-visible but non-thesis; Token-2022 metadata-only warning was explicitly acknowledged.",
+      "classification": "NOT_A_PROCEDURAL_DEVIATION_AFTER_ACKNOWLEDGMENT",
+      "safetyImpact": "LOW"
+    }
+  ],
+  "tradeCompliance": {
+    "firstMicroLive": "AUTHORIZED_WITH_PROCEDURAL_DEVIATION",
+    "secondMicroLive": "AUTHORIZED_AND_COMPLIANT"
+  },
+  "reviewVerdict": "PROCEDURAL_DEVIATIONS_REVIEWED_ACCEPTANCE_ELIGIBLE_AFTER_EVIDENCE_PRESERVATION",
+  "authorizesTrade": false,
+  "authorizesArming": false,
+  "authorizesConfigChange": false,
+  "gitStaged": false,
+  "gitCommitted": false,
+  "nextGate": "RB-G10 Evidence Preservation and Baseline Commit Planning"
+}
+
