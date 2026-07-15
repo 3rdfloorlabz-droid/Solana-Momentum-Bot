@@ -2327,6 +2327,14 @@ function assertOnDiskLiveSubmissionPosture(context = {}, phase = "pre-submit") {
   }
 
   const gateCfg = { ...diskCfg, positionSizeSol: context.positionSizeSol ?? diskCfg.positionSizeSol };
+  if (gateCfg?.emergencyStop === true) {
+    throw makeExecutionError(
+      EXECUTION_ABORT_CODES.EMERGENCY_STOP_ACTIVE,
+      EXECUTION_STAGES.GUARD,
+      "On-disk emergency stop is active — LIVE submit blocked.",
+      { phase }
+    );
+  }
   const { failures } = collectLiveSubmissionGateFailures(gateCfg);
   if (failures.length) {
     throw makeExecutionError(

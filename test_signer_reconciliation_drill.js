@@ -307,17 +307,40 @@ function resetMocks() {
   }
 }
 
+// RB-G10 follow-up: submitSwap's mode==="LIVE" path now re-reads live_config.json
+// from disk (assertOnDiskLiveSubmissionPosture, be31d91) instead of trusting only
+// the in-memory cfg passed to submitSwapForTest — and the resulting attemptCfg
+// (the disk read) is what flows through signer loading, quote/build/simulation,
+// and completion too, not just the initial gate check. armLiveEnv/armLiveGatesOnly
+// only ever set env vars, so the isolated temp root's on-disk config stayed at
+// the minimal dry-run shape seedRuntimeConfig() wrote once at the top of
+// runDrills() — missing the slippage/priority-fee/quote-age fields the swapArgs
+// cfg normally supplies. Once the disk read replaces cfg for the whole call,
+// those missing fields surface as real "invalid parameters" failures further
+// down the pipeline, not just a gate-check mismatch. Uses baseCfg()'s full
+// field set (same shape swapArgs' cfg uses) so the on-disk config is a
+// genuinely complete config, not just enough to pass the gate check.
+function armDiskLive() {
+  const current = JSON.parse(fs.readFileSync(path.join(TEMP_ROOT, "live_config.json"), "utf8"));
+  const armed = { ...baseCfg(), ...current, executionMode: "LIVE", dryRunMode: false };
+  executor.saveConfig(armed, {
+    audit: { actor: "test", source: "test_signer_reconciliation_drill", reason: "synthetic LIVE posture in isolated temp root" }
+  });
+}
+
 function armLiveEnv(keypair) {
   process.env.SOLANA_RPC_URL = "https://dedicated-rpc.drill.invalid/?api-key=fake-drill-key";
   process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
   process.env.SOLANA_SIGNER_SECRET = keypair ? keypair.secretJson : undefined;
   delete process.env.EXPECTED_WALLET_PUBLIC_ADDRESS;
+  armDiskLive();
 }
 
 function armLiveGatesOnly() {
   process.env.SOLANA_RPC_URL = "https://dedicated-rpc.drill.invalid/?api-key=fake-drill-key";
   process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
   delete process.env.EXPECTED_WALLET_PUBLIC_ADDRESS;
+  armDiskLive();
 }
 
 function clearLiveEnv() {
@@ -379,12 +402,20 @@ async function runDrills() {
   );
   record("S4", true, "tampered pubkey → SIGNER_LOAD_FAILED");
 
-  // S5 — wallet address mismatch
+  // S5 — wallet address mismatch. Passing a mismatched walletPublicAddress via
+  // swapArgs' cfg no longer reaches the check directly (be31d91's on-disk
+  // recheck now supplies the actual walletPublicAddress used, from the temp
+  // root's real config — correctly, since a caller-supplied cfg can no longer
+  // inject a fake wallet). Using the second, independent WALLET_MISMATCH check
+  // (EXPECTED_WALLET_PUBLIC_ADDRESS env var vs. the on-disk configured wallet)
+  // to exercise the same failure mode instead.
   armLiveEnv(kp);
   pipeline.resetSignerLoaderForTest();
+  process.env.EXPECTED_WALLET_PUBLIC_ADDRESS = "WrongWalletAddress111111111111111111111";
   await expectCode(codes.WALLET_MISMATCH, () =>
-    pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: "WrongWalletAddress111111111111111111111" }))
+    pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: kp.address }))
   );
+  delete process.env.EXPECTED_WALLET_PUBLIC_ADDRESS;
   record("S5", true, "wallet mismatch → WALLET_MISMATCH");
 
   // S6 — non-LIVE mode identity-only signer
@@ -610,11 +641,20 @@ function restoreEnv() {
   try { fs.rmSync(TEMP_ROOT, { recursive: true, force: true }); } catch { /* ignore */ }
 }
 
+function evidenceOutputPath() {
+  return path.join(TEMP_ROOT, "analysis", "signer_reconciliation_drill_evidence.json");
+}
+
+function writeEvidenceOutput() {
+  const outPath = evidenceOutputPath();
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, `${JSON.stringify(evidence, null, 2)}\n`);
+  return outPath;
+}
+
 runDrills()
   .then(() => {
-    const outPath = path.join(__dirname, "analysis", "signer_reconciliation_drill_evidence.json");
-    fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, `${JSON.stringify(evidence, null, 2)}\n`);
+    const outPath = writeEvidenceOutput();
     console.log("SIGNER RECONCILIATION DRILL TEST PASSED");
     console.log(JSON.stringify({
       allPass: evidence.allPass,
@@ -629,9 +669,7 @@ runDrills()
       evidence.completedAt = new Date().toISOString();
       evidence.allPass = false;
       evidence.error = err.message;
-      const outPath = path.join(__dirname, "analysis", "signer_reconciliation_drill_evidence.json");
-      fs.mkdirSync(path.dirname(outPath), { recursive: true });
-      fs.writeFileSync(outPath, `${JSON.stringify(evidence, null, 2)}\n`);
+      writeEvidenceOutput();
     } catch { /* ignore */ }
     restoreEnv();
     process.exitCode = 1;

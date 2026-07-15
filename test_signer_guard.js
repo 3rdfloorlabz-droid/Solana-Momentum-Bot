@@ -1,7 +1,24 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const crypto = require("crypto");
+
+// RB-G10 follow-up: the new on-disk LIVE-submission recheck (be31d91) means
+// submitSwap's mode==="LIVE" path now calls loadConfig() for real, which
+// resolves under TRACKTA_RUNTIME_ROOT if set, or __dirname (the real repo
+// root) if not. This test previously relied on submitSwap trusting only the
+// in-memory cfg it was passed, so it never needed isolation. It does now —
+// without this, "fixing" the test would mean writing LIVE state to the
+// *actual* production live_config.json, which the real running executor
+// also reads. TRACKTA_RUNTIME_ROOT must be set before requiring
+// live_executor, since ROOT/CONFIG_FILE/FILES are computed once at
+// module-load time.
+const originalRuntimeRoot = process.env.TRACKTA_RUNTIME_ROOT;
+const TEMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "signer-guard-"));
+process.env.TRACKTA_RUNTIME_ROOT = TEMP_ROOT;
+
 const executor = require("./live_executor");
 
 const guard = executor.__signerGuardTest;
@@ -57,6 +74,39 @@ async function expectCode(code, fn, stage = null) {
   throw new Error(`expected ${code}, but call succeeded`);
 }
 
+// Full on-disk config shape — separate from swapArgs' in-memory cfg, which
+// only needs the fields submitSwap itself reads. loadConfig() enforces its
+// own Phase-1 safety ceilings (positionSizeSol, maxOpenTrades, etc.), so the
+// on-disk copy needs to be a complete, valid config or loadConfig() throws.
+function diskConfig(overrides = {}) {
+  return {
+    phase: "PHASE_1_AUTONOMOUS_DRY_RUN",
+    executionMode: "PIPELINE_DRY_RUN",
+    dryRunMode: true,
+    automationEnabled: true,
+    emergencyStop: false,
+    walletPublicAddress: "FXLGxPo4JAv1WGJy728WnZiEzxsP4XvLRF2y6KdoxBH6",
+    positionSizeSol: 0.005,
+    maxOpenTrades: 1,
+    maxEntrySlippagePct: 3,
+    maxExitSlippagePct: 5,
+    maxRoutePriceImpactPct: 10,
+    maxQuoteAgeMs: 10000,
+    priorityFeeMode: "dynamic_helius",
+    maxPriorityFeeLamports: 1000000,
+    fallbackPriorityFeeLamports: 200000,
+    assumedComputeUnitLimit: 300000,
+    confirmationCommitment: "confirmed",
+    confirmationTimeoutMs: 30000,
+    maxSubmitRetries: 0,
+    minWalletBalanceSol: 0,
+    compoundingEnabled: false,
+    averagingDownEnabled: false,
+    martingaleEnabled: false,
+    ...overrides
+  };
+}
+
 const swapArgs = cfg => ({
   cfg: {
     automationEnabled: true,
@@ -81,6 +131,12 @@ const swapArgs = cfg => ({
     assert(guard, "signer guard test interface missing");
     assert(!Object.hasOwn(guard, "loadSignerFromEnvForRealExecution"), "private signer loader must not be exported");
 
+    // Seed the isolated temp root with a valid disarmed config — loadConfig()
+    // throws if live_config.json doesn't exist, and every dryRunMode:false
+    // case below resolves to mode "LIVE" (no executionMode field is set in
+    // swapArgs' in-memory cfg), which now triggers a real loadConfig() call.
+    fs.writeFileSync(path.join(TEMP_ROOT, "live_config.json"), `${JSON.stringify(diskConfig(), null, 2)}\n`);
+
     // Isolate LIVE-path guard tests from operator/test pending-reconciliation rows.
     fs.writeFileSync(executor.FILES.PENDING_RECONCILIATION_FILE, "");
     executor.__r16LivePathTest.clearAllLiveSubmitInFlightForTest();
@@ -99,6 +155,14 @@ const swapArgs = cfg => ({
     process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
     process.env.SOLANA_RPC_URL = "https://dedicated-rpc.invalid/?api-key=signer-guard-test";
     executor.__r16LivePathTest.setMicroLiveApprovalGateForTest(() => ({ ok: true }));
+
+    // From here on, cases need to get past the on-disk LIVE-submission
+    // recheck to reach the specific failure mode each one is testing
+    // (malformed signer, wallet mismatch) — so the isolated temp-root config
+    // needs to actually read LIVE. Audited, per the be31d91 contract.
+    executor.saveConfig(diskConfig({ executionMode: "LIVE", dryRunMode: false }), {
+      audit: { actor: "test", source: "test_signer_guard", reason: "synthetic LIVE posture in isolated temp root" }
+    });
 
     process.env.SOLANA_SIGNER_SECRET = "not-json";
     await expectCode(codes.SIGNER_LOAD_FAILED, () =>
@@ -182,6 +246,9 @@ const swapArgs = cfg => ({
     simulationTest.resetSimulationFetchForTest();
     if (originalSolanaRpc === undefined) delete process.env.SOLANA_RPC_URL;
     else process.env.SOLANA_RPC_URL = originalSolanaRpc;
+    if (originalRuntimeRoot === undefined) delete process.env.TRACKTA_RUNTIME_ROOT;
+    else process.env.TRACKTA_RUNTIME_ROOT = originalRuntimeRoot;
+    try { fs.rmSync(TEMP_ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
   }
 })().catch(error => {
   console.error("SIGNER GUARD TEST FAILED:", error.message);

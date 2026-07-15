@@ -260,12 +260,23 @@ function resetMocks() {
   fs.writeFileSync(path.join(TEMP_ROOT, "pending_reconciliation.jsonl"), "");
 }
 
+// RB-G10 follow-up: submitSwap's mode==="LIVE" path now re-reads live_config.json
+// from disk (assertOnDiskLiveSubmissionPosture, be31d91), and that disk read
+// replaces cfg for the whole call — signer loading, quote/build/simulation,
+// completion — not just the initial gate check. armLiveEnv only ever set env
+// vars; seedRuntime() wrote the on-disk config once at test start in its
+// dry-run default shape. Using baseCfg()'s full field set (same shape the
+// in-memory liveCfg below already uses) so the on-disk config is complete,
+// not just enough to pass the gate.
 function armLiveEnv(kp) {
   process.env.SOLANA_RPC_URL = "https://dedicated-rpc.r16.invalid/?api-key=fake-r16-key";
   process.env.FOMO_ENABLE_LIVE_SUBMISSION = "YES";
   process.env.SOLANA_SIGNER_SECRET = kp.secretJson;
   // live_executor loads repo .env on require; align expected wallet with fixture keypair.
   process.env.EXPECTED_WALLET_PUBLIC_ADDRESS = kp.address;
+  executor.saveConfig(baseCfg({ walletPublicAddress: kp.address }), {
+    audit: { actor: "test", source: "test_r16_live_path_coupling", reason: "synthetic LIVE posture in isolated temp root" }
+  });
 }
 
 function clearLiveEnv() {
@@ -443,9 +454,18 @@ async function runTests() {
   assert(!auditText.includes(kp.secretJson), "T10 no secret in audit");
   pass("T10", "audit secret-free");
 
-  // T11 — emergencyStop prevents submit
+  // T11 — emergencyStop prevents submit. Passing emergencyStop:true via
+  // swapArgs' in-memory cfg no longer reaches the check by itself — the
+  // on-disk recheck's attemptCfg is what actually flows through, so the
+  // disk copy needs to genuinely say emergencyStop:true, not just the
+  // caller-supplied cfg. armLiveEnv() already wrote emergencyStop:false via
+  // baseCfg()'s default; overriding just that field here, audited, same as
+  // armLiveEnv does internally.
   resetMocks();
   armLiveEnv(kp);
+  executor.saveConfig(baseCfg({ walletPublicAddress: kp.address, emergencyStop: true }), {
+    audit: { actor: "test", source: "test_r16_live_path_coupling", reason: "synthetic emergencyStop posture for T11" }
+  });
   await expectCode(codes().EMERGENCY_STOP_ACTIVE, () =>
     pipeline.submitSwapForTest("BUY", swapArgs({ walletPublicAddress: kp.address, emergencyStop: true }))
   );
@@ -670,9 +690,13 @@ function restoreEnv() {
   try { fs.rmSync(TEMP_ROOT, { recursive: true, force: true }); } catch { /* ignore */ }
 }
 
+function evidenceOutputPath() {
+  return path.join(TEMP_ROOT, "analysis", "r16_live_path_coupling_evidence.json");
+}
+
 runTests()
   .then(results => {
-    const outPath = path.join(__dirname, "analysis", "r16_live_path_coupling_evidence.json");
+    const outPath = evidenceOutputPath();
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, `${JSON.stringify({ allPass: true, results, completedAt: new Date().toISOString() }, null, 2)}\n`);
     console.log("R16 LIVE PATH COUPLING TEST PASSED");
