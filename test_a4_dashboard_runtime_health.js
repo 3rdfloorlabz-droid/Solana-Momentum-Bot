@@ -406,7 +406,8 @@ test("dashboard_displays_stability_summary_safe_fields", () => {
     const allowed = new Set([
       "successCount", "freshSuccessCount", "separationBucket", "providerConsistent",
       "endpointClassConsistent", "providerLabel", "endpointClass", "fallbackObserved",
-      "failureObserved", "secretSafe", "withinFreshnessWindow", "stabilityCandidate"
+      "failureObserved", "unremediatedFailureObserved", "reviewedFailureCount",
+      "secretSafe", "withinFreshnessWindow", "stabilityCandidate"
     ]);
     for (const k of Object.keys(rh.a4Health.proofStability)) {
       assert.ok(allowed.has(k), `unexpected stability display field: ${k}`);

@@ -401,6 +401,7 @@ const A4_STABILITY_FRESHNESS_MS = A4_PROOF_STALE_MS;   // 24h window
 // the first pass (code default + injectable option for tests).
 const DEFAULT_A4_PROOF_SCAN_LIMIT = 5000;
 const DEFAULT_A4_APPROVAL_SCAN_LIMIT = 5000;
+const DEFAULT_A4_PROOF_REVIEW_SCAN_LIMIT = 5000;
 const A4_PROOF_SCAN_ERROR_CODES = Object.freeze({
   UNAVAILABLE: "A4_PROOF_SCAN_UNAVAILABLE",
   READ_ERROR: "A4_PROOF_SCAN_READ_ERROR",
@@ -412,6 +413,12 @@ const A4_APPROVAL_SCAN_ERROR_CODES = Object.freeze({
   READ_ERROR: "A4_APPROVAL_SCAN_READ_ERROR",
   PARSE_ERROR: "A4_APPROVAL_SCAN_PARSE_ERROR",
   UNKNOWN_ERROR: "A4_APPROVAL_SCAN_UNKNOWN_ERROR"
+});
+const A4_PROOF_REVIEW_SCAN_ERROR_CODES = Object.freeze({
+  UNAVAILABLE: "A4_PROOF_REVIEW_SCAN_UNAVAILABLE",
+  READ_ERROR: "A4_PROOF_REVIEW_SCAN_READ_ERROR",
+  PARSE_ERROR: "A4_PROOF_REVIEW_SCAN_PARSE_ERROR",
+  UNKNOWN_ERROR: "A4_PROOF_REVIEW_SCAN_UNKNOWN_ERROR"
 });
 
 const A4_PROOF_STATUSES = new Set(["READ_ONLY_RPC_OK", "READ_ONLY_RPC_FAILED", "UNVERIFIED"]);
@@ -438,6 +445,16 @@ const A4_PROOF_FORBIDDEN_KEYS = [
   "signature", "transaction", "tx", "stack", "stackTrace", "env", "processEnv"
 ];
 const A4_PROOF_SECRET_LIKE = /(:\/\/|api[-_]?key|bearer\s|sk-[a-z0-9])/i;
+
+const A4_PROOF_REVIEW_PRODUCER = "a4_proof_review";
+const A4_PROOF_REVIEW_EVENT_TYPE = "A4_PROOF_FAILURE_REVIEW";
+const A4_PROOF_REVIEW_STATUSES = new Set(["accepted", "revoked", "pending_review", "not_accepted"]);
+const A4_PROOF_REVIEW_ACCEPTED_STATUSES = new Set(["accepted"]);
+const A4_PROOF_REVIEW_CLASSIFICATIONS = new Set(["sandbox_network_environment_noise"]);
+const A4_PROOF_REVIEW_REF_PATTERN = /^[A-Za-z0-9._:-]+$/;
+const A4_PROOF_REVIEW_FORBIDDEN_KEYS = A4_PROOF_FORBIDDEN_KEYS.concat([
+  "path", "file", "filePath", "rawLine", "line", "lineContent", "evidencePath"
+]);
 
 // Fixed allowlist: only these known provider identifiers map to safe labels.
 // Anything else (including a raw URL or key-bearing string) collapses to
@@ -664,6 +681,206 @@ function mergeA4ProofRows(...rowLists) {
     }
   }
   return merged;
+}
+
+// ─── RB-G10 — bounded A4 proof-failure review scan ───────────────────────────
+//
+// A review event can classify one already-preserved proof failure without
+// rewriting execution_audit.jsonl. The original failure remains visible via
+// `failureObserved`; only a matching, accepted, secret-safe review can clear the
+// "unremediated" blocker used for stability candidacy.
+
+function defaultA4ProofReviewScanReader(options = {}) {
+  const runtimeRoot = resolveRuntimeRoot(options);
+  const auditFile = isNonEmptyString(options.auditFile)
+    ? options.auditFile
+    : path.join(runtimeRoot, FILES.AUDIT);
+  return readJsonlTail(auditFile, options.limit);
+}
+
+function readA4ProofReviewScan(options = {}) {
+  const limit = Number.isFinite(options.a4ProofReviewScanLimit) && options.a4ProofReviewScanLimit > 0
+    ? Math.floor(options.a4ProofReviewScanLimit)
+    : DEFAULT_A4_PROOF_REVIEW_SCAN_LIMIT;
+  try {
+    const reader = typeof options.a4ProofReviewScanReader === "function"
+      ? options.a4ProofReviewScanReader
+      : defaultA4ProofReviewScanReader;
+    const result = reader({ ...options, limit });
+    if (!result || result.exists === false) {
+      return { available: false, limit, errorCode: A4_PROOF_REVIEW_SCAN_ERROR_CODES.UNAVAILABLE, rows: [] };
+    }
+    const rows = (Array.isArray(result.rows) ? result.rows : []).filter(
+      (r) => r && typeof r === "object" &&
+        r.producer === A4_PROOF_REVIEW_PRODUCER && r.eventType === A4_PROOF_REVIEW_EVENT_TYPE
+    );
+    return { available: true, limit, errorCode: null, rows };
+  } catch (err) {
+    const code = (err && typeof err.__a4ProofReviewScanCode === "string" && err.__a4ProofReviewScanCode)
+      ? err.__a4ProofReviewScanCode
+      : A4_PROOF_REVIEW_SCAN_ERROR_CODES.READ_ERROR;
+    return { available: false, limit, errorCode: code, rows: [] };
+  }
+}
+
+function a4ProofReviewRowKey(row) {
+  const p = (row && row.payload && typeof row.payload === "object" && !Array.isArray(row.payload))
+    ? row.payload : {};
+  return [
+    isNonEmptyString(row && row.timestamp) ? row.timestamp : "",
+    (row && row.producer) || "",
+    (row && row.eventType) || "",
+    typeof p.reviewStatus === "string" ? p.reviewStatus : "",
+    typeof p.targetTimestamp === "string" ? p.targetTimestamp : "",
+    typeof p.targetErrorCode === "string" ? p.targetErrorCode : ""
+  ].join("|");
+}
+
+function mergeA4ProofReviewRows(...rowLists) {
+  const seen = new Set();
+  const merged = [];
+  for (const list of rowLists) {
+    if (!Array.isArray(list)) continue;
+    for (const row of list) {
+      if (!row || typeof row !== "object") continue;
+      if (row.producer !== A4_PROOF_REVIEW_PRODUCER || row.eventType !== A4_PROOF_REVIEW_EVENT_TYPE) continue;
+      const key = a4ProofReviewRowKey(row);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(row);
+    }
+  }
+  return merged;
+}
+
+function proofFailureKey(f) {
+  if (!f || typeof f !== "object") return null;
+  return [
+    isNonEmptyString(f.timestamp) ? f.timestamp : "",
+    f.proofStatus || "",
+    f.providerLabel || "",
+    f.endpointClass || "",
+    f.method || "",
+    f.publicFallbackUsed === true ? "true" : "false",
+    f.secretSafe === true ? "true" : "false",
+    f.errorCode || ""
+  ].join("|");
+}
+
+function proofReviewTargetKey(f) {
+  if (!f || typeof f !== "object") return null;
+  return [
+    isNonEmptyString(f.targetTimestamp) ? f.targetTimestamp : "",
+    f.targetProofStatus || "",
+    f.targetProviderLabel || "",
+    f.targetEndpointClass || "",
+    f.targetMethod || "",
+    f.targetPublicFallbackUsed === true ? "true" : "false",
+    f.targetSecretSafe === true ? "true" : "false",
+    f.targetErrorCode || ""
+  ].join("|");
+}
+
+function extractA4ProofReviewFacts(row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  if (row.producer !== A4_PROOF_REVIEW_PRODUCER) return null;
+  if (row.eventType !== A4_PROOF_REVIEW_EVENT_TYPE) return null;
+  const payload = (row.payload && typeof row.payload === "object" && !Array.isArray(row.payload))
+    ? row.payload : null;
+  if (!payload) return null;
+
+  for (const key of A4_PROOF_REVIEW_FORBIDDEN_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(payload, key) ||
+        Object.prototype.hasOwnProperty.call(row, key)) {
+      return { secretRisk: true };
+    }
+  }
+  for (const value of Object.values(payload)) {
+    if (typeof value === "string" && A4_PROOF_SECRET_LIKE.test(value)) {
+      return { secretRisk: true };
+    }
+  }
+
+  const reviewStatus = A4_PROOF_REVIEW_STATUSES.has(payload.reviewStatus) ? payload.reviewStatus : null;
+  const classification = A4_PROOF_REVIEW_CLASSIFICATIONS.has(payload.classification) ? payload.classification : null;
+  const targetTimestamp = isNonEmptyString(payload.targetTimestamp) && Number.isFinite(Date.parse(payload.targetTimestamp))
+    ? payload.targetTimestamp
+    : null;
+  if (!reviewStatus || !classification || !targetTimestamp) return null;
+
+  const decisionRef = isNonEmptyString(payload.decisionRef) && A4_PROOF_REVIEW_REF_PATTERN.test(payload.decisionRef.trim())
+    ? payload.decisionRef.trim()
+    : null;
+  const evidenceRef = isNonEmptyString(payload.evidenceRef) && A4_PROOF_REVIEW_REF_PATTERN.test(payload.evidenceRef.trim())
+    ? payload.evidenceRef.trim()
+    : null;
+
+  return {
+    timestamp: isNonEmptyString(row.timestamp) ? row.timestamp : null,
+    reviewStatus,
+    classification,
+    targetTimestamp,
+    targetProofStatus: payload.targetProofStatus === "READ_ONLY_RPC_FAILED" ? payload.targetProofStatus : null,
+    targetProviderLabel: A4_PROOF_PROVIDER_LABELS.has(payload.targetProviderLabel) ? payload.targetProviderLabel : "unknown",
+    targetEndpointClass: A4_PROOF_ENDPOINT_CLASSES.has(payload.targetEndpointClass) ? payload.targetEndpointClass : "unknown",
+    targetMethod: A4_PROOF_METHODS.has(payload.targetMethod) ? payload.targetMethod : "unknown",
+    targetPublicFallbackUsed: payload.targetPublicFallbackUsed === true,
+    targetSecretSafe: payload.targetSecretSafe === true,
+    targetErrorCode: A4_PROOF_ERROR_CODES.has(payload.targetErrorCode) ? payload.targetErrorCode : null,
+    decisionRef,
+    evidenceRef
+  };
+}
+
+function collectA4ProofReviewFacts(reviewRows) {
+  const rows = Array.isArray(reviewRows) ? reviewRows : [];
+  let secretRisk = false;
+  const facts = [];
+  for (const row of rows) {
+    const f = extractA4ProofReviewFacts(row);
+    if (!f) continue;
+    if (f.secretRisk) { secretRisk = true; continue; }
+    facts.push(f);
+  }
+  facts.sort((a, b) => {
+    const ta = a.timestamp ? Date.parse(a.timestamp) : -Infinity;
+    const tb = b.timestamp ? Date.parse(b.timestamp) : -Infinity;
+    return ta - tb;
+  });
+  return { facts, secretRisk };
+}
+
+function buildA4ProofFailureReviewEvidence(reviewRows) {
+  const { facts, secretRisk } = collectA4ProofReviewFacts(reviewRows);
+  const latestByTarget = new Map();
+  for (const f of facts) {
+    const key = proofReviewTargetKey(f);
+    if (!key) continue;
+    latestByTarget.set(key, f);
+  }
+
+  const acceptedTargets = new Set();
+  for (const [key, f] of latestByTarget.entries()) {
+    const accepted =
+      A4_PROOF_REVIEW_ACCEPTED_STATUSES.has(f.reviewStatus) &&
+      f.classification === "sandbox_network_environment_noise" &&
+      f.targetProofStatus === "READ_ONLY_RPC_FAILED" &&
+      f.targetEndpointClass === "dedicated" &&
+      f.targetMethod === "getSlot" &&
+      f.targetPublicFallbackUsed === false &&
+      f.targetSecretSafe === true &&
+      f.targetErrorCode === "RPC_NETWORK_ERROR" &&
+      f.decisionRef !== null &&
+      f.evidenceRef !== null;
+    if (accepted) acceptedTargets.add(key);
+  }
+
+  return {
+    present: facts.length > 0,
+    acceptedTargets,
+    reviewedFailureCount: acceptedTargets.size,
+    secretRisk
+  };
 }
 
 // ─── A4.25 — targeted bounded A4 approval-event scan ──────────────────────────
@@ -925,6 +1142,7 @@ function buildA4ProofEvidence(auditRows, options = {}) {
 function buildA4ProofStability(auditRows, options = {}) {
   const nowMs = resolveNowMs(options.now);
   const { facts, secretRisk } = collectA4ProofFacts(auditRows);
+  const reviewEvidence = buildA4ProofFailureReviewEvidence(options.proofReviewRows);
 
   const threshold = {
     minSuccesses: A4_STABILITY_MIN_SUCCESSES,
@@ -944,6 +1162,8 @@ function buildA4ProofStability(auditRows, options = {}) {
     endpointClass: null,
     fallbackObserved: false,
     failureObserved: false,
+    unremediatedFailureObserved: false,
+    reviewedFailureCount: 0,
     secretSafe: secretRisk !== true,
     withinFreshnessWindow: false,
     stabilityCandidate: false,
@@ -953,10 +1173,22 @@ function buildA4ProofStability(auditRows, options = {}) {
   if (facts.length === 0) return empty;
 
   // A failure/fallback ANYWHERE in the observed proof facts disqualifies a
-  // clean stability claim (conservative: repeated truth must be uninterrupted).
+  // clean stability claim unless a separate secret-safe review event explicitly
+  // remediates that exact failure as sandbox/network-environment noise.
   const failureObserved = facts.some((f) => f.proofStatus === "READ_ONLY_RPC_FAILED");
+  const failureFacts = facts.filter((f) => f.proofStatus === "READ_ONLY_RPC_FAILED");
+  const reviewedFailureCount = failureFacts.filter((f) => {
+    const key = proofFailureKey(f);
+    return key && reviewEvidence.acceptedTargets.has(key);
+  }).length;
+  const unremediatedFailureObserved = failureFacts.some((f) => {
+    const key = proofFailureKey(f);
+    return !key || !reviewEvidence.acceptedTargets.has(key);
+  });
   const fallbackObserved = facts.some((f) => f.publicFallbackUsed === true);
-  const allSecretSafe = secretRisk !== true && facts.every((f) => f.secretSafe === true);
+  const allSecretSafe = secretRisk !== true &&
+    reviewEvidence.secretRisk !== true &&
+    facts.every((f) => f.secretSafe === true);
 
   // Fresh, successful, dedicated, non-fallback, secret-safe successes only.
   const freshSuccesses = facts.filter((f) =>
@@ -999,7 +1231,7 @@ function buildA4ProofStability(auditRows, options = {}) {
     typeof separationMs === "number" &&
     separationMs >= A4_STABILITY_MIN_SEPARATION_MS &&
     fallbackObserved === false &&
-    failureObserved === false &&
+    unremediatedFailureObserved === false &&
     allSecretSafe === true;
 
   return {
@@ -1014,6 +1246,8 @@ function buildA4ProofStability(auditRows, options = {}) {
     endpointClass: endpointClassConsistent ? firstFresh.endpointClass : (firstFresh ? firstFresh.endpointClass : null),
     fallbackObserved,
     failureObserved,
+    unremediatedFailureObserved,
+    reviewedFailureCount,
     secretSafe: allSecretSafe,
     withinFreshnessWindow,
     stabilityCandidate,
@@ -1033,8 +1267,10 @@ function buildA4Evidence(auditRows, options = {}) {
   // availability metadata for fail-safe reporting.
   const scanProofRows = Array.isArray(options.a4ProofRows) ? options.a4ProofRows : [];
   const scanApprovalRows = Array.isArray(options.a4ApprovalRows) ? options.a4ApprovalRows : [];
+  const scanProofReviewRows = Array.isArray(options.a4ProofReviewRows) ? options.a4ProofReviewRows : [];
   const proofRows = mergeA4ProofRows(rows, scanProofRows);
   const approvalRows = mergeA4ApprovalRows(rows, scanApprovalRows);
+  const proofReviewRows = mergeA4ProofReviewRows(rows, scanProofReviewRows);
   const proofScan = (options.proofScan && typeof options.proofScan === "object" && !Array.isArray(options.proofScan))
     ? {
         available: options.proofScan.available === true,
@@ -1064,7 +1300,7 @@ function buildA4Evidence(auditRows, options = {}) {
     const pe = buildA4ProofEvidence(proofRows, { now: options.now });
     // A4.18 — proofStability is additive and reported even without config
     // evidence (visibility only); it never elevates posture on its own.
-    base.proofStability = buildA4ProofStability(proofRows, { now: options.now });
+    base.proofStability = buildA4ProofStability(proofRows, { now: options.now, proofReviewRows });
     base.approvalScan = approvalScan;
     base.approval = buildA4ApprovalEvidence(approvalRows, {
       now: options.now,
@@ -1224,7 +1460,7 @@ function buildA4Evidence(auditRows, options = {}) {
   // here; runtime_health maps stabilityCandidate → A4_STABILITY_PROOF_OBSERVED
   // (and only when the base posture is A4_READ_ONLY_RPC_VERIFIED). Never emits
   // A4_VERIFIED_DEDICATED and never grants readiness.
-  const proofStability = buildA4ProofStability(proofRows, { now: options.now });
+  const proofStability = buildA4ProofStability(proofRows, { now: options.now, proofReviewRows });
   if (proofStability.stabilityCandidate === true) {
     notes.push("stability threshold met (repeated safe proofs); explicit human approval required before A4_VERIFIED_DEDICATED");
   }
@@ -1377,12 +1613,21 @@ function collectRuntimeEvidence(options = {}) {
     ? approvalScanRaw
     : { available: false, limit: a4ApprovalScanLimit, errorCode: A4_APPROVAL_SCAN_ERROR_CODES.UNKNOWN_ERROR, rows: [] };
 
+  const a4ProofReviewScanLimit = Number.isFinite(options.a4ProofReviewScanLimit)
+    ? options.a4ProofReviewScanLimit
+    : DEFAULT_A4_PROOF_REVIEW_SCAN_LIMIT;
+  const proofReviewScanRaw = run("a4ProofReviewScan", () => readA4ProofReviewScan({ ...opts, a4ProofReviewScanLimit }));
+  const proofReviewScan = (proofReviewScanRaw && !proofReviewScanRaw.__error)
+    ? proofReviewScanRaw
+    : { available: false, limit: a4ProofReviewScanLimit, errorCode: A4_PROOF_REVIEW_SCAN_ERROR_CODES.UNKNOWN_ERROR, rows: [] };
+
   const a4Evidence = buildA4Evidence(auditRows, {
     now: nowIso,
     a4ProofRows: proofScan.rows,
     proofScan: { available: proofScan.available, limit: proofScan.limit, errorCode: proofScan.errorCode },
     a4ApprovalRows: approvalScan.rows,
-    approvalScan: { available: approvalScan.available, limit: approvalScan.limit, errorCode: approvalScan.errorCode }
+    approvalScan: { available: approvalScan.available, limit: approvalScan.limit, errorCode: approvalScan.errorCode },
+    a4ProofReviewRows: proofReviewScan.rows
   });
 
   const raw = {
@@ -1448,6 +1693,9 @@ module.exports = {
   buildA4ProofStability,
   readA4ProofScan,
   mergeA4ProofRows,
+  readA4ProofReviewScan,
+  mergeA4ProofReviewRows,
+  buildA4ProofFailureReviewEvidence,
   readA4ApprovalScan,
   mergeA4ApprovalRows,
   buildA4ApprovalEvidence,
@@ -1463,8 +1711,12 @@ module.exports = {
   A4_STABILITY_FRESHNESS_MS,
   DEFAULT_A4_PROOF_SCAN_LIMIT,
   DEFAULT_A4_APPROVAL_SCAN_LIMIT,
+  DEFAULT_A4_PROOF_REVIEW_SCAN_LIMIT,
   A4_PROOF_SCAN_ERROR_CODES,
+  A4_PROOF_REVIEW_SCAN_ERROR_CODES,
   A4_APPROVAL_SCAN_ERROR_CODES,
+  A4_PROOF_REVIEW_PRODUCER,
+  A4_PROOF_REVIEW_EVENT_TYPE,
   FILES,
   LOCK_STALE_MS,
   DEFAULT_AUDIT_TAIL_LIMIT

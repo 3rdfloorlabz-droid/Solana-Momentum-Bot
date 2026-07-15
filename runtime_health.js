@@ -487,6 +487,8 @@ function safeA4ProofStabilitySummary(stability) {
     endpointClass: safeA4Value(stability.endpointClass, A4_SAFE_ENDPOINT_CLASSES, "unknown"),
     fallbackObserved: stability.fallbackObserved === true,
     failureObserved: stability.failureObserved === true,
+    unremediatedFailureObserved: stability.unremediatedFailureObserved === true,
+    reviewedFailureCount: Number.isFinite(stability.reviewedFailureCount) ? stability.reviewedFailureCount : 0,
     secretSafe: stability.secretSafe === true,
     withinFreshnessWindow: stability.withinFreshnessWindow === true,
     stabilityCandidate: stability.stabilityCandidate === true,

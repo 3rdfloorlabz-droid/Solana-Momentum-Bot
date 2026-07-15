@@ -282,6 +282,29 @@ function proofRow(tsIso, overrides = {}) {
   };
 }
 
+function proofReviewRow(tsIso, targetTsIso, overrides = {}) {
+  return {
+    timestamp: tsIso,
+    eventType: "A4_PROOF_FAILURE_REVIEW",
+    producer: "a4_proof_review",
+    invocationContext: "a4_proof_failure_review",
+    payload: Object.assign({
+      reviewStatus: "accepted",
+      classification: "sandbox_network_environment_noise",
+      targetTimestamp: targetTsIso,
+      targetProofStatus: "READ_ONLY_RPC_FAILED",
+      targetProviderLabel: "helius_rpc_url_configured",
+      targetEndpointClass: "dedicated",
+      targetMethod: "getSlot",
+      targetPublicFallbackUsed: false,
+      targetSecretSafe: true,
+      targetErrorCode: "RPC_NETWORK_ERROR",
+      decisionRef: "RB-G10-A4-PROOF-FAILURE-REVIEW-2026-07-14",
+      evidenceRef: "RB-G10-A4-PROOF-FAILURE-REVIEW-2026-07-14"
+    }, overrides)
+  };
+}
+
 // A4.13-1 — reads a safe, fresh, successful proof event and elevates posture.
 test("runtime_evidence_reads_safe_a4_proof_event", (root) => {
   writeAudit(root, [configuredRow(minutesAgo(2)), proofRow(minutesAgo(1))]);
@@ -530,6 +553,7 @@ test("stability_does_not_expose_secret_like_fields", (root) => {
     "successCount", "freshSuccessCount", "firstProofAt", "latestProofAt",
     "separationBucket", "providerConsistent", "endpointClassConsistent",
     "providerLabel", "endpointClass", "fallbackObserved", "failureObserved",
+    "unremediatedFailureObserved", "reviewedFailureCount",
     "secretSafe", "withinFreshnessWindow", "stabilityCandidate", "threshold"
   ]);
   for (const k of Object.keys(st)) assert.ok(allowed.has(k), `unexpected stability field: ${k}`);
@@ -747,6 +771,119 @@ test("targeted_approval_scan_flags_evidence_ref_mismatch", () => {
   });
   assert.strictEqual(a4.approval.evidenceRefConsistent, false);
   assert.strictEqual(a4.approval.approved, true, "approved status but inconsistent ref");
+});
+
+// RB-G10 — accepted sandbox/network review remediates the exact failed proof
+// for stability candidacy without hiding that a failure was observed.
+test("stability_accepts_reviewed_sandbox_network_failure", (root) => {
+  const failureAt = minutesAgo(20);
+  writeAudit(root, [
+    configuredRow(minutesAgo(50)),
+    proofRow(minutesAgo(40)),
+    proofRow(failureAt, {
+      proofStatus: "READ_ONLY_RPC_FAILED",
+      slotObserved: false,
+      slotValuePresent: false,
+      errorCode: "RPC_NETWORK_ERROR"
+    }),
+    proofReviewRow(minutesAgo(19), failureAt),
+    proofRow(minutesAgo(1))
+  ]);
+  const { evidence } = re.collectRuntimeEvidence({ runtimeRoot: root, now: NOW });
+  const st = evidence.a4Evidence.proofStability;
+  assert.strictEqual(st.failureObserved, true);
+  assert.strictEqual(st.unremediatedFailureObserved, false);
+  assert.strictEqual(st.reviewedFailureCount, 1);
+  assert.strictEqual(st.stabilityCandidate, true);
+});
+
+test("stability_rejects_review_target_mismatch", (root) => {
+  const failureAt = minutesAgo(20);
+  writeAudit(root, [
+    configuredRow(minutesAgo(50)),
+    proofRow(minutesAgo(40)),
+    proofRow(failureAt, {
+      proofStatus: "READ_ONLY_RPC_FAILED",
+      slotObserved: false,
+      slotValuePresent: false,
+      errorCode: "RPC_NETWORK_ERROR"
+    }),
+    proofReviewRow(minutesAgo(19), minutesAgo(21)),
+    proofRow(minutesAgo(1))
+  ]);
+  const { evidence } = re.collectRuntimeEvidence({ runtimeRoot: root, now: NOW });
+  const st = evidence.a4Evidence.proofStability;
+  assert.strictEqual(st.failureObserved, true);
+  assert.strictEqual(st.unremediatedFailureObserved, true);
+  assert.strictEqual(st.reviewedFailureCount, 0);
+  assert.strictEqual(st.stabilityCandidate, false);
+});
+
+test("stability_rejects_review_for_non_network_failure", (root) => {
+  const failureAt = minutesAgo(20);
+  writeAudit(root, [
+    configuredRow(minutesAgo(50)),
+    proofRow(minutesAgo(40)),
+    proofRow(failureAt, {
+      proofStatus: "READ_ONLY_RPC_FAILED",
+      slotObserved: false,
+      slotValuePresent: false,
+      errorCode: "RPC_TIMEOUT"
+    }),
+    proofReviewRow(minutesAgo(19), failureAt, { targetErrorCode: "RPC_TIMEOUT" }),
+    proofRow(minutesAgo(1))
+  ]);
+  const { evidence } = re.collectRuntimeEvidence({ runtimeRoot: root, now: NOW });
+  const st = evidence.a4Evidence.proofStability;
+  assert.strictEqual(st.unremediatedFailureObserved, true);
+  assert.strictEqual(st.reviewedFailureCount, 0);
+  assert.strictEqual(st.stabilityCandidate, false);
+});
+
+test("stability_rejects_review_for_public_fallback_failure", (root) => {
+  const failureAt = minutesAgo(20);
+  writeAudit(root, [
+    configuredRow(minutesAgo(50)),
+    proofRow(minutesAgo(40)),
+    proofRow(failureAt, {
+      proofStatus: "READ_ONLY_RPC_FAILED",
+      slotObserved: false,
+      slotValuePresent: false,
+      publicFallbackUsed: true,
+      errorCode: "RPC_NETWORK_ERROR"
+    }),
+    proofReviewRow(minutesAgo(19), failureAt, { targetPublicFallbackUsed: true }),
+    proofRow(minutesAgo(1))
+  ]);
+  const { evidence } = re.collectRuntimeEvidence({ runtimeRoot: root, now: NOW });
+  const st = evidence.a4Evidence.proofStability;
+  assert.strictEqual(st.fallbackObserved, true);
+  assert.strictEqual(st.unremediatedFailureObserved, true);
+  assert.strictEqual(st.stabilityCandidate, false);
+});
+
+test("stability_rejects_secret_shaped_review_event", (root) => {
+  const failureAt = minutesAgo(20);
+  const hostile = proofReviewRow(minutesAgo(19), failureAt);
+  hostile.payload.endpoint = "https://mainnet.helius-rpc.com/?api-key=FAKE_SECRET";
+  writeAudit(root, [
+    configuredRow(minutesAgo(50)),
+    proofRow(minutesAgo(40)),
+    proofRow(failureAt, {
+      proofStatus: "READ_ONLY_RPC_FAILED",
+      slotObserved: false,
+      slotValuePresent: false,
+      errorCode: "RPC_NETWORK_ERROR"
+    }),
+    hostile,
+    proofRow(minutesAgo(1))
+  ]);
+  const { evidence } = re.collectRuntimeEvidence({ runtimeRoot: root, now: NOW });
+  const st = evidence.a4Evidence.proofStability;
+  assert.strictEqual(st.secretSafe, false);
+  assert.strictEqual(st.unremediatedFailureObserved, true);
+  assert.strictEqual(st.stabilityCandidate, false);
+  assertNoSecretLeak(st, ["helius-rpc.com", "api-key", "://", "FAKE_SECRET"]);
 });
 
 console.log("");

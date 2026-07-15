@@ -4716,6 +4716,8 @@ function sanitizeA4ProofStabilityForDisplay(raw) {
     endpointClass: A4_DISPLAY_ENDPOINT_CLASSES.has(s.endpointClass) ? s.endpointClass : "unknown",
     fallbackObserved: s.fallbackObserved === true,
     failureObserved: s.failureObserved === true,
+    unremediatedFailureObserved: s.unremediatedFailureObserved === true,
+    reviewedFailureCount: Number.isFinite(s.reviewedFailureCount) ? s.reviewedFailureCount : 0,
     secretSafe: s.secretSafe === true,
     withinFreshnessWindow: s.withinFreshnessWindow === true,
     stabilityCandidate: s.stabilityCandidate === true
